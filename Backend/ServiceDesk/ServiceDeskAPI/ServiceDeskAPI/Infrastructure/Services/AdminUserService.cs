@@ -8,6 +8,7 @@ using ServiceDeskAPI.Domain.Entities;
 using ServiceDeskAPI.Domain.Enums;
 using ServiceDeskAPI.Infrastructure.Audit;
 using ServiceDeskAPI.Infrastructure.Identity;
+using ServiceDeskAPI.Infrastructure.Organisation;
 using ServiceDeskAPI.Infrastructure.Persistence;
 
 namespace ServiceDeskAPI.Infrastructure.Services
@@ -86,6 +87,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (user == null) return AdminResult.NotFound("Person not found.");
             var role = await _db.Roles.FirstOrDefaultAsync(r => r.Id == roleId);
             if (role == null) return AdminResult.NotFound("Role not found.");
+            if (OrgRoleSync.IsStructureRole(roleId)) return AdminResult.Invalid(StructureRoleMessage(role.Name));
             if (await _db.UserRoleAssignments.AnyAsync(a => a.UserId == userId && a.RoleId == roleId && a.IsActive))
                 return AdminResult.Conflict(Name(user) + " already has the " + role.Name + " role.");
 
@@ -128,6 +130,8 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (assignment?.User == null || assignment.Role == null)
                 return AdminResult.NotFound("This person does not hold that role.");
 
+            if (OrgRoleSync.IsStructureRole(roleId))
+                return AdminResult.Invalid(StructureRoleMessage(assignment.Role.Name));
             if (roleId == AppRoles.RequesterId)
                 return AdminResult.Invalid("Every staff member is a Requester. To stop someone using the Service Desk, deactivate their account instead.");
             if (roleId == AppRoles.SuperAdminId && await SuperAdminRules.IsLastAsync(_db, userId))
@@ -263,6 +267,15 @@ namespace ServiceDeskAPI.Infrastructure.Services
             _audit.Stage(actor.UserId, actor.DisplayName, action, "User", user.Id, user.UserName, oldValues, newValues,
                 actor.IpAddress, actor.UserAgent, AuditModule.Administration);
         }
+
+        /// <summary>Case Worker, Head of Unit and HOD follow the organisation set-up (Step 2a); they are not given by hand.</summary>
+        private static string StructureRoleMessage(string? role) => role switch
+        {
+            AppRoles.CaseWorker => "Case Worker follows unit membership: add or remove the person under Administration > Units.",
+            AppRoles.HeadOfUnit => "Head of Unit follows the unit set-up: set the head or deputy under Administration > Units.",
+            AppRoles.HOD => "Head of Department follows the department set-up: set the HOD under Administration > Units.",
+            _ => "This role follows the organisation set-up."
+        };
 
         private static string Json(object value) => JsonSerializer.Serialize(value);
 

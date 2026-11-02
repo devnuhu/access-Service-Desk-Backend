@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ServiceDeskAPI.Domain;
 using ServiceDeskAPI.Domain.Entities;
+using ServiceDeskAPI.Domain.Organisation;
 
 namespace ServiceDeskAPI.Infrastructure.Persistence
 {
@@ -16,6 +17,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<RefreshTokenStore> RefreshTokenStores => Set<RefreshTokenStore>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
+        public DbSet<Department> Departments => Set<Department>();
+        public DbSet<Unit> Units => Set<Unit>();
+        public DbSet<UnitMember> UnitMembers => Set<UnitMember>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -97,6 +101,58 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
             });
 
             ConfigureAuditAndNotifications(builder);
+            ConfigureOrganisation(builder);
+        }
+
+        /// <summary>Departments, units and members (Step 2a). Contribution Processing and its two units are seeded.</summary>
+        private static void ConfigureOrganisation(ModelBuilder builder)
+        {
+            builder.Entity<Department>(e =>
+            {
+                e.ToTable("Departments");
+                e.HasKey(d => d.Id);
+                e.Property(d => d.Code).HasMaxLength(10).IsRequired();
+                e.Property(d => d.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(d => d.Code).IsUnique();
+                e.HasIndex(d => d.Name).IsUnique();
+                e.HasOne(d => d.HodUser).WithMany().HasForeignKey(d => d.HodUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasData(new Department
+                {
+                    Id = OrgSeed.ContributionProcessingId,
+                    Code = OrgSeed.ContributionProcessingCode,
+                    Name = "Contribution Processing",
+                    IsActive = true,
+                    CreatedAt = SeedDate
+                });
+            });
+
+            builder.Entity<Unit>(e =>
+            {
+                e.ToTable("Units");
+                e.HasKey(u => u.Id);
+                e.Property(u => u.Code).HasMaxLength(10).IsRequired();
+                e.Property(u => u.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(u => new { u.DepartmentId, u.Code }).IsUnique();
+                e.HasIndex(u => new { u.DepartmentId, u.Name }).IsUnique();
+                e.HasOne(u => u.Department).WithMany(d => d.Units).HasForeignKey(u => u.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(u => u.HeadUser).WithMany().HasForeignKey(u => u.HeadUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(u => u.DeputyHeadUser).WithMany().HasForeignKey(u => u.DeputyHeadUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasData(
+                    new Unit { Id = OrgSeed.ContributionMatchingUnitId, DepartmentId = OrgSeed.ContributionProcessingId, Code = OrgSeed.ContributionMatchingCode, Name = "Contribution Matching", IsActive = true, CreatedAt = SeedDate },
+                    new Unit { Id = OrgSeed.RefundUnitId, DepartmentId = OrgSeed.ContributionProcessingId, Code = OrgSeed.RefundCode, Name = "Refund", IsActive = true, CreatedAt = SeedDate });
+            });
+
+            builder.Entity<UnitMember>(e =>
+            {
+                e.ToTable("UnitMembers");
+                e.HasKey(m => m.Id);
+                e.Property(m => m.StaffNo).HasMaxLength(30);
+                e.HasOne(m => m.Unit).WithMany(u => u.Members).HasForeignKey(m => m.UnitId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(m => m.User).WithMany().HasForeignKey(m => m.UserId).OnDelete(DeleteBehavior.Restrict);
+                // Each person once per unit while active; one unit per department is checked by OrganisationService
+                e.HasIndex(m => new { m.UnitId, m.UserId }).IsUnique().HasFilter("[IsActive] = 1").HasDatabaseName("IX_UnitMembers_UnitId_UserId_Active");
+                e.HasIndex(m => m.UserId);
+            });
         }
 
         private static void ConfigureAuditAndNotifications(ModelBuilder builder)

@@ -25,20 +25,22 @@ The approved requirements are in `docs/brd/` (BRD v1.3, approved 28–30 October
 ## Folder layout
 
 ```
-PRO\ServiceDesk\
-  ServiceDeskAPI\                 solution root: run every step script from here
-    ServiceDesk.sln(x)
-    ServiceDeskAPI\               the API project
-    tests\ServiceDeskAPI.Tests\   xUnit tests
-    scripts\                      step scripts (stepN-*.ps1) and helpers
-  docs\
-    agent-onboarding.md           this file
-    build-plan.md                 steps and status
-    brd\                          the approved BRD
-    api\                          API notes per area, and swagger.json
+PRO\AccessServiceDesk\
+  Backend\ServiceDesk\               run every script from here: .\Scripts\<script>.ps1
+    ServiceDeskAPI\                  solution root
+      ServiceDesk.sln(x)
+      ServiceDeskAPI\                the API project
+      tests\ServiceDeskAPI.Tests\    xUnit tests
+    Scripts\                         step scripts (stepN-*.ps1) and helpers (set-secrets.ps1, ...)
+    docs\
+      agent-onboarding.md            this file
+      build-plan.md                  steps and status
+      swagger.json                   saved from the running API
+      fe\                            frontend task prompts and design references
+  Frontend\                          the React web app (JavaScript)
 ```
 
-Frontend (React, JavaScript): `PRO\AccessServiceDesk\Frontend`. From there the docs are `..\..\ServiceDesk\docs` and the API project `..\..\ServiceDesk\ServiceDeskAPI`.
+From the frontend folder: docs are `..\Backend\ServiceDesk\docs`, the API solution is `..\Backend\ServiceDesk\ServiceDeskAPI`, People Hub's web app is `..\..\ELM\workforce-hub-web`.
 
 ## How work is done
 
@@ -54,7 +56,7 @@ Frontend (React, JavaScript): `PRO\AccessServiceDesk\Frontend`. From there the d
 3. Customer data (RSA PIN, employer, amounts) never appears in email bodies or logs.
 4. All times are stored in UTC and shown in WAT (UTC+1). SLA maths uses business hours (Mon–Fri 08:00–17:00 WAT, excluding the holiday calendar) through one service, `ISlaCalculator`.
 5. Escalation and breach recording are idempotent: re-running a job never writes a second event or sends a second email.
-6. Errors use the People Hub 400 shape: `{ message, errors: { field } }`.
+6. Every error uses one shape, `ApiError`: `{ message, errors: { field: "what is wrong" } }` (errors may be empty), including the automatic "invalid request" answers. Sign-in endpoints wrap answers in `ApiResponse` (`{ statusCode, message, data, errors }`) for People Hub compatibility. Every action declares its responses with `[ProducesResponseType]`, so `swagger.json` has a schema for each; a test fails otherwise. New endpoints are added to `docs/api/endpoint-inventory.md`.
 7. No secrets in source control. Keys live in user secrets or server environment variables.
 8. The Service Desk never uses People Hub (ELM) secrets. It has its own JWT signing key, its own AD service account entry, its own email API key and its own database. Code and setting names may be copied from ELM; values may not.
 9. Roles: a person can hold several at once. Read them with `RoleAssignments.GetActiveRoleNamesAsync`; grant with `RoleAssignments.EnsureRoleAsync`. Every endpoint uses `[Authorize]` or a policy from `Policies` (Super_Admin_Only, Unit_Management, Department_Oversight, Oversight, Case_Work).
@@ -63,10 +65,11 @@ Frontend (React, JavaScript): `PRO\AccessServiceDesk\Frontend`. From there the d
 12. The web app sends the CSRF token (from the login/refresh response, the `X-CSRF-Token` response header, or `GET /api/auth/csrf`) in the `X-CSRF-Token` header on every POST, PUT, PATCH and DELETE.
 13. Email: never call a provider directly; use `IEmailService`. Wording goes in `EmailTemplates` / `NotificationEmail`, the look comes from `EmailLayout`. A notification staged in a save is emailed automatically after the save. Never put customer data (RSA PIN, employer, amounts) in a notification or email; RSA PIN shapes are masked as a last resort, not as the plan.
 14. Platform vs module: sign-in, shell, notifications, administration and email branding never name a department. Departments, units and their people are data (Step 2), never hard-coded, so the next department is added as data plus its own catalogue, not new code paths.
+15. Structure roles: Case Worker, Head of Unit and HOD are never given by hand. They follow the organisation (`OrgRoleSync`): an active member of an active unit is a Case Worker; a unit head or deputy is a Head of Unit; a department's HOD is HOD. Change the structure (Administration > Units) and the roles follow in the same save. The People page gives only Super Admin; Requester is everyone's. A person is in at most one unit per department; a head is also a member of their unit; an HOD is never a member of a unit in their own department.
 
 ## Secrets and sign-in (Development)
 
-- `set-secrets.ps1` (run from `PRO\ServiceDesk`) makes a new JWT key and test-account password and asks for the Service Desk's own AD settings. They go to this computer's user secrets for ServiceDeskAPI.
+- `set-secrets.ps1` (run from `PRO\AccessServiceDesk\Backend\ServiceDesk`) makes a new JWT key and test-account password and asks for the Service Desk's own AD settings. They go to this computer's user secrets for ServiceDeskAPI.
 - On a server: `SERVICEDESK_JWT_SECRET_KEY`, `SERVICEDESK_LDAP_USERNAME`, `SERVICEDESK_LDAP_PASSWORD`. People Hub's `JWT_SECRET_KEY` and `LDAP_SERVICE_*` are never read.
 - Without AD settings, Development still starts: AD sign-in is off and the test accounts work (`test.requester`, `test.caseworker1`, `test.caseworker2`, `test.hou`, `test.hod`, `test.superadmin`). Production refuses to start.
 - Tokens travel in HttpOnly cookies named `__Host-sd-accessToken` / `__Host-sd-refreshToken` (HTTPS) or `__Secure-sd-*` (HTTP in Development). The web app sends `credentials: 'include'` and refreshes through one shared promise (never two refreshes at once).

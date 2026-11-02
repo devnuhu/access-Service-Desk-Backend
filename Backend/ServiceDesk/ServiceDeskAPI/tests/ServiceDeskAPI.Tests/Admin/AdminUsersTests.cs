@@ -64,23 +64,15 @@ namespace ServiceDeskAPI.Tests.Admin
         }
 
         [Fact]
-        public async Task Giving_a_role_works_once_and_is_audited_and_notified()
+        public async Task Giving_and_taking_away_Super_Admin_is_audited_notified_and_keeps_history()
         {
             var admin = await As("test.superadmin");
             var target = await IdOf("test.requester");
 
-            var first = await admin.PostAsJsonAsync($"/api/admin/users/{target}/roles", new { roleId = AppRoles.HeadOfUnitId });
-            var second = await admin.PostAsJsonAsync($"/api/admin/users/{target}/roles", new { roleId = AppRoles.HeadOfUnitId });
-
+            var first = await admin.PostAsJsonAsync($"/api/admin/users/{target}/roles", new { roleId = AppRoles.SuperAdminId });
+            var second = await admin.PostAsJsonAsync($"/api/admin/users/{target}/roles", new { roleId = AppRoles.SuperAdminId });
             Assert.Equal(HttpStatusCode.OK, first.StatusCode);
             Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
-
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityId == target && a.Action == AuditAction.RoleChanged && a.Module == AuditModule.Administration));
-                Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == target && n.Title == "Your Service Desk access changed"));
-            }
 
             // The new role is in the next sign-in, next to the roles the person already had
             var again = await ApiTestHelpers.SignInAsync(_factory, "test.requester");
@@ -89,26 +81,37 @@ namespace ServiceDeskAPI.Tests.Admin
                 Headers = { Authorization = new AuthenticationHeaderValue("Bearer", again.AccessToken) }
             });
             var body = await me.Content.ReadAsStringAsync();
-            Assert.Contains(AppRoles.HeadOfUnit, body);
+            Assert.Contains(AppRoles.SuperAdmin, body);
             Assert.Contains(AppRoles.Requester, body);
+
+            // Take it away again (test.superadmin stays the only Super Admin for the other tests)
+            var removed = await admin.DeleteAsync($"/api/admin/users/{target}/roles/{AppRoles.SuperAdminId}");
+            var removedAgain = await admin.DeleteAsync($"/api/admin/users/{target}/roles/{AppRoles.SuperAdminId}");
+            Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, removedAgain.StatusCode);
+
+            using var scope = _factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityId == target && a.Action == AuditAction.RoleChanged && a.Module == AuditModule.Administration));
+            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == target && n.Title == "Your Service Desk access changed"));
+            var history = await db.UserRoleAssignments.Where(a => a.UserId == target && a.RoleId == AppRoles.SuperAdminId).ToListAsync();
+            Assert.Contains(history, a => !a.IsActive && a.DisabledAt != null && a.DisabledByUserId != null);
+            Assert.DoesNotContain(history, a => a.IsActive);
         }
 
         [Fact]
-        public async Task Removing_a_role_keeps_the_history()
+        public async Task Structure_roles_are_not_given_or_taken_away_by_hand()
         {
             var admin = await As("test.superadmin");
-            var target = await IdOf("test.hou");
+            var requester = await IdOf("test.requester");
+            var hou = await IdOf("test.hou");
 
-            var removed = await admin.DeleteAsync($"/api/admin/users/{target}/roles/{AppRoles.HeadOfUnitId}");
-            var again = await admin.DeleteAsync($"/api/admin/users/{target}/roles/{AppRoles.HeadOfUnitId}");
+            var give = await admin.PostAsJsonAsync($"/api/admin/users/{requester}/roles", new { roleId = AppRoles.CaseWorkerId });
+            var take = await admin.DeleteAsync($"/api/admin/users/{hou}/roles/{AppRoles.HeadOfUnitId}");
 
-            Assert.Equal(HttpStatusCode.OK, removed.StatusCode);
-            Assert.Equal(HttpStatusCode.NotFound, again.StatusCode);
-            using var scope = _factory.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var history = await db.UserRoleAssignments.Where(a => a.UserId == target && a.RoleId == AppRoles.HeadOfUnitId).ToListAsync();
-            Assert.Contains(history, a => !a.IsActive && a.DisabledAt != null && a.DisabledByUserId != null);
-            Assert.DoesNotContain(history, a => a.IsActive);
+            Assert.Equal(HttpStatusCode.BadRequest, give.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, take.StatusCode);
+            Assert.Contains("Units", await give.Content.ReadAsStringAsync());
         }
 
         [Fact]

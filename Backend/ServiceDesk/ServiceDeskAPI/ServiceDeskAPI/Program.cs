@@ -184,6 +184,7 @@ namespace ServiceDeskAPI
             builder.Services.AddScoped<IAuditService, AuditService>();
             builder.Services.AddScoped<IInAppNotificationService, InAppNotificationService>();
             builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+            builder.Services.AddScoped<IOrganisationService, ServiceDeskAPI.Infrastructure.Organisation.OrganisationService>();
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 
             // ============ EMAIL (Step 1c): Infobip, Smtp or Off, chosen from EmailSettings:Provider ============

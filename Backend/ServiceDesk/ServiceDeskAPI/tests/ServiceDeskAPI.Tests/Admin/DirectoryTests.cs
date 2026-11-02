@@ -97,7 +97,7 @@ namespace ServiceDeskAPI.Tests.Admin
         }
 
         [Fact]
-        public async Task A_person_from_the_directory_gets_an_account_once_and_can_then_be_given_a_role()
+        public async Task A_person_from_the_directory_gets_an_account_once_and_can_then_join_a_unit()
         {
             var admin = await As("test.superadmin");
 
@@ -114,8 +114,9 @@ namespace ServiceDeskAPI.Tests.Admin
             Assert.Equal(created.UserId, second.UserId);
             Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
 
-            var grant = await admin.PostAsJsonAsync($"/api/admin/users/{created.UserId}/roles", new { roleId = AppRoles.CaseWorkerId });
-            Assert.Equal(HttpStatusCode.OK, grant.StatusCode);
+            // Then a Super Admin can make them a case worker by adding them to a unit (Step 2a)
+            var join = await admin.PostAsJsonAsync($"/api/admin/units/{ServiceDeskAPI.Domain.Organisation.OrgSeed.RefundUnitId}/members", new { userId = created.UserId });
+            Assert.Equal(HttpStatusCode.OK, join.StatusCode);
         }
 
         [Fact]

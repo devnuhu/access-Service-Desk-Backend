@@ -187,6 +187,63 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("HodUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("HodUserId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Departments", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            Code = "CP",
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            IsActive = true,
+                            Name = "Contribution Processing"
+                        });
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.InAppNotification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -367,6 +424,130 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                             Name = "SuperAdmin",
                             NormalizedName = "SUPERADMIN"
                         });
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Unit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DeputyHeadUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("HeadUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeputyHeadUserId");
+
+                    b.HasIndex("HeadUserId");
+
+                    b.HasIndex("DepartmentId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("DepartmentId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Units", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("5d1a0002-0000-4000-8000-000000000011"),
+                            Code = "CM",
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Contribution Matching"
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0002-0000-4000-8000-000000000012"),
+                            Code = "RF",
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Refund"
+                        });
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.UnitMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AddedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastAssignedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LeftAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RemovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StaffCategory")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StaffNo")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UnitId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UnitMembers_UnitId_UserId_Active")
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("UnitMembers", (string)null);
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.User", b =>
@@ -565,6 +746,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "HodUser")
+                        .WithMany()
+                        .HasForeignKey("HodUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("HodUser");
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.InAppNotification", b =>
                 {
                     b.HasOne("ServiceDeskAPI.Domain.Entities.User", "RecipientUser")
@@ -587,6 +778,50 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Unit", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Department", "Department")
+                        .WithMany("Units")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "DeputyHeadUser")
+                        .WithMany()
+                        .HasForeignKey("DeputyHeadUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "HeadUser")
+                        .WithMany()
+                        .HasForeignKey("HeadUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("DeputyHeadUser");
+
+                    b.Navigation("HeadUser");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.UnitMember", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Unit", "Unit")
+                        .WithMany("Members")
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.UserRoleAssignment", b =>
                 {
                     b.HasOne("ServiceDeskAPI.Domain.Entities.Role", "Role")
@@ -604,6 +839,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
+                {
+                    b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Unit", b =>
+                {
+                    b.Navigation("Members");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.User", b =>

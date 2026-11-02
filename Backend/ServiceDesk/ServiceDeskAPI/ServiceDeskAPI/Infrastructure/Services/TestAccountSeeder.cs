@@ -1,6 +1,9 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
+using ServiceDeskAPI.Application.DTOs;
+using ServiceDeskAPI.Application.Interfaces;
 using ServiceDeskAPI.Domain;
+using ServiceDeskAPI.Domain.Organisation;
 using ServiceDeskAPI.Domain.Entities;
 using ServiceDeskAPI.Infrastructure.Identity;
 using ServiceDeskAPI.Infrastructure.Persistence;
@@ -10,7 +13,10 @@ namespace ServiceDeskAPI.Infrastructure.Services
     /// <summary>
     /// Development-only test accounts that work next to Active Directory (copied from People Hub). Active only when the environment is
     /// Development, TestAccounts:Enabled is true and TestAccounts:Password is set (user secrets, via set-secrets.ps1).
-    /// Creates local accounts with a local password and the listed roles. Safe to run on every start. Never touches an account it did not create.
+    /// Creates local accounts with a local password and the listed roles, then places them in the organisation (Step 2a):
+    /// test.hod is HOD of Contribution Processing, test.hou heads Contribution Matching, test.caseworker1 works in Contribution Matching
+    /// and test.caseworker2 in Refund. Their Case Worker / Head of Unit / HOD roles follow from that. Safe to run on every start.
+    /// Never touches an account it did not create.
     /// </summary>
     public class TestAccountSeeder : IHostedService
     {
@@ -19,10 +25,10 @@ namespace ServiceDeskAPI.Infrastructure.Services
         public static readonly IReadOnlyList<TestAccountSpec> Accounts = new List<TestAccountSpec>
         {
             new("test.requester", "Test Requester", "Finance", new[] { AppRoles.Requester }),
-            new("test.caseworker1", "Test Case Worker One", "Contribution Processing", new[] { AppRoles.Requester, AppRoles.CaseWorker }),
-            new("test.caseworker2", "Test Case Worker Two", "Contribution Processing", new[] { AppRoles.Requester, AppRoles.CaseWorker }),
-            new("test.hou", "Test Head of Unit", "Contribution Processing", new[] { AppRoles.Requester, AppRoles.HeadOfUnit }),
-            new("test.hod", "Test Head of Department", "Contribution Processing", new[] { AppRoles.Requester, AppRoles.HOD }),
+            new("test.caseworker1", "Test Case Worker One", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.caseworker2", "Test Case Worker Two", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.hou", "Test Head of Unit", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.hod", "Test Head of Department", "Contribution Processing", new[] { AppRoles.Requester }),
             new("test.superadmin", "Test Super Admin", "Information Technology", new[] { AppRoles.Requester, AppRoles.SuperAdmin })
         };
 
@@ -135,7 +141,32 @@ namespace ServiceDeskAPI.Infrastructure.Services
                     await RoleAssignments.EnsureRoleAsync(db, user.Id, role, null);
             }
 
+            await PlaceInOrganisationAsync(scope.ServiceProvider, users, logger);
             logger.LogInformation("Test accounts ready ({Created} created): {Names}.", created, string.Join(", ", Accounts.Select(a => a.UserName)));
+        }
+
+        /// <summary>Puts the test accounts into Contribution Processing. Each call is a no-op when already done.</summary>
+        private static async Task PlaceInOrganisationAsync(IServiceProvider services, UserManager<User> users, ILogger logger)
+        {
+            var org = services.GetRequiredService<IOrganisationService>();
+            async Task<Guid?> Id(string name) => (await users.FindByNameAsync(name)) is { PasswordHash: not null } u ? u.Id : null;
+
+            var hod = await Id("test.hod");
+            var hou = await Id("test.hou");
+            var cw1 = await Id("test.caseworker1");
+            var cw2 = await Id("test.caseworker2");
+
+            if (hod.HasValue) Log(logger, "HOD of Contribution Processing", await org.SetHodAsync(OrgSeed.ContributionProcessingId, hod, null));
+            if (hou.HasValue) Log(logger, "Head of Contribution Matching", await org.SetUnitHeadAsync(OrgSeed.ContributionMatchingUnitId, hou, null));
+            if (cw1.HasValue) Log(logger, "test.caseworker1 in Contribution Matching", await org.AddMemberAsync(OrgSeed.ContributionMatchingUnitId, cw1.Value, null, null));
+            if (cw2.HasValue) Log(logger, "test.caseworker2 in Refund", await org.AddMemberAsync(OrgSeed.RefundUnitId, cw2.Value, null, null));
+        }
+
+        private static void Log(ILogger logger, string what, AdminResult result)
+        {
+            // 409 "already a member" is the normal answer on every start after the first
+            if (!result.Success && result.Status != 409)
+                logger.LogWarning("Test organisation set-up: {What} not done: {Message}", what, result.Message);
         }
     }
 }
