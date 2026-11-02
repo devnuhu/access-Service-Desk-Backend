@@ -50,7 +50,7 @@ namespace ServiceDeskAPI.Tests.Admin
             var caseworkers = await admin.GetFromJsonAsync<PagedResult<AdminUserDto>>("/api/admin/users?search=caseworker");
             var hods = await admin.GetFromJsonAsync<PagedResult<AdminUserDto>>("/api/admin/users?role=HOD");
 
-            Assert.Equal(2, caseworkers!.Total);
+            Assert.Equal(4, caseworkers!.Total);
             Assert.All(caseworkers.Items, u => Assert.Equal(new[] { AppRoles.CaseWorker, AppRoles.Requester }, u.Roles));
             Assert.Contains(hods!.Items, u => u.UserName == "test.hod");
             Assert.DoesNotContain(hods.Items, u => u.UserName == "test.requester");

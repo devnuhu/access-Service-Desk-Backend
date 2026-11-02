@@ -36,6 +36,11 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | DELETE | `/api/admin/units/{id}/members/{userId}` | Super Admin | Remove a member (history kept; not the head or deputy - change those first) |
 | GET | `/api/org/me` | signed in | My departments and units, with what I lead (builds the menu) |
 | GET | `/api/org/departments` | signed in | Active departments and units (names only) |
+| GET | `/api/availability/me` | signed in | My availability today, my current and future leave |
+| POST | `/api/availability/absences` | signed in (rules in the service) | Leave or out of office for myself (when in a unit or an HOD), or for a member of the unit I head or deputise, my department (HOD), or anyone (Super Admin). No overlaps (409); up to 30 days back; at most 366 days |
+| DELETE | `/api/availability/absences/{id}` | same people as above | Cancels a future period; a started one ends yesterday instead |
+| GET | `/api/availability/units/{unitId}` | unit head or deputy, HOD of its department, Super Admin | Members, who is available today, leave in the next 90 days |
+| GET | `/api/availability/departments/{departmentId}` | HOD, Super Admin | The same for every active unit of the department |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |

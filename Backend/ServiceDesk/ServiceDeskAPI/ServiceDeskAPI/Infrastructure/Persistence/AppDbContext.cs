@@ -20,6 +20,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Department> Departments => Set<Department>();
         public DbSet<Unit> Units => Set<Unit>();
         public DbSet<UnitMember> UnitMembers => Set<UnitMember>();
+        public DbSet<Absence> Absences => Set<Absence>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -152,6 +153,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 // Each person once per unit while active; one unit per department is checked by OrganisationService
                 e.HasIndex(m => new { m.UnitId, m.UserId }).IsUnique().HasFilter("[IsActive] = 1").HasDatabaseName("IX_UnitMembers_UnitId_UserId_Active");
                 e.HasIndex(m => m.UserId);
+            });
+
+            builder.Entity<Absence>(e =>
+            {
+                e.ToTable("Absences");
+                e.HasKey(a => a.Id);
+                e.Property(a => a.Note).HasMaxLength(200);
+                e.HasOne(a => a.User).WithMany().HasForeignKey(a => a.UserId).OnDelete(DeleteBehavior.Restrict);
+                // "Who is away today" and the overlap check both look up a person's periods by date
+                e.HasIndex(a => new { a.UserId, a.StartDate, a.EndDate }).HasDatabaseName("IX_Absences_UserId_Dates");
             });
         }
 

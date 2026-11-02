@@ -14,8 +14,9 @@ namespace ServiceDeskAPI.Infrastructure.Services
     /// Development-only test accounts that work next to Active Directory (copied from People Hub). Active only when the environment is
     /// Development, TestAccounts:Enabled is true and TestAccounts:Password is set (user secrets, via set-secrets.ps1).
     /// Creates local accounts with a local password and the listed roles, then places them in the organisation (Step 2a):
-    /// test.hod is HOD of Contribution Processing, test.hou heads Contribution Matching, test.caseworker1 works in Contribution Matching
-    /// and test.caseworker2 in Refund. Their Case Worker / Head of Unit / HOD roles follow from that. Safe to run on every start.
+    /// test.hod is HOD of Contribution Processing; test.hou heads Contribution Matching with test.caseworker1 and test.caseworker3;
+    /// test.hou2 heads Refund with test.caseworker2 and test.caseworker4 (Step 2b: two case workers per unit, so assignment can be tested).
+    /// Their Case Worker / Head of Unit / HOD roles follow from that. Safe to run on every start.
     /// Never touches an account it did not create.
     /// </summary>
     public class TestAccountSeeder : IHostedService
@@ -27,7 +28,10 @@ namespace ServiceDeskAPI.Infrastructure.Services
             new("test.requester", "Test Requester", "Finance", new[] { AppRoles.Requester }),
             new("test.caseworker1", "Test Case Worker One", "Contribution Processing", new[] { AppRoles.Requester }),
             new("test.caseworker2", "Test Case Worker Two", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.caseworker3", "Test Case Worker Three", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.caseworker4", "Test Case Worker Four", "Contribution Processing", new[] { AppRoles.Requester }),
             new("test.hou", "Test Head of Unit", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.hou2", "Test Head of Unit Two", "Contribution Processing", new[] { AppRoles.Requester }),
             new("test.hod", "Test Head of Department", "Contribution Processing", new[] { AppRoles.Requester }),
             new("test.superadmin", "Test Super Admin", "Information Technology", new[] { AppRoles.Requester, AppRoles.SuperAdmin })
         };
@@ -155,11 +159,17 @@ namespace ServiceDeskAPI.Infrastructure.Services
             var hou = await Id("test.hou");
             var cw1 = await Id("test.caseworker1");
             var cw2 = await Id("test.caseworker2");
+            var cw3 = await Id("test.caseworker3");
+            var cw4 = await Id("test.caseworker4");
+            var hou2 = await Id("test.hou2");
 
             if (hod.HasValue) Log(logger, "HOD of Contribution Processing", await org.SetHodAsync(OrgSeed.ContributionProcessingId, hod, null));
             if (hou.HasValue) Log(logger, "Head of Contribution Matching", await org.SetUnitHeadAsync(OrgSeed.ContributionMatchingUnitId, hou, null));
             if (cw1.HasValue) Log(logger, "test.caseworker1 in Contribution Matching", await org.AddMemberAsync(OrgSeed.ContributionMatchingUnitId, cw1.Value, null, null));
             if (cw2.HasValue) Log(logger, "test.caseworker2 in Refund", await org.AddMemberAsync(OrgSeed.RefundUnitId, cw2.Value, null, null));
+            if (cw3.HasValue) Log(logger, "test.caseworker3 in Contribution Matching", await org.AddMemberAsync(OrgSeed.ContributionMatchingUnitId, cw3.Value, null, null));
+            if (cw4.HasValue) Log(logger, "test.caseworker4 in Refund", await org.AddMemberAsync(OrgSeed.RefundUnitId, cw4.Value, null, null));
+            if (hou2.HasValue) Log(logger, "Head of Refund", await org.SetUnitHeadAsync(OrgSeed.RefundUnitId, hou2, null));
         }
 
         private static void Log(ILogger logger, string what, AdminResult result)
