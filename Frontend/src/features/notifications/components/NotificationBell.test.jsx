@@ -1,0 +1,131 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { installFakeApi } from "@/test/fakeApi";
+import { createTestQueryClient, renderWithProviders } from "@/test/render";
+import NotificationBell from "./NotificationBell.jsx";
+
+// A fake SignalR connection: the test calls the handlers the bell registers.
+const hub = vi.hoisted(() => ({ handlers: {}, started: 0, stopped: 0 }));
+vi.mock("../api/hub.js", () => ({
+  createNotificationConnection: () => ({
+    on: (name, handler) => {
+      hub.handlers[name] = handler;
+    },
+    onreconnected: () => {},
+    start: async () => {
+      hub.started += 1;
+    },
+    stop: async () => {
+      hub.stopped += 1;
+    },
+  }),
+}));
+
+const item = (overrides) => ({
+  id: "n-1",
+  title: "Welcome",
+  message: "Access Desk is ready.",
+  type: 0,
+  category: 0,
+  relatedEntityType: null,
+  relatedEntityId: null,
+  deepLinkUrl: null,
+  isRead: false,
+  readAt: null,
+  createdAt: "2026-11-02T14:42:00Z",
+  isActionRequired: false,
+  ...overrides,
+});
+
+function renderBell(routes = {}) {
+  const queryClient = createTestQueryClient();
+  const api = installFakeApi(queryClient, {
+    "GET /api/notifications/unread-count": () => [200, { count: 1 }],
+    "GET /api/notifications": () => [
+      200,
+      { items: [item()], total: 1, unread: 1, page: 1, pageSize: 10 },
+    ],
+    ...routes,
+  });
+  const view = renderWithProviders(<NotificationBell />, { queryClient });
+  return { api, ...view };
+}
+
+beforeEach(() => {
+  hub.handlers = {};
+  hub.started = 0;
+  hub.stopped = 0;
+});
+
+describe("NotificationBell", () => {
+  it("a pushed notification increases the count, appears first and shows a toast", async () => {
+    renderBell();
+    expect(await screen.findByTestId("bell-count")).toHaveTextContent("1");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Notifications, 1 unread" }),
+    );
+    const list = await screen.findByTestId("notification-list");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+    expect(hub.started).toBe(1);
+
+    act(() => {
+      hub.handlers.ReceiveNotification(
+        item({
+          id: "n-2",
+          title: "Role given",
+          message: "You are now a Head of Unit.",
+          type: 3,
+          isActionRequired: true,
+          createdAt: "2026-11-02T15:00:00Z",
+        }),
+      );
+    });
+
+    // The query cache notifies the bell on the next tick.
+    await waitFor(() =>
+      expect(screen.getByTestId("bell-count")).toHaveTextContent("2"),
+    );
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Role given");
+    expect(items[0]).toHaveTextContent("Mon 2 Nov 2026, 16:00 WAT");
+    expect(
+      within(screen.getByRole("status")).getByText(
+        "You are now a Head of Unit.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows 99+ for large counts", async () => {
+    renderBell({
+      "GET /api/notifications/unread-count": () => [200, { count: 150 }],
+    });
+    expect(await screen.findByTestId("bell-count")).toHaveTextContent("99+");
+  });
+
+  it("marks an item read on click and lowers the count", async () => {
+    let marked;
+    renderBell({
+      "PATCH /api/notifications/:id/read": ({ pathParams }) => {
+        marked = pathParams.id;
+        return [204, ""];
+      },
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Notifications, 1 unread" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Welcome/ }),
+    );
+    expect(marked).toBe("n-1");
+    expect(screen.queryByTestId("bell-count")).not.toBeInTheDocument();
+  });
+
+  it("stops the connection when the shell goes away (sign-out)", async () => {
+    const { unmount } = renderBell();
+    await screen.findByTestId("bell-count");
+    unmount();
+    expect(hub.stopped).toBe(1);
+  });
+});

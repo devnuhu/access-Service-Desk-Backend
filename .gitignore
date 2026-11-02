@@ -1,0 +1,29 @@
+# Access Desk: one repository for Backend, Frontend and docs
+
+# .NET build output and tools
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+
+# Node / Vite
+node_modules/
+dist/
+coverage/
+*.local
+
+# Local settings and anything secret. Keys live in user secrets or server environment variables, never here.
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.key
+
+# OS and editors
+Thumbs.db
+.DS_Store
+.idea/

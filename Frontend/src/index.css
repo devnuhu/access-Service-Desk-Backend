@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* Access Desk theme: the colours of the Access Desk emails. */
+@theme {
+  --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --color-brand-navy: #003883;
+  --color-brand-navy-dark: #002556;
+  --color-brand-navy-light: #e6edf7;
+  --color-brand-orange: #ff8200;
+  --color-brand-orange-light: #fff1e0;
+  --color-brand-orange-ink: #8a4600;
+  --color-brand-green: #8dc63f;
+  --color-brand-green-light: #eef7e2;
+  --color-brand-green-ink: #3f6b0f;
+
+  --color-ink: #0b1f3a;
+  --color-body: #3d4a5c;
+  --color-muted: #6b7a90;
+  --color-line: #e3e8ef;
+  --color-page: #f4f6fa;
+
+  --color-danger: #b42318;
+  --color-danger-light: #fdecea;
+
+  --radius-card: 6px;
+
+  /* Sign-in page: light brand panel and the white form panel lying on top of it. */
+  --color-login-sky: #eef5fd;
+  --color-login-sky-deep: #dceafb;
+  --color-login-badge-line: #d5e2f3;
+  --color-login-divider: #b9cce6;
+  --color-login-unit: #4a6488;
+  --color-login-icon-line: #c9daf0;
+  --color-login-legal: #5b7090;
+  --shadow-login-panel:
+    -18px 0 40px -6px rgba(0, 56, 131, 0.16), -4px 0 12px rgba(0, 56, 131, 0.06);
+  --shadow-login-panel-up: 0 -12px 28px -8px rgba(0, 56, 131, 0.16);
+}
+
+/* Sign-in brand panel background. */
+@utility bg-login-brand {
+  background:
+    radial-gradient(80% 60% at 0% 0%, #ffffff, transparent 60%),
+    linear-gradient(
+      150deg,
+      var(--color-login-sky) 0%,
+      var(--color-login-sky-deep) 100%
+    );
+}
+
+@layer base {
+  html {
+    color: var(--color-body);
+    background: var(--color-page);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--color-ink);
+  }
+
+  /* One visible focus ring everywhere: orange. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-orange);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* A full-colour logo on navy sits on this small white badge. */
+  .logo-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
