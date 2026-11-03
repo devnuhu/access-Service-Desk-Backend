@@ -238,6 +238,366 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Category", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DefaultPriority")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TimelineHours")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("DepartmentId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("Categories", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000001"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Account Reconciliation",
+                            SortOrder = 1,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000002"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Accrued Rights",
+                            SortOrder = 2,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000003"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Evidence of Remittance",
+                            SortOrder = 3,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000004"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Clarification of Narration",
+                            SortOrder = 4,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000005"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Employer Narration Change",
+                            SortOrder = 5,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000006"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Period Narration Change",
+                            SortOrder = 6,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000007"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "PPP Payment Confirmation",
+                            SortOrder = 7,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000008"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Missing Remittance",
+                            SortOrder = 8,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000009"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Employer Confirmation",
+                            SortOrder = 9,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000010"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Excess Remittance Confirmation",
+                            SortOrder = 10,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000011"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Fund Movement",
+                            SortOrder = 11,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000012"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Transaction History Request",
+                            SortOrder = 12,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000013"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "MPS to CPS",
+                            SortOrder = 13,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000014"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Schedule Submission",
+                            SortOrder = 14,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000015"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "PIN Change",
+                            SortOrder = 15,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000016"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "PPP Refund",
+                            SortOrder = 16,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000011")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000017"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Transfer to Other PFAs",
+                            SortOrder = 17,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000018"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Refund to Employers",
+                            SortOrder = 18,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000019"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Correction of Invalid PINs",
+                            SortOrder = 19,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000020"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Provision of Schedules for Multiple PINs Request to BA",
+                            SortOrder = 20,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000021"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "Query Resolution",
+                            SortOrder = 21,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        },
+                        new
+                        {
+                            Id = new Guid("5d1a0003-0000-4000-8000-000000000022"),
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            DefaultPriority = 2,
+                            DepartmentId = new Guid("5d1a0002-0000-4000-8000-000000000001"),
+                            IsActive = true,
+                            Name = "TCF Reconciliation",
+                            SortOrder = 22,
+                            TimelineHours = 24,
+                            UnitId = new Guid("5d1a0002-0000-4000-8000-000000000012")
+                        });
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.CategorySkill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("AddedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("RemovedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RemovedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("CategoryId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_CategorySkills_CategoryId_UserId_Active")
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("CategorySkills", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
                 {
                     b.Property<Guid>("Id")
@@ -808,6 +1168,44 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Category", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.CategorySkill", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Category", "Category")
+                        .WithMany("Skills")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
                 {
                     b.HasOne("ServiceDeskAPI.Domain.Entities.User", "HodUser")
@@ -901,6 +1299,11 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Category", b =>
+                {
+                    b.Navigation("Skills");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>

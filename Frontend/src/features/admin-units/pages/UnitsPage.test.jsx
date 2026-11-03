@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { installFakeApi } from "@/test/fakeApi";
@@ -213,5 +213,57 @@ describe("Units", () => {
       ),
     ).toBeInTheDocument();
     expect(sent).toEqual({ userId: "p-req", staffNo: "AP-9" });
+  });
+
+  it("unit page: Skills matrix button and how many categories each member handles", async () => {
+    let skills = [
+      { userId: "p-hou", categoryIds: ["c-1", "c-2", "c-3"] },
+      { userId: "p-cw1", categoryIds: ["c-1", "c-2"] },
+    ];
+    let removed;
+    renderAt("/admin/units/u-cm", {
+      "GET /api/admin/units/:unitId/skills": () => [
+        200,
+        {
+          unitId: "u-cm",
+          unitName: "Contribution Matching",
+          categories: [],
+          members: skills.map((m) => ({
+            userName: m.userId,
+            fullName: null,
+            staffCategory: 1,
+            accountActive: true,
+            ...m,
+          })),
+          warnings: [],
+        },
+      ],
+      "DELETE /api/admin/units/:unitId/members/:userId": ({ pathParams }) => {
+        removed = pathParams.userId;
+        skills = skills.filter((m) => m.userId !== removed);
+        return [200, { message: "Test Caseworker1 removed." }];
+      },
+    });
+    expect(
+      await screen.findByRole("link", { name: "Skills matrix" }),
+    ).toHaveAttribute("href", "/admin/units/u-cm/skills");
+    expect(await screen.findByTestId("categories-p-cw1")).toHaveTextContent(
+      "2",
+    );
+    expect(screen.getByTestId("categories-p-hou")).toHaveTextContent("3");
+
+    // Removing a member refreshes the matrix too (leaving the unit ends the mappings).
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Test Caseworker1" }),
+    );
+    await userEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "Remove this member?" }),
+      ).getByRole("button", { name: "Remove" }),
+    );
+    expect(removed).toBe("p-cw1");
+    await waitFor(() =>
+      expect(screen.getByTestId("categories-p-cw1")).toHaveTextContent("0"),
+    );
   });
 });

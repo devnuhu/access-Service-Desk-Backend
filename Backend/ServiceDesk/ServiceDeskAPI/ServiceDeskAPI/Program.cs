@@ -141,6 +141,9 @@ namespace ServiceDeskAPI
                 options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Access Desk API", Version = "v1" });
                 // Dates without a time (leave days) are plain "yyyy-MM-dd" strings
                 options.MapType<DateOnly>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "date" });
+                // Mark nullable fields (string?, nested objects that can be null) as nullable in the contract
+                options.SupportNonNullableReferenceTypes();
+                options.UseAllOfToExtendReferenceSchemas();
                 options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                 {
                     Name = "Authorization",
@@ -188,6 +191,7 @@ namespace ServiceDeskAPI
             builder.Services.AddScoped<IAdminUserService, AdminUserService>();
             builder.Services.AddScoped<IOrganisationService, ServiceDeskAPI.Infrastructure.Organisation.OrganisationService>();
             builder.Services.AddScoped<IAvailabilityService, ServiceDeskAPI.Infrastructure.Organisation.AvailabilityService>();
+            builder.Services.AddScoped<ICatalogueService, ServiceDeskAPI.Infrastructure.Catalogue.CatalogueService>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 

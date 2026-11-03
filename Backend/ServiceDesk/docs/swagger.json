@@ -5,6 +5,479 @@
     "version": "v1"
   },
   "paths": {
+    "/api/admin/categories": {
+      "get": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "parameters": [
+          {
+            "name": "departmentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryAdminDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateCategoryRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateCategoryRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateCategoryRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryAdminDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/categories/{categoryId}": {
+      "patch": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "parameters": [
+          {
+            "name": "categoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateCategoryRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateCategoryRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateCategoryRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/categories/cover-warnings": {
+      "get": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategoryCoverDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/units/{unitId}/skills": {
+      "get": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "parameters": [
+          {
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitSkillsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/units/{unitId}/skills/{userId}": {
+      "put": {
+        "tags": [
+          "AdminCatalogue"
+        ],
+        "parameters": [
+          {
+            "name": "unitId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetSkillsRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetSkillsRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetSkillsRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/email/status": {
       "get": {
         "tags": [
@@ -53,17 +526,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendTestEmailRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SendTestEmailRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SendTestEmailRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SendTestEmailRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SendTestEmailRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SendTestEmailRequest"
+                  }
+                ]
               }
             }
           }
@@ -161,17 +646,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDepartmentRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateDepartmentRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDepartmentRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateDepartmentRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateDepartmentRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateDepartmentRequest"
+                  }
+                ]
               }
             }
           }
@@ -250,17 +747,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             }
           }
@@ -349,17 +858,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             }
           }
@@ -438,17 +959,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateUnitRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateUnitRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateUnitRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateUnitRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateUnitRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateUnitRequest"
+                  }
+                ]
               }
             }
           }
@@ -537,17 +1070,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateOrgItemRequest"
+                  }
+                ]
               }
             }
           }
@@ -636,17 +1181,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             }
           }
@@ -735,17 +1292,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPersonRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
               }
             }
           }
@@ -885,17 +1454,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddUnitMemberRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AddUnitMemberRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AddUnitMemberRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AddUnitMemberRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AddUnitMemberRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AddUnitMemberRequest"
+                  }
+                ]
               }
             }
           }
@@ -1238,17 +1819,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignRoleRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AssignRoleRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignRoleRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AssignRoleRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignRoleRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/AssignRoleRequest"
+                  }
+                ]
               }
             }
           }
@@ -1416,17 +2009,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateUserStatusRequest"
+                  }
+                ]
               }
             }
           }
@@ -1494,17 +2099,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LoginRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LoginRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/LoginRequest"
+                  }
+                ]
               }
             }
           }
@@ -1562,17 +2179,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             }
           }
@@ -1698,17 +2327,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/RefreshTokenRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/RefreshTokenRequest"
+                  }
+                ]
               }
             }
           }
@@ -1765,17 +2406,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAbsenceRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateAbsenceRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAbsenceRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateAbsenceRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateAbsenceRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateAbsenceRequest"
+                  }
+                ]
               }
             }
           }
@@ -2037,6 +2690,38 @@
         }
       }
     },
+    "/api/catalogue/categories": {
+      "get": {
+        "tags": [
+          "Catalogue"
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogueDepartmentDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/directory/users/search": {
       "get": {
         "tags": [
@@ -2117,17 +2802,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EnsureUserRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EnsureUserRequest"
+                  }
+                ]
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/EnsureUserRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EnsureUserRequest"
+                  }
+                ]
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/EnsureUserRequest"
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/EnsureUserRequest"
+                  }
+                ]
               }
             }
           }
@@ -2449,7 +3146,11 @@
             "format": "uuid"
           },
           "kind": {
-            "$ref": "#/components/schemas/AbsenceKind"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AbsenceKind"
+              }
+            ]
           },
           "startDate": {
             "type": "string",
@@ -2504,8 +3205,7 @@
             "format": "uuid"
           },
           "userName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
@@ -2527,8 +3227,7 @@
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "isActive": {
             "type": "boolean"
@@ -2555,8 +3254,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AdminUserDto"
-            },
-            "nullable": true
+            }
           },
           "total": {
             "type": "integer",
@@ -2577,15 +3275,13 @@
         "type": "object",
         "properties": {
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "errors": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -2598,15 +3294,13 @@
             "format": "int32"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "errors": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -2621,6 +3315,132 @@
         },
         "additionalProperties": false
       },
+      "CatalogueCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "defaultPriority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogueDepartmentDto": {
+        "type": "object",
+        "properties": {
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogueCategoryDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryAdminDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departmentName": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitName": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "timelineHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultPriority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "eligibleCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "needsCover": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CategoryCoverDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitName": {
+            "type": "string"
+          },
+          "eligibleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateAbsenceRequest": {
         "type": "object",
         "properties": {
@@ -2630,7 +3450,11 @@
             "nullable": true
           },
           "kind": {
-            "$ref": "#/components/schemas/AbsenceKind"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AbsenceKind"
+              }
+            ]
           },
           "startDate": {
             "type": "string",
@@ -2649,16 +3473,42 @@
         },
         "additionalProperties": false
       },
+      "CreateCategoryRequest": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "timelineHours": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "defaultPriority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateDepartmentRequest": {
         "type": "object",
         "properties": {
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2667,12 +3517,10 @@
         "type": "object",
         "properties": {
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2685,25 +3533,27 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "isActive": {
             "type": "boolean"
           },
           "hod": {
-            "$ref": "#/components/schemas/PersonRefDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonRefDto"
+              }
+            ],
+            "nullable": true
           },
           "units": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/UnitDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -2712,16 +3562,13 @@
         "type": "object",
         "properties": {
           "distinguishedName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "displayName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "email": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "jobTitle": {
             "type": "string",
@@ -2732,8 +3579,7 @@
             "nullable": true
           },
           "samAccountName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2742,14 +3588,21 @@
         "type": "object",
         "properties": {
           "provider": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "infobip": {
-            "$ref": "#/components/schemas/InfobipStatusDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InfobipStatusDto"
+              }
+            ]
           },
           "smtp": {
-            "$ref": "#/components/schemas/SmtpStatusDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SmtpStatusDto"
+              }
+            ]
           },
           "notificationEmails": {
             "type": "boolean"
@@ -2767,8 +3620,7 @@
             "type": "boolean"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2777,8 +3629,7 @@
         "type": "object",
         "properties": {
           "samAccountName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2787,12 +3638,10 @@
         "type": "object",
         "properties": {
           "status": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "app": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -2805,18 +3654,24 @@
             "format": "uuid"
           },
           "title": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "type": {
-            "$ref": "#/components/schemas/NotificationType"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotificationType"
+              }
+            ]
           },
           "category": {
-            "$ref": "#/components/schemas/NotificationCategory"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NotificationCategory"
+              }
+            ]
           },
           "relatedEntityType": {
             "type": "string",
@@ -2857,8 +3712,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InAppNotificationDto"
-            },
-            "nullable": true
+            }
           },
           "total": {
             "type": "integer",
@@ -2924,27 +3778,27 @@
         "type": "object",
         "properties": {
           "accessToken": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "refreshToken": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "tokenType": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "accessTokenExpiresAt": {
             "type": "string",
             "format": "date-time"
           },
           "csrfToken": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "user": {
-            "$ref": "#/components/schemas/UserClaimsDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserClaimsDto"
+              }
+            ]
           }
         },
         "additionalProperties": false
@@ -2957,18 +3811,21 @@
             "format": "int32"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/LoginResponse"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LoginResponse"
+              }
+            ],
+            "nullable": true
           },
           "errors": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -2991,15 +3848,18 @@
             "format": "uuid"
           },
           "userName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
             "nullable": true
           },
           "staffCategory": {
-            "$ref": "#/components/schemas/StaffCategory"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StaffCategory"
+              }
+            ]
           },
           "isHead": {
             "type": "boolean"
@@ -3014,14 +3874,18 @@
             "type": "boolean"
           },
           "current": {
-            "$ref": "#/components/schemas/AbsenceDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AbsenceDto"
+              }
+            ],
+            "nullable": true
           },
           "upcoming": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AbsenceDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3030,8 +3894,7 @@
         "type": "object",
         "properties": {
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -3050,14 +3913,18 @@
             "type": "boolean"
           },
           "current": {
-            "$ref": "#/components/schemas/AbsenceDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AbsenceDto"
+              }
+            ],
+            "nullable": true
           },
           "absences": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/AbsenceDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3070,12 +3937,10 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "isHod": {
             "type": "boolean"
@@ -3084,8 +3949,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MyUnitDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3097,8 +3961,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MyDepartmentDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3111,12 +3974,10 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "isHead": {
             "type": "boolean"
@@ -3160,19 +4021,16 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "units": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/OrgUnitDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3185,12 +4043,10 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -3203,8 +4059,7 @@
             "format": "uuid"
           },
           "userName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
@@ -3252,8 +4107,7 @@
             "format": "uuid"
           },
           "userName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
@@ -3274,8 +4128,7 @@
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3284,8 +4137,7 @@
         "type": "object",
         "properties": {
           "refreshToken": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -3298,8 +4150,7 @@
             "format": "uuid"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "description": {
             "type": "string",
@@ -3312,8 +4163,7 @@
         "type": "object",
         "properties": {
           "to": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -3325,6 +4175,73 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetSkillsRequest": {
+        "type": "object",
+        "properties": {
+          "categoryIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SkillCategoryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "eligibleCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SkillMemberDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userName": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "staffCategory": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StaffCategory"
+              }
+            ]
+          },
+          "accountActive": {
+            "type": "boolean"
+          },
+          "categoryIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "additionalProperties": false
@@ -3366,8 +4283,7 @@
             "format": "int32"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "data": {
             "type": "string",
@@ -3377,11 +4293,20 @@
             "type": "object",
             "additionalProperties": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
+      },
+      "TicketPriority": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
       },
       "UnitAvailabilityDto": {
         "type": "object",
@@ -3395,12 +4320,10 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "today": {
             "type": "string",
@@ -3418,8 +4341,7 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MemberAvailabilityDto"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false
@@ -3436,21 +4358,29 @@
             "format": "uuid"
           },
           "code": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "name": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "isActive": {
             "type": "boolean"
           },
           "head": {
-            "$ref": "#/components/schemas/PersonRefDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonRefDto"
+              }
+            ],
+            "nullable": true
           },
           "deputy": {
-            "$ref": "#/components/schemas/PersonRefDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonRefDto"
+              }
+            ],
+            "nullable": true
           },
           "memberCount": {
             "type": "integer",
@@ -3467,8 +4397,7 @@
             "format": "uuid"
           },
           "userName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
@@ -3483,7 +4412,11 @@
             "nullable": true
           },
           "staffCategory": {
-            "$ref": "#/components/schemas/StaffCategory"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StaffCategory"
+              }
+            ]
           },
           "isHead": {
             "type": "boolean"
@@ -3506,12 +4439,84 @@
         },
         "additionalProperties": false
       },
+      "UnitSkillsDto": {
+        "type": "object",
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "unitName": {
+            "type": "string"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillCategoryDto"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillMemberDto"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategoryCoverDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "UnreadCountDto": {
         "type": "object",
         "properties": {
           "count": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateCategoryRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "unitId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "timelineHours": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "defaultPriority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ],
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -3547,16 +4552,13 @@
             "format": "uuid"
           },
           "username": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "email": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "firstName": {
             "type": "string",
@@ -3574,8 +4576,7 @@
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "isActive": {
             "type": "boolean"
@@ -3595,12 +4596,10 @@
             "format": "uuid"
           },
           "username": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "email": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "fullName": {
             "type": "string",
@@ -3630,8 +4629,7 @@
             "type": "array",
             "items": {
               "type": "string"
-            },
-            "nullable": true
+            }
           },
           "unreadNotificationCount": {
             "type": "integer",
@@ -3648,18 +4646,21 @@
             "format": "int32"
           },
           "message": {
-            "type": "string",
-            "nullable": true
+            "type": "string"
           },
           "data": {
-            "$ref": "#/components/schemas/UserProfileDto"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileDto"
+              }
+            ],
+            "nullable": true
           },
           "errors": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
-            },
-            "nullable": true
+            }
           }
         },
         "additionalProperties": false

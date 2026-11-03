@@ -22,7 +22,7 @@ From Step 1e, also make sure the following are in place:
   - When `errors` has a key that matches a form field (camelCase, for example `startDate`), show that text under the field.
   - Use one helper for this in `src/shared/lib/http/`.
 - **Welcome.** `/api/auth/me` and the login `user` now have `firstName` and `lastName`. "Welcome, <firstName>" uses `firstName`.
-- **Development sign-in hint.** The list of test accounts on the sign-in page is now: test.requester, test.caseworker1–4, test.hou, test.hou2, test.hod, test.superadmin. Never show a password.
+- **No list of test accounts on the sign-in page.** The user removed that line; keep it removed in every build.
 
 ## 1. What changed in the backend (why this step exists)
 

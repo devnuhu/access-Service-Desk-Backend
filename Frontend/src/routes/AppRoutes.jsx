@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import { CategoriesPage, SkillsMatrixPage } from "@/features/admin-catalogue";
 import { EmailPage } from "@/features/admin-email";
 import { PeopleRolesPage } from "@/features/admin-people";
 import { UnitPage, UnitsPage } from "@/features/admin-units";
@@ -36,6 +37,11 @@ export default function AppRoutes() {
             <Route path="admin/people" element={<PeopleRolesPage />} />
             <Route path="admin/units" element={<UnitsPage />} />
             <Route path="admin/units/:unitId" element={<UnitPage />} />
+            <Route
+              path="admin/units/:unitId/skills"
+              element={<SkillsMatrixPage />}
+            />
+            <Route path="admin/categories" element={<CategoriesPage />} />
             <Route path="admin/email" element={<EmailPage />} />
           </Route>
           <Route path="no-access" element={<NoAccessPage />} />

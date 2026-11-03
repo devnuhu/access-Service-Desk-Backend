@@ -72,5 +72,5 @@ From the frontend folder: docs are `..\Backend\ServiceDesk\docs`, the API soluti
 
 - `set-secrets.ps1` (run from `PRO\AccessServiceDesk\Backend\ServiceDesk`) makes a new JWT key and test-account password and asks for the Service Desk's own AD settings. They go to this computer's user secrets for ServiceDeskAPI.
 - On a server: `SERVICEDESK_JWT_SECRET_KEY`, `SERVICEDESK_LDAP_USERNAME`, `SERVICEDESK_LDAP_PASSWORD`. People Hub's `JWT_SECRET_KEY` and `LDAP_SERVICE_*` are never read.
-- Without AD settings, Development still starts: AD sign-in is off and the test accounts work (`test.requester`, `test.caseworker1`, `test.caseworker2`, `test.hou`, `test.hod`, `test.superadmin`). Production refuses to start.
+- Without AD settings, Development still starts: AD sign-in is off and the test accounts work (`test.requester`, `test.caseworker1` to `test.caseworker4`, `test.hou`, `test.hou2`, `test.hod`, `test.superadmin`; where each sits is in `docs/fe/FE-1-organisation.md` section 1). Production refuses to start.
 - Tokens travel in HttpOnly cookies named `__Host-sd-accessToken` / `__Host-sd-refreshToken` (HTTPS) or `__Secure-sd-*` (HTTP in Development). The web app sends `credentials: 'include'` and refreshes through one shared promise (never two refreshes at once).

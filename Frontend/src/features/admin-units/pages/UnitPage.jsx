@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, UserPlus } from "lucide-react";
+import { ChevronRight, Grid3x3, UserPlus } from "lucide-react";
+import { useUnitSkills } from "@/features/admin-catalogue";
 import { formatWat } from "@/shared/lib/time";
 import {
   Button,
@@ -61,6 +62,7 @@ export default function UnitPage() {
   const toast = useToast();
   const departments = useAdminDepartments();
   const members = useUnitMembers(unitId);
+  const skills = useUnitSkills(unitId);
   const setHead = useSetHead();
   const setDeputy = useSetDeputy();
   const addMember = useAddMember();
@@ -115,6 +117,10 @@ export default function UnitPage() {
   }
 
   const rows = members.data ?? [];
+  // How many of the unit's categories each member handles (from the skills matrix).
+  const categoryCount = new Map(
+    (skills.data?.members ?? []).map((m) => [m.userId, m.categoryIds.length]),
+  );
   const candidates = rows.filter((member) => !member.isHead);
 
   return (
@@ -188,10 +194,19 @@ export default function UnitPage() {
           title="Members"
           description="The case workers of this unit. A person is in at most one unit per department."
           actions={
-            <Button size="sm" onClick={() => setDialog("member")}>
-              <UserPlus aria-hidden="true" size={16} />
-              Add member
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                to={`/admin/units/${unitId}/skills`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-line bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-page"
+              >
+                <Grid3x3 aria-hidden="true" size={16} />
+                Skills matrix
+              </Link>
+              <Button size="sm" onClick={() => setDialog("member")}>
+                <UserPlus aria-hidden="true" size={16} />
+                Add member
+              </Button>
+            </div>
           }
         />
         {members.isLoading ? (
@@ -218,7 +233,10 @@ export default function UnitPage() {
                     Staff no.
                   </th>
                   <th scope="col" className="px-5 py-2.5">
-                    Category
+                    Staff category
+                  </th>
+                  <th scope="col" className="px-5 py-2.5">
+                    Categories
                   </th>
                   <th scope="col" className="px-5 py-2.5">
                     Account
@@ -265,6 +283,14 @@ export default function UnitPage() {
                           {member.isHead && <Chip tone="orange">Head</Chip>}
                           {member.isDeputy && <Chip tone="orange">Deputy</Chip>}
                         </span>
+                      </td>
+                      <td
+                        className="px-5 py-3 tabular-nums"
+                        data-testid={`categories-${member.userId}`}
+                      >
+                        {skills.data
+                          ? (categoryCount.get(member.userId) ?? 0)
+                          : "—"}
                       </td>
                       <td className="px-5 py-3">
                         <Chip tone={member.accountActive ? "green" : "red"}>

@@ -1,13 +1,16 @@
+import { Link } from "react-router-dom";
 import {
   Building2,
   ClipboardList,
   ShieldCheck,
+  TriangleAlert,
   UserCog,
   Users,
 } from "lucide-react";
+import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
 import { describePlaces, useMyOrganisation } from "@/features/org";
-import { roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
+import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
 import { Card, RoleChips } from "@/shared/ui";
 
 /** One line per role (BRD Section 4). Platform wording: no department names. */
@@ -39,6 +42,8 @@ export default function HomePage() {
   const roles = sortRoles(user.roles);
   const { data: org } = useMyOrganisation();
   const places = describePlaces(org);
+  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
+  const { data: coverWarnings } = useCoverWarnings({ enabled: isSuperAdmin });
 
   return (
     <div className="space-y-6">
@@ -60,6 +65,38 @@ export default function HomePage() {
           </ul>
         )}
       </Card>
+
+      {isSuperAdmin && coverWarnings?.length > 0 && (
+        <section
+          aria-labelledby="home-cover"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand-orange bg-brand-orange-light px-5 py-4"
+        >
+          <div className="flex gap-3">
+            <TriangleAlert
+              aria-hidden="true"
+              size={20}
+              className="mt-0.5 shrink-0 text-brand-orange-ink"
+            />
+            <div>
+              <h2
+                id="home-cover"
+                className="text-sm font-semibold text-brand-orange-ink"
+              >
+                Categories needing cover
+              </h2>
+              <p className="mt-0.5 text-sm text-ink">
+                {coverTitle(coverWarnings.length)}.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/admin/categories"
+            className="text-sm font-semibold text-brand-navy hover:underline"
+          >
+            Open Categories
+          </Link>
+        </section>
+      )}
 
       <section aria-labelledby="home-roles">
         <h2 id="home-roles" className="text-base font-semibold">

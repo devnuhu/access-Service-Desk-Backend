@@ -56,6 +56,25 @@ export const NEVER_READ = [
   })),
 ];
 
+/**
+ * Top-level response properties swagger marks nullable that a success answer always carries, so
+ * the zod schema may reject null. Only the sign-in ApiResponse wrapper: its `data` is T? because
+ * the same type carries the error answers (People Hub compatibility).
+ */
+export const PRESENT_ON_SUCCESS = [
+  ...[
+    ["POST", "/api/Auth/login"],
+    ["POST", "/api/Auth/refresh"],
+    ["GET", "/api/Auth/me"],
+    ["GET", "/api/Auth/csrf"],
+  ].map(([method, path]) => ({
+    method,
+    path,
+    fields: ["data"],
+    why: "ApiResponse.data is null only on error answers",
+  })),
+];
+
 function findRule(rules, method, route) {
   return rules.find(
     (rule) =>
@@ -169,6 +188,68 @@ export function zodObjectShape(schema) {
 
 function isZodRequired(field) {
   return !field.safeParse(undefined).success;
+}
+
+/** Swagger marks a nullable property with nullable: true, also on { allOf: [{ $ref }] } wrappers. */
+function isSwaggerNullable(property) {
+  return property?.nullable === true;
+}
+
+/**
+ * Compares a zod response shape with a swagger object schema, nested objects and array items
+ * included: every property the app reads must exist, and a property swagger marks nullable must
+ * accept null in the zod schema (otherwise a real null answer fails to parse).
+ */
+function compareResponseShape(
+  swagger,
+  shape,
+  schema,
+  at,
+  report,
+  presentOnSuccess = [],
+  depth = 0,
+) {
+  const names = Object.keys(schema.properties);
+  for (const [name, field] of Object.entries(shape)) {
+    const where = at ? `${at}.${name}` : name;
+    if (!names.includes(name)) {
+      const nearMiss = names.find(
+        (n) => n.toLowerCase() === name.toLowerCase(),
+      );
+      report(
+        `response property "${where}" is not in the response schema` +
+          (nearMiss ? ` (did you mean "${nearMiss}"?)` : ""),
+      );
+      continue;
+    }
+    const property = schema.properties[name];
+    if (
+      isSwaggerNullable(property) &&
+      !presentOnSuccess.includes(where) &&
+      !field.safeParse(null).success
+    ) {
+      report(
+        `response property "${where}" can be null (swagger) but the zod schema rejects null`,
+      );
+    }
+    const nestedShape = zodObjectShape(field);
+    const nestedSchema = nestedShape && objectSchema(swagger, property);
+    if (
+      nestedSchema &&
+      Object.keys(nestedSchema.properties).length &&
+      depth < 8
+    ) {
+      compareResponseShape(
+        swagger,
+        nestedShape,
+        nestedSchema,
+        where,
+        report,
+        [],
+        depth + 1,
+      );
+    }
+  }
 }
 
 /**
@@ -303,21 +384,20 @@ export function checkEndpoint(endpoint, swagger, index = indexPaths(swagger)) {
         `${label}: ${where} documents no response properties; response not compared`,
       );
     } else {
-      const names = Object.keys(schema.properties);
-      for (const name of Object.keys(shape)) {
-        if (names.includes(name)) continue;
-        const nearMiss = names.find(
-          (n) => n.toLowerCase() === name.toLowerCase(),
-        );
-        responseProblems.push(
-          `${label}: response property "${name}" is not in the response schema` +
-            (nearMiss ? ` (did you mean "${nearMiss}"?)` : "") +
-            ` (${where})` +
-            (endpoint.swaggerDeviation
-              ? `; known deviation: ${endpoint.swaggerDeviation}`
-              : ""),
-        );
-      }
+      compareResponseShape(
+        swagger,
+        shape,
+        schema,
+        "",
+        (text) =>
+          responseProblems.push(
+            `${label}: ${text} (${where})` +
+              (endpoint.swaggerDeviation
+                ? `; known deviation: ${endpoint.swaggerDeviation}`
+                : ""),
+          ),
+        findRule(PRESENT_ON_SUCCESS, method, route)?.fields,
+      );
     }
   }
 
@@ -364,8 +444,13 @@ export function parseInventory(markdown) {
     const match = line.match(
       /^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|/,
     );
+    // A route may show its query ("/api/admin/categories?departmentId="); compare the path only.
     if (match)
-      rows.push({ method: match[1], path: match[2], access: match[3] });
+      rows.push({
+        method: match[1],
+        path: match[2].split("?")[0],
+        access: match[3],
+      });
   }
   return rows;
 }

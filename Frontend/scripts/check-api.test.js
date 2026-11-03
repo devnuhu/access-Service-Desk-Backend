@@ -209,6 +209,135 @@ describe("check-api", () => {
   });
 });
 
+// Nullable fields as Swashbuckle writes them since Step 3: nullable: true on strings, and
+// { allOf: [{ $ref }], nullable: true } for objects that can be null.
+const nullableSwagger = {
+  paths: {
+    "/api/admin/departments": {
+      get: {
+        responses: {
+          200: {
+            content: {
+              "application/json": {
+                schema: {
+                  type: "array",
+                  items: { $ref: "#/components/schemas/Department" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/Auth/me": { get: { responses: { 200: json("ProfileResponse") } } },
+  },
+  components: {
+    schemas: {
+      Person: {
+        type: "object",
+        properties: {
+          userId: { type: "string" },
+          fullName: { type: "string", nullable: true },
+        },
+      },
+      Unit: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          head: {
+            allOf: [{ $ref: "#/components/schemas/Person" }],
+            nullable: true,
+          },
+        },
+      },
+      Department: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          hod: {
+            allOf: [{ $ref: "#/components/schemas/Person" }],
+            nullable: true,
+          },
+          units: {
+            type: "array",
+            items: { $ref: "#/components/schemas/Unit" },
+          },
+        },
+      },
+      ProfileResponse: {
+        type: "object",
+        properties: {
+          statusCode: { type: "integer" },
+          data: {
+            allOf: [{ $ref: "#/components/schemas/Person" }],
+            nullable: true,
+          },
+        },
+      },
+    },
+  },
+};
+
+const checkNullable = (definition) =>
+  checkEndpoint(defineEndpoint(definition), nullableSwagger);
+
+describe("check-api nullable fields", () => {
+  const person = z.object({
+    userId: z.string(),
+    fullName: z.string().nullable(),
+  });
+
+  it("passes when every nullable field (allOf wrappers included) accepts null", () => {
+    const { problems } = checkNullable({
+      method: "GET",
+      path: "/api/admin/departments",
+      response: z.array(
+        z.object({
+          name: z.string(),
+          hod: person.nullable(),
+          units: z.array(z.object({ id: z.string(), head: person.nullable() })),
+        }),
+      ),
+    });
+    expect(problems).toEqual([]);
+  });
+
+  it("reports nullable fields the zod schema rejects, in nested objects and array items", () => {
+    const { problems } = checkNullable({
+      method: "GET",
+      path: "/api/admin/departments",
+      response: z.array(
+        z.object({
+          hod: person,
+          units: z.array(
+            z.object({
+              head: z.object({ userId: z.string(), fullName: z.string() }),
+              memberCount: z.number(),
+            }),
+          ),
+        }),
+      ),
+    });
+    expect(problems).toEqual([
+      expect.stringMatching(/"hod" can be null .* rejects null/),
+      expect.stringMatching(/"units.head" can be null/),
+      expect.stringMatching(/"units.head.fullName" can be null/),
+      expect.stringMatching(
+        /"units.memberCount" is not in the response schema/,
+      ),
+    ]);
+  });
+
+  it("lets the sign-in ApiResponse data stay non-null (present on every success)", () => {
+    const { problems } = checkNullable({
+      method: "GET",
+      path: "/api/Auth/me",
+      response: z.object({ statusCode: z.number(), data: person }),
+    });
+    expect(problems).toEqual([]);
+  });
+});
+
 describe("access table", () => {
   it("parses inventory rows and maps policies, roles and plain access", () => {
     const rows = parseInventory(
@@ -218,9 +347,11 @@ describe("access table", () => {
         "| GET | `/api/admin/users` | Policy: Super_Admin_Only | List |  |",
         "| GET | `/api/directory/users/search` | Policy: Unit_Management | Search |  |",
         "| POST | `/api/Auth/login` | Anonymous | Login |  |",
+        "| GET | `/api/admin/categories?departmentId=` | Super Admin | List |",
       ].join("\n"),
     );
-    expect(rows).toHaveLength(3);
+    expect(rows).toHaveLength(4);
+    expect(rows[3].path).toBe("/api/admin/categories");
     expect(inventoryAccess(rows[0].access)).toEqual(["SuperAdmin"]);
     expect(inventoryAccess(rows[1].access)).toEqual([
       "HeadOfUnit",

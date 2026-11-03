@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using ServiceDeskAPI.Application.DTOs;
 using ServiceDeskAPI.Application.Interfaces;
 using ServiceDeskAPI.Domain;
@@ -16,7 +17,8 @@ namespace ServiceDeskAPI.Infrastructure.Services
     /// Creates local accounts with a local password and the listed roles, then places them in the organisation (Step 2a):
     /// test.hod is HOD of Contribution Processing; test.hou heads Contribution Matching with test.caseworker1 and test.caseworker3;
     /// test.hou2 heads Refund with test.caseworker2 and test.caseworker4 (Step 2b: two case workers per unit, so assignment can be tested).
-    /// Their Case Worker / Head of Unit / HOD roles follow from that. Safe to run on every start.
+    /// Their Case Worker / Head of Unit / HOD roles follow from that. Each of them handles every category of their unit (Step 3).
+    /// Safe to run on every start.
     /// Never touches an account it did not create.
     /// </summary>
     public class TestAccountSeeder : IHostedService
@@ -170,6 +172,25 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (cw3.HasValue) Log(logger, "test.caseworker3 in Contribution Matching", await org.AddMemberAsync(OrgSeed.ContributionMatchingUnitId, cw3.Value, null, null));
             if (cw4.HasValue) Log(logger, "test.caseworker4 in Refund", await org.AddMemberAsync(OrgSeed.RefundUnitId, cw4.Value, null, null));
             if (hou2.HasValue) Log(logger, "Head of Refund", await org.SetUnitHeadAsync(OrgSeed.RefundUnitId, hou2, null));
+
+            // Step 3: each test case worker (heads included) handles every active category of their unit, so each category has
+            // three eligible people. Only for people with no mapping yet, so changes made on the skills page survive a restart.
+            var db = services.GetRequiredService<AppDbContext>();
+            var catalogue = services.GetRequiredService<ICatalogueService>();
+            var teams = new (Guid UnitId, Guid?[] People)[]
+            {
+                (OrgSeed.ContributionMatchingUnitId, new[] { hou, cw1, cw3 }),
+                (OrgSeed.RefundUnitId, new[] { hou2, cw2, cw4 })
+            };
+            foreach (var (unitId, people) in teams)
+            {
+                var categoryIds = await db.Categories.Where(c => c.UnitId == unitId && c.IsActive).Select(c => c.Id).ToListAsync();
+                foreach (var person in people)
+                {
+                    if (!person.HasValue || await db.CategorySkills.AnyAsync(s => s.UserId == person.Value && s.IsActive)) continue;
+                    Log(logger, "Categories for a test case worker", await catalogue.SetSkillsAsync(unitId, person.Value, categoryIds, null));
+                }
+            }
         }
 
         private static void Log(ILogger logger, string what, AdminResult result)

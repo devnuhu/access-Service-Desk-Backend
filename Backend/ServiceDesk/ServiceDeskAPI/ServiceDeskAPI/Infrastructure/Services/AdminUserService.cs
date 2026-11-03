@@ -104,7 +104,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
                 _db.UserRoles.Add(new IdentityUserRole<Guid> { UserId = userId, RoleId = roleId });
 
             Stage(AuditAction.RoleChanged, user, null, Json(new { granted = role.Name }));
-            _notifications.Stage(userId, "Your Service Desk access changed",
+            _notifications.Stage(userId, "Your Access Desk access changed",
                 "You now have the " + Friendly(role.Name) + " role. Sign out and back in if you do not see the new pages yet.",
                 NotificationType.Info, NotificationCategory.System, "User", userId, null);
 
@@ -133,7 +133,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (OrgRoleSync.IsStructureRole(roleId))
                 return AdminResult.Invalid(StructureRoleMessage(assignment.Role.Name));
             if (roleId == AppRoles.RequesterId)
-                return AdminResult.Invalid("Every staff member is a Requester. To stop someone using the Service Desk, deactivate their account instead.");
+                return AdminResult.Invalid("Every staff member is a Requester. To stop someone using Access Desk, block their account instead.");
             if (roleId == AppRoles.SuperAdminId && await SuperAdminRules.IsLastAsync(_db, userId))
                 return AdminResult.Invalid("This is the last Super Admin. Give the role to someone else first.");
 
@@ -144,7 +144,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (link != null) _db.UserRoles.Remove(link);
 
             Stage(AuditAction.RoleChanged, assignment.User, Json(new { removed = assignment.Role.Name }), null);
-            _notifications.Stage(userId, "Your Service Desk access changed",
+            _notifications.Stage(userId, "Your Access Desk access changed",
                 "The " + Friendly(assignment.Role.Name) + " role was removed from your account.",
                 NotificationType.Info, NotificationCategory.System, "User", userId, null);
 

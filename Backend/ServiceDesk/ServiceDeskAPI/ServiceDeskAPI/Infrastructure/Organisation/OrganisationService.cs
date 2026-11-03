@@ -359,6 +359,14 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             member.IsActive = false;
             member.LeftAt = DateTime.UtcNow;
             member.RemovedByUserId = actorUserId;
+            // Their categories in this unit end with the membership (Step 3 skills matrix); history kept
+            var skills = await _db.CategorySkills.Where(s => s.UserId == userId && s.IsActive && s.Category!.UnitId == unitId).ToListAsync();
+            foreach (var skill in skills)
+            {
+                skill.IsActive = false;
+                skill.RemovedAt = DateTime.UtcNow;
+                skill.RemovedByUserId = actorUserId;
+            }
             Stage(AuditAction.Deleted, "UnitMember", member.Id, member.User.UserName, new { unit = unit.Code, user = member.User.UserName }, null);
             return await SaveAsync(new Guid?[] { userId }, actorUserId, Name(member.User) + " removed from " + unit.Name + ".", "The change could not be saved; try again.");
         }

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ServiceDeskAPI.Domain;
 using ServiceDeskAPI.Domain.Entities;
+using ServiceDeskAPI.Domain.Catalogue;
+using ServiceDeskAPI.Domain.Enums;
 using ServiceDeskAPI.Domain.Organisation;
 
 namespace ServiceDeskAPI.Infrastructure.Persistence
@@ -21,6 +23,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Unit> Units => Set<Unit>();
         public DbSet<UnitMember> UnitMembers => Set<UnitMember>();
         public DbSet<Absence> Absences => Set<Absence>();
+        public DbSet<Category> Categories => Set<Category>();
+        public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -103,6 +107,37 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
 
             ConfigureAuditAndNotifications(builder);
             ConfigureOrganisation(builder);
+            ConfigureCatalogue(builder);
+        }
+
+        private static void ConfigureCatalogue(ModelBuilder builder)
+        {
+            builder.Entity<Category>(e =>
+            {
+                e.ToTable("Categories");
+                e.HasKey(c => c.Id);
+                e.Property(c => c.Name).HasMaxLength(100).IsRequired();
+                e.Property(c => c.Description).HasMaxLength(300);
+                e.HasOne(c => c.Department).WithMany().HasForeignKey(c => c.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(c => new { c.DepartmentId, c.Name }).IsUnique();
+                e.HasIndex(c => c.UnitId);
+                e.HasData(CatalogueSeed.Categories.Select((c, i) => new Category
+                {
+                    Id = c.Id, DepartmentId = OrgSeed.ContributionProcessingId, UnitId = c.UnitId, Name = c.Name,
+                    TimelineHours = 24, DefaultPriority = TicketPriority.Medium, SortOrder = i + 1, IsActive = true, CreatedAt = SeedDate
+                }).ToArray());
+            });
+
+            builder.Entity<CategorySkill>(e =>
+            {
+                e.ToTable("CategorySkills");
+                e.HasKey(s => s.Id);
+                e.HasOne(s => s.Category).WithMany(c => c.Skills).HasForeignKey(s => s.CategoryId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(s => new { s.CategoryId, s.UserId }).IsUnique().HasFilter("[IsActive] = 1").HasDatabaseName("IX_CategorySkills_CategoryId_UserId_Active");
+                e.HasIndex(s => s.UserId);
+            });
         }
 
         /// <summary>Departments, units and members (Step 2a). Contribution Processing and its two units are seeded.</summary>

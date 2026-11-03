@@ -22,6 +22,12 @@ import {
 } from "../src/features/admin-people/api/endpoints.js";
 import { getEmailStatus } from "../src/features/admin-email/api/endpoints.js";
 import { listAdminDepartments } from "../src/features/admin-units/api/endpoints.js";
+import {
+  getUnitSkills,
+  listCategories,
+  listCoverWarnings,
+} from "../src/features/admin-catalogue/api/endpoints.js";
+import { listCatalogue } from "../src/features/catalogue/api/endpoints.js";
 import { getMyAvailability } from "../src/features/availability/api/endpoints.js";
 import {
   getMyOrganisation,
@@ -160,6 +166,27 @@ export const ACCESS_TABLE = [
     skipAlways: true,
     skip: "allowed by the organisation (HOD of that department), not by role alone",
   }),
+
+  // Catalogue: requesters read it; Super Admin manages categories and the skills matrix
+  get("/api/catalogue/categories", SIGNED_IN, {
+    probe: {},
+    schema: listCatalogue.response,
+  }),
+  get("/api/admin/categories", SUPER, {
+    probe: {},
+    schema: listCategories.response,
+  }),
+  write("POST", "/api/admin/categories", SUPER),
+  write("PATCH", "/api/admin/categories/{categoryId}", SUPER),
+  get("/api/admin/categories/cover-warnings", SUPER, {
+    probe: {},
+    schema: listCoverWarnings.response,
+  }),
+  get("/api/admin/units/{unitId}/skills", SUPER, {
+    ...from("/api/admin/categories", "unitId"),
+    schema: getUnitSkills.response,
+  }),
+  write("PUT", "/api/admin/units/{unitId}/skills/{userId}", SUPER),
 
   // Health
   get("/api/health", ANONYMOUS),

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { refreshCatalogue } from "@/features/admin-catalogue";
 import { ORG_DEPARTMENTS_KEY, ORG_ME_KEY } from "@/features/org";
 import { request } from "@/shared/lib/http";
 import {
@@ -36,8 +37,9 @@ export function useUnitMembers(unitId) {
 }
 
 /**
- * After every change: the departments, the unit's members and my own org/me (the change may move
- * the admin in or out of a department, and so change their menu).
+ * After every change: the departments, the unit's members, my own org/me (the change may move
+ * the admin in or out of a department, and so change their menu), and the catalogue views (leaving
+ * a unit ends that person's category mappings there; a blocked or new member changes the counts).
  */
 function useOrgMutation(mutationFn) {
   const queryClient = useQueryClient();
@@ -52,6 +54,7 @@ function useOrgMutation(mutationFn) {
       }
       queryClient.invalidateQueries({ queryKey: ORG_ME_KEY });
       queryClient.invalidateQueries({ queryKey: ORG_DEPARTMENTS_KEY });
+      refreshCatalogue(queryClient);
     },
   });
 }

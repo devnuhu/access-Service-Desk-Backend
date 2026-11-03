@@ -41,6 +41,13 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | DELETE | `/api/availability/absences/{id}` | same people as above | Cancels a future period; a started one ends yesterday instead |
 | GET | `/api/availability/units/{unitId}` | unit head or deputy, HOD of its department, Super Admin | Members, who is available today, leave in the next 90 days |
 | GET | `/api/availability/departments/{departmentId}` | HOD, Super Admin | The same for every active unit of the department |
+| GET | `/api/catalogue/categories` | signed in | Active departments with the categories a requester can choose |
+| GET | `/api/admin/categories?departmentId=` | Super Admin | Categories with owning unit, timeline, default priority, eligible case workers, `needsCover` |
+| POST | `/api/admin/categories` | Super Admin | New category in a unit (name unique in the department; timeline 1-720 business hours) |
+| PATCH | `/api/admin/categories/{id}` | Super Admin | Rename, describe, move to another unit of the department (mappings outside the new unit end), timeline, priority, order, on/off |
+| GET | `/api/admin/categories/cover-warnings` | Super Admin | Active categories with fewer than two eligible case workers |
+| GET | `/api/admin/units/{unitId}/skills` | Super Admin | Skills matrix: the unit's categories, its members and what each handles, warnings |
+| PUT | `/api/admin/units/{unitId}/skills/{userId}` | Super Admin | Set exactly which of the unit's categories this member handles; message names categories still short of cover |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |

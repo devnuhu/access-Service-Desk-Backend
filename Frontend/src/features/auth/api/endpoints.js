@@ -7,7 +7,7 @@ const apiResponse = (data) =>
     statusCode: z.number(),
     message: z.string().nullable(),
     data,
-    errors: z.record(z.string(), z.unknown()).nullable().optional(),
+    errors: z.record(z.string(), z.string()).nullable().optional(),
   });
 
 /**

@@ -93,7 +93,7 @@ namespace ServiceDeskAPI.Tests.Admin
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityId == target && a.Action == AuditAction.RoleChanged && a.Module == AuditModule.Administration));
-            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == target && n.Title == "Your Service Desk access changed"));
+            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == target && n.Title == "Your Access Desk access changed"));
             var history = await db.UserRoleAssignments.Where(a => a.UserId == target && a.RoleId == AppRoles.SuperAdminId).ToListAsync();
             Assert.Contains(history, a => !a.IsActive && a.DisabledAt != null && a.DisabledByUserId != null);
             Assert.DoesNotContain(history, a => a.IsActive);

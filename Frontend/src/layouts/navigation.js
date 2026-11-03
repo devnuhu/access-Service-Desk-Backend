@@ -5,6 +5,7 @@ import {
   FileText,
   House,
   Inbox,
+  ListTree,
   Mail,
   Network,
   UsersRound,
@@ -107,6 +108,7 @@ export function buildNavigation(user, org, allDepartments) {
       items: [
         { label: "People and roles", icon: Users, to: "/admin/people" },
         { label: "Units", icon: Network, to: "/admin/units" },
+        { label: "Categories", icon: ListTree, to: "/admin/categories" },
         { label: "Email", icon: Mail, to: "/admin/email" },
       ],
     });

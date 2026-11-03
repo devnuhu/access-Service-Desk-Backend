@@ -134,16 +134,22 @@ npm run check        # stop npm run dev first
 
 ## Questions for the backend
 
-1. **Stale roles in the access token after a structure change.**
+**Status, 3 November 2026 (FE-2 section 0):** questions 1, 3, 5 and 6 are **resolved**, as noted under each. Question 2 is still open. Question 4 is not marked here, but the Step 3 swagger now types every `errors` as `additionalProperties: { type: string }` (see `FE-2-report.md`).
+
+1. **Resolved.** Decision of 3 November (build plan): when a `User` notification arrives, the web app calls `POST /api/auth/refresh` through its one shared refresh promise, then refetches `/me` and `org/me`. No extra backend mechanism. Built after FE-1 (`refreshSessionNow()` in `src/shared/lib/http`), with a test that two notifications arriving together cause exactly one refresh.
+   **Stale roles in the access token after a structure change.**
    - The web app now refetches `/me` and `org/me` when the "access changed" notification arrives, so the menu and pages update at once.
    - The access token still carries the old role claims until its next refresh. Policy-protected endpoints (`Unit_Management` for directory search, `Super_Admin_Only`) therefore follow the old roles for up to the token's lifetime. Availability is not affected, because it checks the database.
    - Should the API mark the person's tokens for refresh on a structure change? Or should the web app run its shared refresh when a `User` notification arrives? The second is easy to add on the frontend, but a forced refresh may be the cleaner contract.
    - The notification text still says "Sign out and back in if you do not see the change yet."
 2. **404 before 403 on the availability views.** `GET /api/availability/units/{id}` and `/departments/{id}` answer 404 for an unknown id before checking access, so anyone signed in can tell which ids exist. Is that acceptable? If 403 came first for people who lead no unit, `check:api:live` could probe these routes; for now it skips them for every role.
-3. **Nullable references in swagger.**
+3. **Resolved** in Step 3. Swagger now marks nullable strings with `nullable: true`, and nullable references as `allOf: [{ $ref }]` with `nullable: true`. `check:api` now compares nullability, nested objects included, and confirms that the frontend schemas accept null for these fields.
+   **Nullable references in swagger.**
    - Swagger does not mark these as nullable: `DepartmentDto.hod`, `UnitDto.head`/`deputy`, `MyAvailabilityDto.current`, `MemberAvailabilityDto.current`. They are `$ref`s with no `nullable`.
    - They are null in practice, and the frontend schemas allow null.
    - Could Swashbuckle mark them, for example with `UseAllOfToExtendReferenceSchemas` and `SupportNonNullableReferenceTypes`?
 4. **`ApiError.errors` / `ApiResponse.errors` are typed only as `object`.** Could swagger say `additionalProperties: { type: string }`, so the field-error shape is part of the contract?
-5. **App name in notifications (rule 14).** Manual role changes (`AdminUserService`) say "Your Service Desk access changed"; structure changes (`OrgRoleSync`) say "Your **Access Desk** access changed". Should both say Access Desk?
-6. **Docs.** `agent-onboarding.md` ("Secrets and sign-in") still lists the six original test accounts. test.caseworker3, test.caseworker4 and test.hou2 are missing.
+5. **Resolved** in Step 3: both kinds of change now say "Your Access Desk access changed".
+   **App name in notifications (rule 14).** Manual role changes (`AdminUserService`) say "Your Service Desk access changed"; structure changes (`OrgRoleSync`) say "Your **Access Desk** access changed". Should both say Access Desk?
+6. **Resolved:** `agent-onboarding.md` now lists all nine test accounts.
+   **Docs.** `agent-onboarding.md` ("Secrets and sign-in") still lists the six original test accounts. test.caseworker3, test.caseworker4 and test.hou2 are missing.
