@@ -127,6 +127,33 @@ describe("createHttpClient", () => {
     expect(refreshSession).toHaveBeenCalledTimes(1);
   });
 
+  it("refreshSession() joins a refresh already started by a 401", async () => {
+    let session = "expired";
+    let finishRefresh;
+    const refreshSession = vi.fn(async () => {
+      await new Promise((resolve) => (finishRefresh = resolve));
+      session = "good";
+      return true;
+    });
+    const adapter = vi.fn(async (config) =>
+      respond(config, session === "good" ? 200 : 401, { ok: true }),
+    );
+    const http = createHttpClient({
+      baseURL: "",
+      refreshSession,
+      onUnauthorized: vi.fn(),
+      adapter,
+    });
+    const failed = http.get("/a");
+    await vi.waitFor(() => expect(refreshSession).toHaveBeenCalledTimes(1));
+    const renewing = http.refreshSession();
+    finishRefresh();
+    const [retried, renewed] = await Promise.all([failed, renewing]);
+    expect(retried.data).toEqual({ ok: true });
+    expect(renewed).toBe(true);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+  });
+
   it("ends the session when refresh fails, and does not retry", async () => {
     const onUnauthorized = vi.fn();
     const adapter = vi.fn(async (config) => respond(config, 401));

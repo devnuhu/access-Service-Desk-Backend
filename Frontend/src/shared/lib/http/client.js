@@ -22,6 +22,7 @@ const STATE_CHANGING = new Set(["post", "put", "patch", "delete"]);
  * token comes back, so a request sent before a refresh finished and failing afterwards is retried
  * without starting another refresh. If refresh fails, onUnauthorized ends the session.
  * Requests marked skipAuthRedirect (login, refresh, logout) never trigger this.
+ * instance.refreshSession() starts (or joins) that same shared refresh; it resolves true or false.
  * Any other 403 never ends the session; it rejects with an ApiError of kind "forbidden".
  *
  * @param {Object} options
@@ -58,6 +59,9 @@ export function createHttpClient({
     }
     return refreshing;
   };
+
+  // The same shared refresh for callers outside a failed request (a live "your access changed").
+  instance.refreshSession = refreshOnce;
 
   instance.interceptors.request.use((config) => {
     config.sentGeneration = refreshGeneration;

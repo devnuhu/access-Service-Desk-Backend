@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SESSION_KEY } from "@/features/auth";
 import { ORG_ME_KEY } from "@/features/org";
+import { refreshSessionNow } from "@/shared/lib/http";
 import { useToast } from "@/shared/ui";
 import { createNotificationConnection } from "../api/hub.js";
 import { notificationSchema } from "../api/endpoints.js";
@@ -14,6 +15,13 @@ export const REFRESH_BY_ENTITY = {
   // Someone's leave changed: the availability views refetch.
   Absence: [["availability"]],
 };
+
+/**
+ * Pushed changes that also change the roles inside the access token. The token is renewed first
+ * (through the client's one shared refresh), so pages and API calls that check the token's roles
+ * follow at once, then the queries above refetch.
+ */
+const RENEW_TOKEN_FOR = new Set(["User"]);
 
 /**
  * Live notifications while the shell is shown (signed in). The connection stops when the shell
@@ -35,10 +43,17 @@ export default function useLiveNotifications() {
       }
       const notification = parsed.data;
       addPushedNotification(queryClient, notification);
-      for (const queryKey of REFRESH_BY_ENTITY[
-        notification.relatedEntityType
-      ] ?? []) {
-        queryClient.invalidateQueries({ queryKey });
+      const entity = notification.relatedEntityType;
+      const refetch = () => {
+        if (stopped) return;
+        for (const queryKey of REFRESH_BY_ENTITY[entity] ?? []) {
+          queryClient.invalidateQueries({ queryKey });
+        }
+      };
+      if (RENEW_TOKEN_FOR.has(entity)) {
+        refreshSessionNow().then(refetch, refetch);
+      } else {
+        refetch();
       }
       const show = notification.isActionRequired ? toast.action : toast.info;
       show(notification.message ?? "", {

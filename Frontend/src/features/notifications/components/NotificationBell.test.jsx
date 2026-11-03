@@ -200,4 +200,106 @@ describe("NotificationBell", () => {
     expect(meCalls).toBe(2);
     await expect.poll(() => orgCalls).toBe(2);
   });
+
+  it('two "User" notifications arriving together renew the token once, then refetch auth/me and org/me', async () => {
+    let refreshCalls = 0;
+    let meCalls = 0;
+    let orgCalls = 0;
+    let finishRefresh;
+    const queryClient = createTestQueryClient();
+    installFakeApi(queryClient, {
+      "GET /api/notifications/unread-count": () => [200, { count: 0 }],
+      "GET /api/notifications": () => [
+        200,
+        { items: [], total: 0, unread: 0, page: 1, pageSize: 10 },
+      ],
+      "POST /api/Auth/refresh": () => {
+        refreshCalls += 1;
+        // Held open until the test lets it finish, so both pushes arrive while it runs.
+        return new Promise((resolve) => {
+          finishRefresh = () =>
+            resolve([
+              200,
+              {
+                statusCode: 200,
+                message: "",
+                data: {
+                  csrfToken: "t2",
+                  accessTokenExpiresAt: "2026-11-03T10:15:00Z",
+                  user: {
+                    id: "u-1",
+                    username: "test.requester",
+                    fullName: "Test Requester",
+                    firstName: "Test",
+                    roles: ["Requester", "CaseWorker"],
+                  },
+                },
+                errors: {},
+              },
+            ]);
+        });
+      },
+      "GET /api/Auth/me": () => {
+        meCalls += 1;
+        const roles = meCalls > 1 ? ["Requester", "CaseWorker"] : ["Requester"];
+        return [
+          200,
+          {
+            statusCode: 200,
+            message: "",
+            data: makeUser({ roles }),
+            errors: {},
+          },
+        ];
+      },
+      "GET /api/Auth/csrf": () => [
+        200,
+        { statusCode: 200, message: "", data: "t", errors: {} },
+      ],
+      "GET /api/org/me": () => {
+        orgCalls += 1;
+        return [200, { departments: [] }];
+      },
+    });
+    function Shell() {
+      const { user } = useSession();
+      useMyOrganisation();
+      return (
+        <>
+          <p>Roles: {user?.roles.join(", ")}</p>
+          <NotificationBell />
+        </>
+      );
+    }
+    renderWithProviders(<Shell />, { queryClient });
+    expect(await screen.findByText("Roles: Requester")).toBeInTheDocument();
+    await expect.poll(() => orgCalls).toBe(1);
+
+    act(() => {
+      for (const id of ["n-access-1", "n-access-2"]) {
+        hub.handlers.ReceiveNotification(
+          item({
+            id,
+            title: "Your Access Desk access changed",
+            message: "Your place in the organisation changed.",
+            relatedEntityType: "User",
+            relatedEntityId: "u-1",
+          }),
+        );
+      }
+    });
+
+    await expect.poll(() => refreshCalls).toBe(1);
+    // Nothing refetches until the new token is in.
+    expect(meCalls).toBe(1);
+    expect(orgCalls).toBe(1);
+
+    await act(async () => finishRefresh());
+
+    expect(
+      await screen.findByText("Roles: Requester, CaseWorker"),
+    ).toBeInTheDocument();
+    await expect.poll(() => orgCalls).toBeGreaterThan(1);
+    expect(refreshCalls).toBe(1);
+  });
 });
