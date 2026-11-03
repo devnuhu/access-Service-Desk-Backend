@@ -893,6 +893,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("AssignedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("AssigneeAwayFlaggedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid?>("AssigneeUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -918,6 +921,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("QueueAlertedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("RaisedByUserId")
                         .HasColumnType("uniqueidentifier");
@@ -977,6 +983,53 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.HasIndex("UnitId", "Status");
 
                     b.ToTable("Tickets", (string)null);
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("FromUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("FromUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ScoresJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ToUserId");
+
+                    b.HasIndex("TicketId", "At");
+
+                    b.ToTable("TicketAssignments", (string)null);
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketAttachment", b =>
@@ -1574,6 +1627,23 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Navigation("RequesterUser");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketAssignment", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ToUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketAttachment", b =>

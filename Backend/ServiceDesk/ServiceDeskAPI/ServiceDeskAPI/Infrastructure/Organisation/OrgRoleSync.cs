@@ -94,7 +94,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                 var parts = new List<string>();
                 if (granted.Count > 0) parts.Add("You now have the " + string.Join(", ", granted.Select(Friendly)) + " role" + (granted.Count > 1 ? "s" : "") + ".");
                 if (removed.Count > 0) parts.Add("The " + string.Join(", ", removed.Select(Friendly)) + " role" + (removed.Count > 1 ? "s were" : " was") + " removed.");
-                notifications.Stage(userId, "Your Access Desk access changed", string.Join(" ", parts) + " Sign out and back in if you do not see the change yet.",
+                notifications.Stage(userId, "Your Access Desk access changed", string.Join(" ", parts),
                     NotificationType.Info, NotificationCategory.System, "User", userId, null);
             }
             return changes;

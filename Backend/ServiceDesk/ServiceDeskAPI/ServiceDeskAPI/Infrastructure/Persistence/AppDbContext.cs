@@ -33,6 +33,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
         public DbSet<TicketAttachmentContent> TicketAttachmentContents => Set<TicketAttachmentContent>();
         public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
+        public DbSet<TicketAssignment> TicketAssignments => Set<TicketAssignment>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -195,6 +196,18 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasKey(c => c.AttachmentId);
                 e.Property(c => c.Data).HasColumnType("varbinary(max)").IsRequired();
                 e.HasOne<TicketAttachment>().WithOne().HasForeignKey<TicketAttachmentContent>(c => c.AttachmentId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<TicketAssignment>(e =>
+            {
+                e.ToTable("TicketAssignments");
+                e.HasKey(a => a.Id);
+                e.Property(a => a.Reason).HasMaxLength(500).IsRequired();
+                e.Property(a => a.ScoresJson).HasColumnType("nvarchar(max)");
+                e.HasOne(a => a.Ticket).WithMany().HasForeignKey(a => a.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<User>().WithMany().HasForeignKey(a => a.ToUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(a => new { a.TicketId, a.At });
+                e.HasIndex(a => a.ToUserId);
             });
 
             builder.Entity<TicketSequence>(e =>

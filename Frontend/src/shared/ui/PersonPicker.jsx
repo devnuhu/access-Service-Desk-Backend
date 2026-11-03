@@ -18,7 +18,10 @@ import Spinner from "./Spinner.jsx";
  *   exclude?: string[],
  *   footer?: import("react").ReactNode,
  *   queryKey?: unknown[],
+ *   minLength?: number,
+ *   placeholder?: string,
  * }} props
+ * Searching starts once the text has `minLength` characters (1 by default).
  */
 export default function PersonPicker({
   label = "Find a person",
@@ -28,6 +31,8 @@ export default function PersonPicker({
   exclude = [],
   footer,
   queryKey = ["person-picker"],
+  minLength = 1,
+  placeholder = "Name, login name, email or department",
 }) {
   const inputId = useId();
   const [text, setText] = useState("");
@@ -35,7 +40,7 @@ export default function PersonPicker({
   const results = useQuery({
     queryKey: [...queryKey, query],
     queryFn: () => search(query),
-    enabled: query.length > 0,
+    enabled: query.length >= minLength,
     staleTime: 30_000,
   });
   const people = (results.data ?? []).filter(
@@ -58,14 +63,18 @@ export default function PersonPicker({
           type="search"
           value={text}
           onChange={(event) => setText(event.target.value)}
-          placeholder="Name, login name, email or department"
+          placeholder={placeholder}
           autoComplete="off"
           className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
         />
       </div>
 
       <div className="mt-2" aria-live="polite">
-        {!query ? null : results.isFetching && !results.data ? (
+        {!query ? null : query.length < minLength ? (
+          <p className="py-2 text-sm text-muted">
+            Type at least {minLength} letters.
+          </p>
+        ) : results.isFetching && !results.data ? (
           <Spinner label="Searching…" className="py-2 text-sm text-muted" />
         ) : results.isError ? (
           <p role="alert" className="py-2 text-sm text-danger">

@@ -47,6 +47,10 @@ namespace ServiceDeskAPI.Domain.Entities
         public Guid? AssigneeUserId { get; set; }
         public User? AssigneeUser { get; set; }
         public DateTime? AssignedAt { get; set; }
+        /// <summary>When the unit's head was told that nobody could take it (once per wait; cleared on assignment).</summary>
+        public DateTime? QueueAlertedAt { get; set; }
+        /// <summary>When the unit's head was told the assignee is away while the ticket is in progress (cleared on reassignment).</summary>
+        public DateTime? AssigneeAwayFlaggedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public Guid? UpdatedByUserId { get; set; }

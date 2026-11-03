@@ -12,8 +12,8 @@ using ServiceDeskAPI.Infrastructure.Persistence;
 namespace ServiceDeskAPI.Infrastructure.Tickets
 {
     /// <summary>
-    /// Raising, reading and commenting (BRD M2, M4). Tickets are created as New in the unit that owns the category; automatic
-    /// assignment comes in Step 5, so until then the unit's head and deputy are told about each new ticket.
+    /// Raising, reading and commenting (BRD M2, M4). Tickets are created as New in the unit that owns the category and handed to the
+    /// assignment engine straight after they are saved (Step 5); if nobody can take it, the engine tells the unit's head.
     /// Notifications and emails name the reference and category only, never the subject or description (rule 13).
     /// </summary>
     public class TicketService : ITicketService
@@ -29,10 +29,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         private readonly IHttpContextAccessor _http;
         private readonly TimeProvider _time;
         private readonly ILogger<TicketService> _logger;
+        private readonly IAssignmentService _assignment;
 
         public TicketService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http,
-            TimeProvider time, ILogger<TicketService> logger)
+            TimeProvider time, ILogger<TicketService> logger, IAssignmentService assignment)
         {
+            _assignment = assignment;
             _db = db;
             _audit = audit;
             _notifications = notifications;
@@ -112,10 +114,6 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     _notifications.Stage(userId, "You were copied on " + ticket.Reference,
                         Name(requester) + " copied you on a " + category.Name + " request. You can follow it in Access Desk.",
                         NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
-                // Until automatic assignment (Step 5), the unit's head and deputy hear about every new ticket
-                foreach (var head in new[] { category.Unit.HeadUserId, category.Unit.DeputyHeadUserId }.Where(h => h.HasValue && h != actorUserId).Distinct())
-                    _notifications.Stage(head!.Value, "New ticket in " + category.Unit.Name + ": " + ticket.Reference,
-                        category.Name + ", priority " + priority + ".", NotificationType.ActionRequired, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -128,7 +126,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 return (new TicketProblem(409, "The ticket could not be saved. Try again."), null);
             }
 
-            return (null, new CreatedTicketDto(ticket.Id, ticket.Reference, "Ticket " + ticket.Reference + " raised."));
+            // Assign straight away (FR-3.1). If it fails or nobody is free, the ticket stays New and the queue tries again.
+            var reference = ticket.Reference;
+            _db.ChangeTracker.Clear();
+            var assigned = await _assignment.AssignAsync(ticket.Id, "raised");
+            return (null, new CreatedTicketDto(ticket.Id, reference, "Ticket " + reference + " raised."
+                + (assigned ? string.Empty : " It is waiting for an available case worker.")));
         }
 
         public async Task<(TicketProblem? Problem, DuplicateCheckDto? Result)> CheckDuplicatesAsync(DuplicateCheckRequest request, Guid actorUserId)

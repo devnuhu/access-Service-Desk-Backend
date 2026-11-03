@@ -28,9 +28,12 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         private readonly IInAppNotificationService _notifications;
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<OrganisationService> _logger;
+        private readonly IAssignmentSignal _assignment;
 
-        public OrganisationService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, ILogger<OrganisationService> logger)
+        public OrganisationService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, ILogger<OrganisationService> logger,
+            IAssignmentSignal assignment)
         {
+            _assignment = assignment;
             _db = db;
             _audit = audit;
             _notifications = notifications;
@@ -384,6 +387,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                 if (people.Count > 0 && await OrgRoleSync.StageAsync(_db, people, actorUserId, Actor(), _audit, _notifications) > 0)
                     await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
+                // A structure change (someone joined, left, was blocked) can change who is eligible (Step 5)
+                _assignment.Poke();
                 return AdminResult.Ok(okMessage);
             }
             catch (DbUpdateException ex)

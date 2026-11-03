@@ -34,9 +34,12 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         private readonly IInAppNotificationService _notifications;
         private readonly IHttpContextAccessor _http;
         private readonly TimeProvider _time;
+        private readonly IAssignmentSignal _assignment;
 
-        public AvailabilityService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, TimeProvider time)
+        public AvailabilityService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, TimeProvider time,
+            IAssignmentSignal assignment)
         {
+            _assignment = assignment;
             _db = db;
             _audit = audit;
             _notifications = notifications;
@@ -161,6 +164,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             await TellHeadsAsync(targetId, actorUserId, Name(target) + ": " + period + ".", absence.Id);
 
             await _db.SaveChangesAsync();
+            // Someone went away or came back: the assignment queue looks again (Step 5)
+            _assignment.Poke();
             var dto = (await ToDtosAsync(new List<Absence> { absence })).Single();
             return (AdminResult.Ok(period + " recorded for " + Name(target) + "."), dto);
         }
@@ -202,6 +207,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             await TellHeadsAsync(absence.UserId, actorUserId, Name(absence.User) + ": " + message, absence.Id);
 
             await _db.SaveChangesAsync();
+            // Someone went away or came back: the assignment queue looks again (Step 5)
+            _assignment.Poke();
             return AdminResult.Ok(message);
         }
 

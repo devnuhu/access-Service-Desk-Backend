@@ -25,9 +25,12 @@ namespace ServiceDeskAPI.Infrastructure.Catalogue
         private readonly IInAppNotificationService _notifications;
         private readonly IHttpContextAccessor _http;
         private readonly ILogger<CatalogueService> _logger;
+        private readonly IAssignmentSignal _assignment;
 
-        public CatalogueService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, ILogger<CatalogueService> logger)
+        public CatalogueService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http, ILogger<CatalogueService> logger,
+            IAssignmentSignal assignment)
         {
+            _assignment = assignment;
             _db = db;
             _audit = audit;
             _notifications = notifications;
@@ -295,6 +298,8 @@ namespace ServiceDeskAPI.Infrastructure.Catalogue
             var saved = await SaveAsync(Name(member.User) + " now handles " + wanted.Count + " categor" + (wanted.Count == 1 ? "y" : "ies") + " in " + unit.Name + ".",
                 "The change could not be saved; try again.");
             if (!saved.Success) return saved;
+            // New skills may make waiting tickets assignable (Step 5)
+            _assignment.Poke();
 
             var counts = await EligibleCountsAsync(unitCategoryIds);
             var short_ = unitCategories.Where(c => c.IsActive && counts.GetValueOrDefault(c.Id) < MinCover).OrderBy(c => c.SortOrder).Select(c => c.Name).ToList();

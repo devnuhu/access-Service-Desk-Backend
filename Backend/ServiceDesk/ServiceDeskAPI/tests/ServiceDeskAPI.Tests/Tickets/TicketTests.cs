@@ -104,7 +104,9 @@ namespace ServiceDeskAPI.Tests.Tickets
 
             Assert.Matches(new Regex(@"^CP-\d{4}-\d{6}$"), created.Reference);
             var ticket = await requester.GetFromJsonAsync<TicketDetailDto>($"/api/tickets/{created.Id}");
-            Assert.Equal(TicketStatus.New, ticket!.Status);
+            // Step 5: assigned straight away to one of the three Contribution Matching case workers
+            Assert.Equal(TicketStatus.Assigned, ticket!.Status);
+            Assert.NotNull(ticket.Assignee);
             Assert.Equal(TicketPriority.Medium, ticket.Priority);
             Assert.Equal("Contribution Matching", ticket.UnitName);
             Assert.Equal(TicketSeed.HeadquartersName, ticket.LocationName);
@@ -127,8 +129,7 @@ namespace ServiceDeskAPI.Tests.Tickets
             Assert.Contains(told, n => n.RecipientUserId == ticket.Requester.UserId && n.Title == "Ticket " + created.Reference + " received");
             Assert.Contains(told, n => n.RecipientUserId == copied && n.Title.StartsWith("You were copied"));
             Assert.Contains(told, n => n.RecipientUserId == ticket.Requester.UserId);
-            var hou = await IdOf("test.hou");
-            Assert.Contains(told, n => n.RecipientUserId == hou && n.Title.StartsWith("New ticket in Contribution Matching"));
+            Assert.Contains(told, n => n.RecipientUserId == ticket.Assignee!.UserId && n.Title == "Ticket " + created.Reference + " assigned to you");
             // Notifications never carry the subject or description
             Assert.DoesNotContain(told, n => n.Message.Contains("Remittance not reflecting") || n.Message.Contains("March"));
         }
@@ -239,11 +240,12 @@ namespace ServiceDeskAPI.Tests.Tickets
             Assert.Equal(HttpStatusCode.NotFound, (await requester.GetAsync($"/api/tickets/{created.Id}/attachments/{internalFile.Id}")).StatusCode);
             Assert.Equal(HttpStatusCode.OK, (await worker.GetAsync($"/api/tickets/{created.Id}/attachments/{internalFile.Id}")).StatusCode);
 
-            // The requester's reply reached the unit's head (no assignee yet); the internal note did not reach the requester
+            // The requester's reply reached the assignee; the internal note did not reach the requester
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var hou = await IdOf("test.hou");
-            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RelatedEntityId == created.Id && n.RecipientUserId == hou && n.Title == "New comment on " + created.Reference));
+            var assignee = staffView.Assignee!.UserId;
+            Assert.True(assignee == await IdOf("test.caseworker1")
+                || await db.InAppNotifications.AnyAsync(n => n.RelatedEntityId == created.Id && n.RecipientUserId == assignee && n.Title == "New comment on " + created.Reference));
             Assert.False(await db.InAppNotifications.AnyAsync(n => n.RelatedEntityId == created.Id && n.RecipientUserId == requesterView.Requester.UserId && n.Title.StartsWith("Internal note")));
         }
 
@@ -256,7 +258,7 @@ namespace ServiceDeskAPI.Tests.Tickets
 
             var mine = await requester.GetFromJsonAsync<TicketPageDto>("/api/tickets?view=mine&search=Refund%20list");
             var copied = await (await As(copiedName)).GetFromJsonAsync<TicketPageDto>("/api/tickets?view=copied");
-            var refundQueue = await (await As("test.caseworker2")).GetFromJsonAsync<TicketPageDto>($"/api/tickets?view=department&departmentId={OrgSeed.ContributionProcessingId}&unitId={OrgSeed.RefundUnitId}&status=1");
+            var refundQueue = await (await As("test.caseworker2")).GetFromJsonAsync<TicketPageDto>($"/api/tickets?view=department&departmentId={OrgSeed.ContributionProcessingId}&unitId={OrgSeed.RefundUnitId}&status=2");
             var matchingQueue = await (await As("test.hod")).GetFromJsonAsync<TicketPageDto>($"/api/tickets?view=department&departmentId={OrgSeed.ContributionProcessingId}&unitId={OrgSeed.ContributionMatchingUnitId}");
             var refused = await requester.GetAsync($"/api/tickets?view=department&departmentId={OrgSeed.ContributionProcessingId}");
 
