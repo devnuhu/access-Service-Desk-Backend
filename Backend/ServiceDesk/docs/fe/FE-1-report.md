@@ -134,7 +134,7 @@ npm run check        # stop npm run dev first
 
 ## Questions for the backend
 
-**Status, 3 November 2026 (FE-2 section 0):** questions 1, 3, 5 and 6 are **resolved**, as noted under each. Question 2 is still open. Question 4 is not marked here, but the Step 3 swagger now types every `errors` as `additionalProperties: { type: string }` (see `FE-2-report.md`).
+**Status, 3 November 2026:** questions 1, 3, 5 and 6 were **resolved** at FE-2 section 0, and question 4 at FE-3 section 0, as noted under each. Question 2 is still open.
 
 1. **Resolved.** Decision of 3 November (build plan): when a `User` notification arrives, the web app calls `POST /api/auth/refresh` through its one shared refresh promise, then refetches `/me` and `org/me`. No extra backend mechanism. Built after FE-1 (`refreshSessionNow()` in `src/shared/lib/http`), with a test that two notifications arriving together cause exactly one refresh.
    **Stale roles in the access token after a structure change.**
@@ -148,7 +148,8 @@ npm run check        # stop npm run dev first
    - Swagger does not mark these as nullable: `DepartmentDto.hod`, `UnitDto.head`/`deputy`, `MyAvailabilityDto.current`, `MemberAvailabilityDto.current`. They are `$ref`s with no `nullable`.
    - They are null in practice, and the frontend schemas allow null.
    - Could Swashbuckle mark them, for example with `UseAllOfToExtendReferenceSchemas` and `SupportNonNullableReferenceTypes`?
-4. **`ApiError.errors` / `ApiResponse.errors` are typed only as `object`.** Could swagger say `additionalProperties: { type: string }`, so the field-error shape is part of the contract?
+4. **Resolved** (marked at FE-3 section 0). Swagger now types both `ApiError.errors` and `ApiResponse.errors` as `object` with `additionalProperties: { type: string }` (checked in the swagger saved for FE-3). The frontend schemas read them as `z.record(z.string(), z.string())`.
+   - Original question: `ApiError.errors` / `ApiResponse.errors` were typed only as `object`. Could swagger say `additionalProperties: { type: string }`, so the field-error shape is part of the contract?
 5. **Resolved** in Step 3: both kinds of change now say "Your Access Desk access changed".
    **App name in notifications (rule 14).** Manual role changes (`AdminUserService`) say "Your Service Desk access changed"; structure changes (`OrgRoleSync`) say "Your **Access Desk** access changed". Should both say Access Desk?
 6. **Resolved:** `agent-onboarding.md` now lists all nine test accounts.

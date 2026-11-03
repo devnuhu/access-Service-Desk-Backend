@@ -28,6 +28,13 @@ import {
   listCoverWarnings,
 } from "../src/features/admin-catalogue/api/endpoints.js";
 import { listCatalogue } from "../src/features/catalogue/api/endpoints.js";
+import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
+import {
+  getTicket,
+  getTicketByReference,
+  listLocations,
+  listTickets,
+} from "../src/features/tickets/api/endpoints.js";
 import { getMyAvailability } from "../src/features/availability/api/endpoints.js";
 import {
   getMyOrganisation,
@@ -187,6 +194,48 @@ export const ACCESS_TABLE = [
     schema: getUnitSkills.response,
   }),
   write("PUT", "/api/admin/units/{unitId}/skills/{userId}", SUPER),
+
+  // Locations: everyone reads the choices; Super Admin keeps the list
+  get("/api/locations", SIGNED_IN, {
+    probe: {},
+    schema: listLocations.response,
+  }),
+  get("/api/admin/locations", SUPER, {
+    probe: {},
+    schema: listAdminLocations.response,
+  }),
+  write("POST", "/api/admin/locations", SUPER),
+  write("PATCH", "/api/admin/locations/{locationId}", SUPER),
+
+  // Tickets: any signed-in person raises and reads; the service decides per ticket (404 for others)
+  write("POST", "/api/tickets", SIGNED_IN),
+  write(
+    "POST",
+    "/api/tickets/duplicate-check",
+    SIGNED_IN,
+    "a POST (reads only, but the run is GET-only)",
+  ),
+  get("/api/tickets", SIGNED_IN, {
+    probe: { view: "mine", page: 1, pageSize: 5 },
+    schema: listTickets.response,
+  }),
+  get("/api/tickets/{ticketId}", SIGNED_IN, {
+    ...from("/api/tickets", "id", { view: "mine", page: 1, pageSize: 1 }),
+    schema: getTicket.response,
+  }),
+  get("/api/tickets/by-reference/{reference}", SIGNED_IN, {
+    ...from("/api/tickets", "reference", {
+      view: "mine",
+      page: 1,
+      pageSize: 1,
+    }),
+    schema: getTicketByReference.response,
+  }),
+  write("POST", "/api/tickets/{ticketId}/comments", SIGNED_IN),
+  get("/api/tickets/{ticketId}/attachments/{attachmentId}", SIGNED_IN, {
+    skipAlways: true,
+    skip: "a file download; needs a ticket with a file (manual check 1 downloads one)",
+  }),
 
   // Health
   get("/api/health", ANONYMOUS),

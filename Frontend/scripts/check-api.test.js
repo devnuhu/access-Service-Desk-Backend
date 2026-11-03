@@ -403,3 +403,172 @@ describe("access table", () => {
     );
   });
 });
+
+// Multipart forms and a file download, as Swashbuckle writes them for [FromForm] and FileContentResult.
+const formSwagger = {
+  paths: {
+    "/api/tickets": {
+      post: {
+        requestBody: {
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                properties: {
+                  CategoryId: { type: "string", format: "uuid" },
+                  Priority: {
+                    allOf: [{ $ref: "#/components/schemas/TicketPriority" }],
+                  },
+                  Subject: { type: "string" },
+                  CcUserIds: {
+                    type: "array",
+                    items: { type: "string", format: "uuid" },
+                  },
+                  Files: {
+                    type: "array",
+                    items: { type: "string", format: "binary" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: { 200: json("Created") },
+      },
+    },
+    "/api/tickets/{ticketId}/attachments/{attachmentId}": {
+      get: {
+        responses: {
+          200: {
+            content: {
+              "application/octet-stream": {
+                schema: { type: "string", format: "binary" },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/tickets/{ticketId}": {
+      get: { responses: { 200: json("Created") } },
+    },
+  },
+  components: {
+    schemas: {
+      TicketPriority: { type: "integer", enum: [1, 2, 3, 4] },
+      Created: {
+        type: "object",
+        properties: { id: { type: "string" }, reference: { type: "string" } },
+      },
+    },
+  },
+};
+
+const checkForm = (definition) =>
+  checkEndpoint(defineEndpoint(definition), formSwagger);
+
+const raise = (body) => ({
+  method: "POST",
+  path: "/api/tickets",
+  bodyType: "multipart",
+  body: z.object(body),
+  response: z.object({ id: z.string(), reference: z.string() }),
+});
+
+describe("check-api multipart forms and file downloads", () => {
+  it("passes camelCase form fields, repeated keys and files", () => {
+    const { problems, warnings } = checkForm(
+      raise({
+        categoryId: z.string(),
+        priority: z.number().optional(),
+        subject: z.string(),
+        ccUserIds: z.array(z.string()).optional(),
+        files: z.array(z.instanceof(Blob)).optional(),
+      }),
+    );
+    expect(problems).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("reports wrong casing, single values for lists, non-files and nested objects", () => {
+    const { problems } = checkForm(
+      raise({
+        CategoryId: z.string(),
+        ccUserIds: z.string(),
+        files: z.array(z.string()),
+        subject: z.object({ text: z.string() }),
+      }),
+    );
+    expect(problems).toEqual([
+      expect.stringMatching(
+        /"CategoryId" is not in .*did you mean "categoryId"/,
+      ),
+      expect.stringMatching(/"ccUserIds" is a list in swagger .* repeated key/),
+      expect.stringMatching(/"files" holds files in swagger/),
+      expect.stringMatching(/"subject" is an object; form fields are flat/),
+    ]);
+  });
+
+  it("reports a form sent as JSON", () => {
+    const { problems } = checkForm({
+      ...raise({ subject: z.string() }),
+      bodyType: "json",
+    });
+    expect(problems).toEqual([
+      expect.stringMatching(/sends json but .* expects multipart\/form-data/),
+    ]);
+  });
+
+  it("accepts a binary download declared as a blob, and nothing else", () => {
+    const path = "/api/tickets/{ticketId}/attachments/{attachmentId}";
+    expect(
+      checkForm({ method: "GET", path, responseType: "blob" }).problems,
+    ).toEqual([]);
+    expect(checkForm({ method: "GET", path }).problems).toEqual([
+      expect.stringMatching(
+        /answers a file \(application\/octet-stream\); declare responseType "blob"/,
+      ),
+    ]);
+    expect(
+      checkForm({
+        method: "GET",
+        path,
+        responseType: "blob",
+        response: z.object({ id: z.string() }),
+      }).problems,
+    ).toEqual([expect.stringMatching(/a file download has no zod response/)]);
+    expect(
+      checkForm({
+        method: "GET",
+        path: "/api/tickets/{ticketId}",
+        responseType: "blob",
+      }).problems,
+    ).toEqual([
+      expect.stringMatching(
+        /declared responseType "blob" but .* application\/json/,
+      ),
+    ]);
+  });
+
+  it("reads inventory rows with several routes and 'same as above'", () => {
+    const rows = parseInventory(
+      [
+        "| GET | `/api/tickets/{id}`, `/api/tickets/by-reference/{ref}` | requester, raiser, people copied, department staff, Super Admin (others 404) | Read |",
+        "| POST | `/api/tickets/{id}/comments` | same as above; internal notes: department staff | Comment |",
+        "| GET | `/api/tickets?view=mine\\|copied` | signed in; department view: its staff or Super Admin | List |",
+      ].join("\n"),
+    );
+    expect(rows.map((row) => `${row.method} ${row.path}`)).toEqual([
+      "GET /api/tickets/{id}",
+      "GET /api/tickets/by-reference/{ref}",
+      "POST /api/tickets/{id}/comments",
+      "GET /api/tickets",
+    ]);
+    expect(rows.map((row) => inventoryAccess(row.access))).toEqual([
+      "signedIn",
+      "signedIn",
+      "signedIn",
+      "signedIn",
+    ]);
+  });
+});

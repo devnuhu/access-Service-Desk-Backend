@@ -19,11 +19,20 @@ const COVER = [
   },
 ];
 
-function renderHome(roles, cover = COVER) {
+function renderHome(roles, cover = COVER, org = { departments: [] }) {
   const queryClient = createTestQueryClient();
   let coverCalls = 0;
   installFakeApi(queryClient, {
-    "GET /api/org/me": () => [200, { departments: [] }],
+    "GET /api/org/me": () => [200, org],
+    // My open requests: 2 New + 1 Pending; the unit has 4 New.
+    "GET /api/tickets": ({ params }) => {
+      const totals =
+        params.view === "mine" ? { 1: 2, 4: 1 } : { 1: params.unitId ? 4 : 0 };
+      return [
+        200,
+        { items: [], total: totals[params.status] ?? 0, page: 1, pageSize: 1 },
+      ];
+    },
     "GET /api/admin/categories/cover-warnings": () => {
       coverCalls += 1;
       return [200, cover];
@@ -59,5 +68,36 @@ describe("Home", () => {
     const requester = renderHome(["Requester"]);
     expect(await screen.findAllByText(/Welcome/)).toHaveLength(2);
     expect(requester.coverCalls()).toBe(0);
+  });
+
+  it("shows Raise a ticket, my open requests and, for unit members, New in my unit", async () => {
+    renderHome(["Requester", "CaseWorker"], [], {
+      departments: [
+        {
+          id: "d-cp",
+          code: "CP",
+          name: "Contribution Processing",
+          isHod: false,
+          units: [
+            {
+              id: "u-rf",
+              code: "RF",
+              name: "Refund",
+              isHead: false,
+              isDeputy: false,
+              isMember: true,
+            },
+          ],
+        },
+      ],
+    });
+    expect(
+      await screen.findByRole("link", { name: "Raise a ticket" }),
+    ).toHaveAttribute("href", "/tickets/new");
+    expect(await screen.findByTestId("count-my-open")).toHaveTextContent("3");
+    expect(await screen.findByTestId("count-new-u-rf")).toHaveTextContent("4");
+    expect(
+      screen.getByRole("link", { name: "Work queue (New in Refund)" }),
+    ).toHaveAttribute("href", "/departments/d-cp/tickets");
   });
 });

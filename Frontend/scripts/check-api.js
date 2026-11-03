@@ -8,9 +8,14 @@
  * 1. The route and method exist in swagger.json, and the route is not a retired one.
  * 2. Every declared query parameter exists on the operation.
  * 3. Request body: the property names the zod schema sends exist in the swagger schema, and every
- *    property swagger marks required is sent and required in the zod schema.
- * 4. Response: the property names the zod schema reads exist in the swagger response schema.
- * Shallow check: top-level names and required flags only, no enum values or nested objects.
+ *    property swagger marks required is sent and required in the zod schema. A multipart form
+ *    (bodyType "multipart") is read from requestBody.content["multipart/form-data"].schema: each
+ *    field is sent under the camelCase of its swagger name, swagger arrays (CcUserIds, Files) are
+ *    zod arrays sent as a repeated key, binary fields are files, and no field is a nested object.
+ * 4. Response: the property names the zod schema reads exist in the swagger response schema,
+ *    nested objects included, and nullable properties accept null. A binary answer
+ *    (application/octet-stream, string/binary) must be declared with responseType "blob" and has
+ *    no zod schema; a JSON answer must not be declared as a blob.
  *
  * Exits 1 on any mismatch, 2 when swagger.json cannot be read. Warnings (for example an operation
  * whose response has no schema in swagger.json) are printed but do not fail the check.
@@ -156,6 +161,94 @@ function pickContent(content = {}) {
   }
   const [type] = Object.keys(content);
   return type ? { type, schema: content[type].schema } : null;
+}
+
+/** "CcUserIds" -> "ccUserIds" (ASP.NET binds form keys case-insensitively; the app sends camelCase). */
+export function camelCase(name) {
+  return name.charAt(0).toLowerCase() + name.slice(1);
+}
+
+/** True for { type: "string", format: "binary" }, the swagger form of a file. */
+function isBinary(schema) {
+  return schema?.type === "string" && schema?.format === "binary";
+}
+
+/** Unwraps optional/nullable/default/pipe to the zod type underneath (an array stays an array). */
+function zodCore(schema) {
+  let current = schema;
+  for (let i = 0; current?.def && i < 20; i += 1) {
+    const { def } = current;
+    if (
+      ["optional", "nullable", "default", "readonly", "catch"].includes(
+        def.type,
+      )
+    )
+      current = def.innerType;
+    else if (def.type === "pipe") current = def.in;
+    else return current;
+  }
+  return current;
+}
+
+/** Problems of a multipart form: field names, repeated keys, files, flat values. */
+function compareFormFields(swagger, shape, schema, report) {
+  const byCamel = new Map(
+    Object.entries(schema.properties).map(([name, property]) => [
+      camelCase(name),
+      { name, property },
+    ]),
+  );
+  for (const [sentName, field] of Object.entries(shape)) {
+    const match = byCamel.get(sentName);
+    if (!match) {
+      const nearMiss = [...byCamel.keys()].find(
+        (n) => n.toLowerCase() === sentName.toLowerCase(),
+      );
+      report(
+        `form field "${sentName}" is not in the form schema` +
+          (nearMiss ? ` (did you mean "${nearMiss}"?)` : ""),
+      );
+      continue;
+    }
+    const property = resolveSchema(swagger, match.property);
+    const core = zodCore(field);
+    const sentAsArray = core?.def?.type === "array";
+    const isArray = property?.type === "array";
+    if (isArray && !sentAsArray) {
+      report(
+        `form field "${sentName}" is a list in swagger (${match.name}); declare a zod array so it is sent as a repeated key`,
+      );
+    } else if (!isArray && sentAsArray) {
+      report(
+        `form field "${sentName}" is a single value in swagger (${match.name}) but a zod array`,
+      );
+    }
+    const element = sentAsArray ? zodCore(core.def.element) : core;
+    if (element?.def?.type === "object") {
+      report(`form field "${sentName}" is an object; form fields are flat`);
+    }
+    const binary = isArray
+      ? isBinary(property.items)
+      : isBinary(match.property);
+    const sendsFile = element?.def?.type === "custom";
+    if (binary && !sendsFile) {
+      report(
+        `form field "${sentName}" holds files in swagger; declare it with z.instanceof(Blob) or z.custom`,
+      );
+    } else if (!binary && sendsFile) {
+      report(`form field "${sentName}" is not a file in swagger`);
+    }
+  }
+}
+
+/** The success answer is a file: application/octet-stream (or any non-JSON type) with string/binary. */
+function isBinaryResponse(response) {
+  return Boolean(
+    response &&
+    !/json/i.test(response.type) &&
+    response.schema?.type === "string" &&
+    response.schema?.format === "binary",
+  );
 }
 
 function successResponse(operation) {
@@ -328,7 +421,22 @@ export function checkEndpoint(endpoint, swagger, index = indexPaths(swagger)) {
     }
     const shape = zodObjectShape(endpoint.body);
     const schema = objectSchema(swagger, request.schema);
-    if (!shape) {
+    if (sendsMultipart && expectsMultipart && shape && schema) {
+      compareFormFields(swagger, shape, schema, (text) =>
+        problems.push(`${label}: ${text} (${where})`),
+      );
+      for (const required of schema.required) {
+        const own = shape[camelCase(required)];
+        if (!own)
+          problems.push(
+            `${label}: required form field "${camelCase(required)}" is not sent (${where})`,
+          );
+        else if (!isZodRequired(own))
+          problems.push(
+            `${label}: form field "${camelCase(required)}" is required by ${where} but optional in the zod schema`,
+          );
+      }
+    } else if (!shape) {
       warnings.push(
         `${label}: request zod schema is not an object; body not compared`,
       );
@@ -369,7 +477,23 @@ export function checkEndpoint(endpoint, swagger, index = indexPaths(swagger)) {
     }
   }
 
-  if (endpoint.response) {
+  const success = successResponse(operation);
+  const downloads = endpoint.responseType === "blob";
+  if (isBinaryResponse(success) && !downloads) {
+    problems.push(
+      `${label}: ${where} answers a file (${success.type}); declare responseType "blob"`,
+    );
+  } else if (downloads && success && !isBinaryResponse(success)) {
+    problems.push(
+      `${label}: declared responseType "blob" but ${where} answers ${success.type}`,
+    );
+  } else if (downloads && endpoint.response) {
+    problems.push(
+      `${label}: a file download has no zod response schema (it returns the file)`,
+    );
+  }
+
+  if (endpoint.response && !downloads) {
     // A documented deviation (the real response differs from swagger) is reported, not failed.
     const responseProblems = endpoint.swaggerDeviation ? warnings : problems;
     const response = successResponse(operation);
@@ -437,20 +561,26 @@ function lineOf(source, name, route) {
   return index >= 0 ? index + 1 : 1;
 }
 
-/** "| GET | `/api/x` | Policy: HR_Access | Action | Note |" rows of endpoint-inventory.md. */
+/**
+ * "| GET | `/api/x` | Policy: HR_Access | Action | Note |" rows of endpoint-inventory.md.
+ * A row may name several routes ("`/api/tickets/{id}`, `/api/tickets/by-reference/{ref}`"), one
+ * row each, and a route may show its query ("/api/admin/categories?departmentId="): the path is
+ * compared without it. "Same as above" in the access column takes the access of the row above.
+ */
 export function parseInventory(markdown) {
   const rows = [];
+  let previous = null;
   for (const line of markdown.split(/\r?\n/)) {
     const match = line.match(
-      /^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*`([^`]+)`\s*\|\s*([^|]+?)\s*\|/,
+      /^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*((?:`[^`]+`[\s,]*)+)\|\s*([^|]+?)\s*\|/,
     );
-    // A route may show its query ("/api/admin/categories?departmentId="); compare the path only.
-    if (match)
-      rows.push({
-        method: match[1],
-        path: match[2].split("?")[0],
-        access: match[3],
-      });
+    if (!match) continue;
+    const access =
+      /^same as above\b/i.test(match[3]) && previous ? previous : match[3];
+    previous = access;
+    for (const [, route] of match[2].matchAll(/`([^`]+)`/g)) {
+      rows.push({ method: match[1], path: route.split("?")[0], access });
+    }
   }
   return rows;
 }
@@ -473,7 +603,9 @@ const WHO_PHRASES = {
  * Inventory access text to the table's form: a role list, "signedIn" or "anonymous".
  * Understands "Policy: X", "Roles: A, B", and the plain words the Service Desk inventory uses:
  * "anyone ..." (anonymous), "signed in ..." and "same people as above" (any signed-in person,
- * the service checks the rest), and role phrases separated by commas ("Super Admin, Head of Unit").
+ * the service checks the rest), role phrases separated by commas ("Super Admin, Head of Unit"), and
+ * a record's people ("requester, raiser, people copied, ...": any signed-in person, the service
+ * checks the record).
  */
 export function inventoryAccess(text) {
   if (/^(anonymous|anyone)\b/i.test(text)) return "anonymous";
@@ -487,7 +619,16 @@ export function inventoryAccess(text) {
       .split(",")
       .map((role) => role.trim())
       .filter(Boolean);
-  const phrases = text.split(",").map((part) => part.trim().toLowerCase());
+  // Notes in brackets or after ";" say what the service checks on top ("(others 404)").
+  const phrases = text
+    .replace(/\([^)]*\)/g, "")
+    .split(";")[0]
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  // Everyone holds Requester, so a list that names the requester (with the people around a record:
+  // raiser, people copied, department staff) is any signed-in person; the service checks the rest.
+  if (phrases.includes("requester") && phrases.length > 1) return "signedIn";
   if (phrases.every((phrase) => WHO_PHRASES[phrase]))
     return [...new Set(phrases.map((phrase) => WHO_PHRASES[phrase]))];
   return `unrecognised access "${text}"`;

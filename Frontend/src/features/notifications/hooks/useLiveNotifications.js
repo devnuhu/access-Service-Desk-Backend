@@ -14,6 +14,8 @@ export const REFRESH_BY_ENTITY = {
   User: [SESSION_KEY, ORG_ME_KEY],
   // Someone's leave changed: the availability views refetch.
   Absence: [["availability"]],
+  // A ticket was raised, copied or commented on: its page, the lists and the Home counts refetch.
+  Ticket: [["tickets"]],
 };
 
 /**

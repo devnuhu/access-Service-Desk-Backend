@@ -1,4 +1,4 @@
-import { ApiContractError } from "./apiError.js";
+import { ApiContractError, ApiError } from "./apiError.js";
 
 /**
  * Every API route the frontend calls is declared once with defineEndpoint, in
@@ -11,8 +11,13 @@ import { ApiContractError } from "./apiError.js";
  * @property {HttpMethod} method
  * @property {string} path  swagger-style template, for example "/api/admin/users/{userId}"
  * @property {string[]} [query]  query parameter names the endpoint accepts
- * @property {import("zod").ZodType} [body]  request body schema (JSON)
+ * @property {import("zod").ZodType} [body]  request body schema (JSON, or the form fields)
+ * @property {"json" | "multipart"} [bodyType]  "multipart" sends the parsed body as FormData: arrays
+ *   repeat their key, Blobs are files, booleans and numbers become text, undefined/null are left out.
+ *   No Content-Type is set, so the browser adds the boundary.
  * @property {import("zod").ZodType} [response]  response schema; a mismatch throws ApiContractError
+ * @property {"json" | "blob"} [responseType]  "blob": the answer is a file; the call resolves
+ *   { blob, fileName } (the name from Content-Disposition) and has no response schema
  * @property {boolean} [skipAuthRedirect]  a 401 is an expected answer (login), not an expired session
  * @property {string} [swaggerDeviation]  why the real response differs from swagger.json (the
  *   schema follows the real response; check-api reports the difference as a warning with this reason)
@@ -34,6 +39,7 @@ export function defineEndpoint(definition) {
   }
   return Object.freeze({
     bodyType: definition.body ? "json" : undefined,
+    responseType: "json",
     query: [],
     ...definition,
     [ENDPOINT_BRAND]: true,
@@ -58,6 +64,57 @@ export function buildPath(template, params = {}) {
     }
     return encodeURIComponent(String(value));
   });
+}
+
+/** A parsed form body to FormData. Keys keep the zod names (camelCase). */
+export function toFormData(values) {
+  const form = new FormData();
+  const append = (key, value) => {
+    if (value === undefined || value === null) return;
+    if (value instanceof Blob) form.append(key, value, value.name ?? "file");
+    else form.append(key, String(value));
+  };
+  for (const [key, value] of Object.entries(values ?? {})) {
+    if (Array.isArray(value)) value.forEach((item) => append(key, item));
+    else append(key, value);
+  }
+  return form;
+}
+
+/**
+ * The file name of a download: RFC 5987 filename* first, then filename, else the fallback.
+ * @param {string | undefined} header  Content-Disposition
+ */
+export function fileNameFrom(header, fallback = "download") {
+  if (!header) return fallback;
+  const extended = header.match(/filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i);
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[2].trim().replace(/^"|"$/g, ""));
+    } catch {
+      // A malformed encoding falls through to the plain name.
+    }
+  }
+  const plain = header.match(/filename\s*=\s*("([^"]*)"|[^;]+)/i);
+  return plain ? (plain[2] ?? plain[1]).trim() : fallback;
+}
+
+/** A failed download carries its JSON error body as a Blob; read its message. */
+async function readBlobError(error) {
+  const body = error?.cause?.response?.data;
+  if (!(error instanceof ApiError) || !(body instanceof Blob)) return error;
+  try {
+    const { message } = JSON.parse(await body.text());
+    if (typeof message !== "string" || !message.trim()) return error;
+    return new ApiError({
+      kind: error.kind,
+      status: error.status,
+      message,
+      cause: error.cause,
+    });
+  } catch {
+    return error;
+  }
 }
 
 function cleanQuery(endpoint, query = {}) {
@@ -97,13 +154,29 @@ export async function callEndpoint(
     );
   }
 
-  const response = await http.request({
-    method: endpoint.method,
-    url: buildPath(endpoint.path, params),
-    params: cleanQuery(endpoint, query),
-    data,
-    skipAuthRedirect: endpoint.skipAuthRedirect === true,
-  });
+  const downloads = endpoint.responseType === "blob";
+  let response;
+  try {
+    response = await http.request({
+      method: endpoint.method,
+      url: buildPath(endpoint.path, params),
+      params: cleanQuery(endpoint, query),
+      data: endpoint.bodyType === "multipart" ? toFormData(data) : data,
+      skipAuthRedirect: endpoint.skipAuthRedirect === true,
+      ...(downloads ? { responseType: "blob" } : {}),
+    });
+  } catch (error) {
+    throw downloads ? await readBlobError(error) : error;
+  }
+
+  if (downloads) {
+    const headers = response.headers ?? {};
+    const disposition =
+      typeof headers.get === "function"
+        ? headers.get("content-disposition")
+        : headers["content-disposition"];
+    return { blob: response.data, fileName: fileNameFrom(disposition) };
+  }
 
   if (!endpoint.response) return response.data;
 

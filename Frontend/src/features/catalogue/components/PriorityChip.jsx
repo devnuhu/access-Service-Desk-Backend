@@ -1,4 +1,4 @@
-import { PRIORITY, PRIORITY_LABELS } from "@/features/catalogue";
+import { PRIORITY, PRIORITY_LABELS } from "../api/endpoints.js";
 import { Chip } from "@/shared/ui";
 
 const TONE = {

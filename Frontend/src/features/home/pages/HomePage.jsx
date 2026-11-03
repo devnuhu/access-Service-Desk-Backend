@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import {
   Building2,
   ClipboardList,
+  FileText,
+  Inbox,
   ShieldCheck,
   TriangleAlert,
   UserCog,
@@ -10,6 +12,12 @@ import {
 import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
 import { describePlaces, useMyOrganisation } from "@/features/org";
+import {
+  RaiseTicketLink,
+  STATUS,
+  useOpenTickets,
+  useTicketList,
+} from "@/features/tickets";
 import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
 import { Card, RoleChips } from "@/shared/ui";
 
@@ -36,6 +44,65 @@ const ROLE_CARDS = {
     text: "Manage people and roles, and keep Access Desk set up and running.",
   },
 };
+
+function CountCard({ icon: Icon, title, count, to, linkText, testId }) {
+  return (
+    <li>
+      <Card as="div" className="flex h-full items-center gap-4 px-5 py-4">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-navy-light text-brand-navy">
+          <Icon aria-hidden="true" size={18} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-semibold">{title}</h3>
+          <p className="text-2xl font-semibold text-ink" data-testid={testId}>
+            {count ?? "—"}
+          </p>
+        </div>
+        <Link
+          to={to}
+          className="text-sm font-semibold whitespace-nowrap text-brand-navy hover:underline"
+        >
+          {linkText} <span className="sr-only">({title})</span>
+        </Link>
+      </Card>
+    </li>
+  );
+}
+
+function MyOpenRequests() {
+  const open = useOpenTickets({ view: "mine" }, { pageSize: 1 });
+  return (
+    <CountCard
+      icon={FileText}
+      title="My open requests"
+      count={open.isLoading || open.error ? null : open.total}
+      to="/tickets"
+      linkText="My requests"
+      testId="count-my-open"
+    />
+  );
+}
+
+function NewInUnit({ department, unit }) {
+  const list = useTicketList({
+    view: "department",
+    departmentId: department.id,
+    unitId: unit.id,
+    status: STATUS.New,
+    page: 1,
+    pageSize: 1,
+  });
+  return (
+    <CountCard
+      icon={Inbox}
+      title={`New in ${unit.name}`}
+      count={list.data?.total ?? null}
+      to={`/departments/${department.id}/tickets`}
+      linkText="Work queue"
+      testId={`count-new-${unit.id}`}
+    />
+  );
+}
 
 export default function HomePage() {
   const { user } = useSession();
@@ -65,6 +132,25 @@ export default function HomePage() {
           </ul>
         )}
       </Card>
+
+      <section aria-labelledby="home-requests">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="home-requests" className="text-base font-semibold">
+            Requests
+          </h2>
+          <RaiseTicketLink />
+        </div>
+        <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <MyOpenRequests />
+          {(org?.departments ?? []).flatMap((department) =>
+            department.units
+              .filter((unit) => unit.isMember)
+              .map((unit) => (
+                <NewInUnit key={unit.id} department={department} unit={unit} />
+              )),
+          )}
+        </ul>
+      </section>
 
       {isSuperAdmin && coverWarnings?.length > 0 && (
         <section

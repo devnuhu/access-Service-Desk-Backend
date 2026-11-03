@@ -4,4 +4,9 @@ export {
   useMyOrganisation,
   useOrgDepartments,
 } from "./hooks/useOrganisation.js";
-export { describePlaces, isHodOf, leadsUnit } from "./place.js";
+export {
+  describePlaces,
+  isDepartmentStaff,
+  isHodOf,
+  leadsUnit,
+} from "./place.js";

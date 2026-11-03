@@ -7,6 +7,7 @@ import {
   Inbox,
   ListTree,
   Mail,
+  MapPin,
   Network,
   UsersRound,
   Users,
@@ -18,8 +19,12 @@ const { HeadOfUnit, HOD, SuperAdmin } = ROLES;
 /** One section per department in org/me, titled with the department's name from data (rule 14). */
 function departmentSection(department) {
   const items = [];
-  if (department.units.some((unit) => unit.isMember)) {
-    items.push({ label: "Work queue", icon: Inbox, comingSoon: true });
+  if (department.isHod || department.units.some((unit) => unit.isMember)) {
+    items.push({
+      label: "Work queue",
+      icon: Inbox,
+      to: `/departments/${department.id}/tickets`,
+    });
   }
   for (const unit of department.units) {
     if (unit.isHead || unit.isDeputy) {
@@ -58,7 +63,7 @@ export function buildNavigation(user, org, allDepartments) {
       title: null,
       items: [
         { label: "Home", icon: House, to: "/" },
-        { label: "My requests", icon: FileText, comingSoon: true },
+        { label: "My requests", icon: FileText, to: "/tickets" },
         ...(departments.length
           ? [
               {
@@ -83,6 +88,11 @@ export function buildNavigation(user, org, allDepartments) {
         id: `department-${department.id}`,
         title: department.name,
         items: [
+          {
+            label: "Work queue",
+            icon: Inbox,
+            to: `/departments/${department.id}/tickets`,
+          },
           {
             label: "Department availability",
             icon: Building2,
@@ -109,6 +119,7 @@ export function buildNavigation(user, org, allDepartments) {
         { label: "People and roles", icon: Users, to: "/admin/people" },
         { label: "Units", icon: Network, to: "/admin/units" },
         { label: "Categories", icon: ListTree, to: "/admin/categories" },
+        { label: "Locations", icon: MapPin, to: "/admin/locations" },
         { label: "Email", icon: Mail, to: "/admin/email" },
       ],
     });

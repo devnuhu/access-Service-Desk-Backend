@@ -9,6 +9,9 @@ const VARIANTS = {
   danger:
     "bg-white text-danger border border-danger hover:bg-danger-light disabled:opacity-60",
   ghost: "bg-transparent text-brand-navy hover:bg-brand-navy-light",
+  // Orange for an action only staff see (an internal note).
+  internal:
+    "bg-brand-orange text-white border-b-[3px] border-brand-orange-ink hover:bg-brand-orange-ink disabled:bg-brand-orange/60",
 };
 
 const SIZES = {

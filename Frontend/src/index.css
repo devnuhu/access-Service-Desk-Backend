@@ -89,6 +89,131 @@
     border-radius: 6px;
     padding: 6px 10px;
   }
+
+  /*
+   * Formatted text: the same look in RichTextEditor and RichTextView. The server keeps no class
+   * names, so everything is styled by element.
+   */
+  .rich-text {
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .rich-text > * + * {
+    margin-top: 0.6em;
+  }
+  .rich-text h1 {
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+  .rich-text h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+  .rich-text h3,
+  .rich-text h4 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .rich-text ul {
+    list-style: disc;
+    padding-left: 1.5em;
+  }
+  .rich-text ol {
+    list-style: decimal;
+    padding-left: 1.5em;
+  }
+  .rich-text li > p {
+    margin: 0;
+  }
+  .rich-text blockquote {
+    border-left: 3px solid var(--color-line);
+    padding-left: 0.9em;
+    color: var(--color-body);
+  }
+  .rich-text a {
+    color: var(--color-brand-navy);
+    text-decoration: underline;
+  }
+  .rich-text code {
+    background: var(--color-page);
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 0 0.25em;
+    font-size: 0.8125rem;
+  }
+  .rich-text pre {
+    background: var(--color-page);
+    border-radius: 6px;
+    padding: 0.6em 0.8em;
+    overflow-x: auto;
+  }
+  .rich-text pre code {
+    border: 0;
+    padding: 0;
+  }
+  .rich-text hr {
+    border: 0;
+    border-top: 1px solid var(--color-line);
+  }
+  .rich-text mark {
+    border-radius: 2px;
+    padding: 0 0.1em;
+  }
+  .rich-text table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    min-width: 50%;
+  }
+  .rich-text th,
+  .rich-text td {
+    border: 1px solid #c4ccd8;
+    padding: 6px 8px;
+    vertical-align: top;
+    min-width: 4em;
+    position: relative;
+  }
+  .rich-text th {
+    background: var(--color-page);
+    font-weight: 600;
+    text-align: left;
+  }
+  .rich-text th > p,
+  .rich-text td > p {
+    margin: 0;
+  }
+
+  /* Editor only: placeholder, selected cells and the column-resize handle. */
+  .rich-text .is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--color-muted);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+  .rich-text .selectedCell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(0 56 131 / 0.12);
+    pointer-events: none;
+  }
+  .rich-text .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: 4px;
+    background: var(--color-brand-orange);
+    pointer-events: none;
+  }
+  .rich-text.resize-cursor {
+    cursor: col-resize;
+  }
+  .rich-text .tableWrapper {
+    overflow-x: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

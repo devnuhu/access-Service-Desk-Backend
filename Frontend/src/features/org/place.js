@@ -38,3 +38,14 @@ export function isHodOf(org, departmentId) {
     ),
   );
 }
+
+/** Staff of a department: a member of one of its units, or its HOD (they see its tickets). */
+export function isDepartmentStaff(org, departmentId) {
+  return Boolean(
+    org?.departments?.some(
+      (department) =>
+        department.id === departmentId &&
+        (department.isHod || department.units.some((unit) => unit.isMember)),
+    ),
+  );
+}

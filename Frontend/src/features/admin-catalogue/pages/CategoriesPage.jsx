@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, Grid3x3, Plus } from "lucide-react";
+import { PriorityChip } from "@/features/catalogue";
 import { useOrgDepartments } from "@/features/org";
 import {
   Button,
@@ -12,7 +13,6 @@ import {
 } from "@/shared/ui";
 import CategoryDialog from "../components/CategoryDialog.jsx";
 import CoverBanner from "../components/CoverBanner.jsx";
-import PriorityChip from "../components/PriorityChip.jsx";
 import {
   useCategories,
   useCoverWarnings,

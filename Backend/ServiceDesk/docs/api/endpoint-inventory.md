@@ -58,6 +58,10 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/tickets/{id}`, `/api/tickets/by-reference/{ref}` | requester, raiser, people copied, department staff, Super Admin (others 404) | The ticket, its files and comments (internal notes for staff only) |
 | POST | `/api/tickets/{id}/comments` | same as above; internal notes: department staff | Comment with 0-6 files |
 | GET | `/api/tickets/{id}/attachments/{attachmentId}` | same as above (internal-note files: staff) | Download (always as a file) |
+| GET | `/api/tickets/{id}/reassign-options` | department staff, Super Admin (requester or CC: 403) | Whether I can reassign it and to whom, with workloads |
+| POST | `/api/tickets/{id}/reassign` | holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department) | Reassign with a reason (5-500); becomes Assigned |
+| GET | `/api/tickets/{id}/assignments` | department staff, Super Admin | Assignment history with the workloads the engine compared |
+| GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |
