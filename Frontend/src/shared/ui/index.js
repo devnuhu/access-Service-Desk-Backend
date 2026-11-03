@@ -6,6 +6,7 @@ export { default as Dialog } from "./Dialog.jsx";
 export { default as RoleChips, RoleChip } from "./RoleChips.jsx";
 export { default as Spinner } from "./Spinner.jsx";
 export { default as MessageCard } from "./MessageCard.jsx";
+export { default as PersonPicker } from "./PersonPicker.jsx";
 export { default as ToastProvider } from "./toast/ToastProvider.jsx";
 export { useToast } from "./toast/toastContext.js";
 export { default as BrandLockup } from "./brand/BrandLockup.jsx";

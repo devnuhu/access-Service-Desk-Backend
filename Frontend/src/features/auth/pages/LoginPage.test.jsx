@@ -30,7 +30,7 @@ const session = {
       roles: ME.roles,
     },
   },
-  errors: [],
+  errors: {},
 };
 
 function renderLoginWithContainer() {
@@ -127,7 +127,7 @@ describe("LoginPage", () => {
       ...signedOut,
       "GET /api/Auth/me": () =>
         signedIn
-          ? [200, { statusCode: 200, message: "", data: ME, errors: [] }]
+          ? [200, { statusCode: 200, message: "", data: ME, errors: {} }]
           : [401, ""],
       "POST /api/Auth/login": ({ body }) => {
         expect(body).toEqual({
@@ -154,7 +154,7 @@ describe("LoginPage", () => {
       ...signedOut,
       "GET /api/Auth/me": () =>
         signedIn
-          ? [200, { statusCode: 200, message: "", data: ME, errors: [] }]
+          ? [200, { statusCode: 200, message: "", data: ME, errors: {} }]
           : [401, ""],
       "POST /api/Auth/login": () => {
         signedIn = true;

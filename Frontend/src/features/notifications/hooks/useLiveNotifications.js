@@ -1,9 +1,19 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { SESSION_KEY } from "@/features/auth";
+import { ORG_ME_KEY } from "@/features/org";
 import { useToast } from "@/shared/ui";
 import { createNotificationConnection } from "../api/hub.js";
 import { notificationSchema } from "../api/endpoints.js";
 import { addPushedNotification, notificationKeys } from "./useNotifications.js";
+
+/** Query keys refreshed by a pushed notification, by its relatedEntityType. */
+export const REFRESH_BY_ENTITY = {
+  // Roles or place in the organisation changed: roles and the menu update without signing out.
+  User: [SESSION_KEY, ORG_ME_KEY],
+  // Someone's leave changed: the availability views refetch.
+  Absence: [["availability"]],
+};
 
 /**
  * Live notifications while the shell is shown (signed in). The connection stops when the shell
@@ -25,6 +35,11 @@ export default function useLiveNotifications() {
       }
       const notification = parsed.data;
       addPushedNotification(queryClient, notification);
+      for (const queryKey of REFRESH_BY_ENTITY[
+        notification.relatedEntityType
+      ] ?? []) {
+        queryClient.invalidateQueries({ queryKey });
+      }
       const show = notification.isActionRequired ? toast.action : toast.info;
       show(notification.message ?? "", {
         title: notification.title ?? "New notification",

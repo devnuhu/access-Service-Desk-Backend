@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useSession } from "@/features/auth";
+import { useMyOrganisation } from "@/features/org";
 import { installFakeApi } from "@/test/fakeApi";
-import { createTestQueryClient, renderWithProviders } from "@/test/render";
+import {
+  createTestQueryClient,
+  makeUser,
+  renderWithProviders,
+} from "@/test/render";
 import NotificationBell from "./NotificationBell.jsx";
 
 // A fake SignalR connection: the test calls the handlers the bell registers.
@@ -127,5 +133,71 @@ describe("NotificationBell", () => {
     await screen.findByTestId("bell-count");
     unmount();
     expect(hub.stopped).toBe(1);
+  });
+
+  it('a pushed notification with relatedEntityType "User" refetches auth/me and org/me', async () => {
+    let meCalls = 0;
+    let orgCalls = 0;
+    const queryClient = createTestQueryClient();
+    installFakeApi(queryClient, {
+      "GET /api/notifications/unread-count": () => [200, { count: 0 }],
+      "GET /api/notifications": () => [
+        200,
+        { items: [], total: 0, unread: 0, page: 1, pageSize: 10 },
+      ],
+      "GET /api/Auth/me": () => {
+        meCalls += 1;
+        const roles = meCalls > 1 ? ["Requester", "CaseWorker"] : ["Requester"];
+        return [
+          200,
+          {
+            statusCode: 200,
+            message: "",
+            data: makeUser({ roles }),
+            errors: {},
+          },
+        ];
+      },
+      "GET /api/Auth/csrf": () => [
+        200,
+        { statusCode: 200, message: "", data: "t", errors: {} },
+      ],
+      "GET /api/org/me": () => {
+        orgCalls += 1;
+        return [200, { departments: [] }];
+      },
+    });
+    // The shell watches both queries (RequireRole, Sidebar); this stands in for it.
+    function Shell() {
+      const { user } = useSession();
+      useMyOrganisation();
+      return (
+        <>
+          <p>Roles: {user?.roles.join(", ")}</p>
+          <NotificationBell />
+        </>
+      );
+    }
+    renderWithProviders(<Shell />, { queryClient });
+    expect(await screen.findByText("Roles: Requester")).toBeInTheDocument();
+    await expect.poll(() => orgCalls).toBe(1);
+
+    act(() => {
+      hub.handlers.ReceiveNotification(
+        item({
+          id: "n-access",
+          title: "Your Access Desk access changed",
+          message: "You now have the Case Worker role.",
+          relatedEntityType: "User",
+          relatedEntityId: "u-1",
+        }),
+      );
+    });
+
+    expect(
+      await screen.findByText("Roles: Requester, CaseWorker"),
+    ).toBeInTheDocument();
+    expect(meCalls).toBe(2);
+    await expect.poll(() => orgCalls).toBe(2);
   });
 });

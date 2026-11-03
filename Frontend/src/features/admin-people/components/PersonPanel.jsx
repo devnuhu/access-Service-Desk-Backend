@@ -1,6 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { X } from "lucide-react";
-import { roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
+import {
+  ASSIGNABLE_ROLES,
+  isStructureRole,
+  roleLabel,
+  ROLES,
+  sortRoles,
+} from "@/shared/lib/roles";
 import { formatWat } from "@/shared/lib/time";
 import {
   Button,
@@ -20,6 +27,8 @@ import {
 } from "../hooks/usePeople.js";
 
 const REQUESTER_HINT = "Every staff member is a Requester";
+const STRUCTURE_HINT =
+  "Follows the organisation. Change it in Administration > Units.";
 
 function Detail({ label, children }) {
   return (
@@ -45,9 +54,12 @@ export default function PersonPanel({ userId, onClose }) {
   const roleByName = new Map(
     (roles.data ?? []).map((role) => [role.name, role]),
   );
+  // Only Super Admin is given by hand; the structure roles follow the organisation (rule 15).
   const available = (roles.data ?? []).filter(
-    (role) => role.name && !user?.roles.includes(role.name),
+    (role) =>
+      ASSIGNABLE_ROLES.includes(role.name) && !user?.roles.includes(role.name),
   );
+  const hasStructureRole = user?.roles.some(isStructureRole);
 
   const report = (promise) =>
     promise.then(
@@ -113,13 +125,18 @@ export default function PersonPanel({ userId, onClose }) {
             <ul className="mt-2 flex flex-wrap gap-2" data-testid="panel-roles">
               {sortRoles(user.roles).map((roleName) => {
                 const role = roleByName.get(roleName);
-                const isRequester = roleName === ROLES.Requester;
+                const fixedHint =
+                  roleName === ROLES.Requester
+                    ? REQUESTER_HINT
+                    : isStructureRole(roleName)
+                      ? STRUCTURE_HINT
+                      : null;
                 return (
                   <li key={roleName}>
-                    {isRequester ? (
-                      <span title={REQUESTER_HINT}>
+                    {fixedHint ? (
+                      <span title={fixedHint}>
                         <RoleChip role={roleName} />
-                        <span className="sr-only"> ({REQUESTER_HINT})</span>
+                        <span className="sr-only"> ({fixedHint})</span>
                       </span>
                     ) : (
                       <RoleChip role={roleName}>
@@ -140,6 +157,18 @@ export default function PersonPanel({ userId, onClose }) {
                 );
               })}
             </ul>
+            {hasStructureRole && (
+              <p className="mt-2 text-xs text-muted">
+                Case Worker, Head of Unit and Head of Department follow the
+                organisation.{" "}
+                <Link
+                  to="/admin/units"
+                  className="font-semibold text-brand-navy hover:underline"
+                >
+                  Change them in Units
+                </Link>
+              </p>
+            )}
 
             {available.length > 0 && (
               <div className="mt-4 flex items-end gap-2">

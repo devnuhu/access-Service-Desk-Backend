@@ -29,7 +29,7 @@ export default function AddFromDirectoryDialog({ open, onClose, onAdded }) {
         result.created ? "Account created" : "Already has an account",
       );
       close();
-      onAdded(result.userId);
+      onAdded(result.userId, result);
     } catch (error) {
       toast.error(error.message);
     } finally {

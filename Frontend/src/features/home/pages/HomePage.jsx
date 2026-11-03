@@ -6,6 +6,7 @@ import {
   Users,
 } from "lucide-react";
 import { firstNameOf, useSession } from "@/features/auth";
+import { describePlaces, useMyOrganisation } from "@/features/org";
 import { roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
 import { Card, RoleChips } from "@/shared/ui";
 
@@ -36,6 +37,8 @@ const ROLE_CARDS = {
 export default function HomePage() {
   const { user } = useSession();
   const roles = sortRoles(user.roles);
+  const { data: org } = useMyOrganisation();
+  const places = describePlaces(org);
 
   return (
     <div className="space-y-6">
@@ -46,6 +49,16 @@ export default function HomePage() {
             "Access Pensions"}
         </p>
         <RoleChips roles={roles} className="mt-3" />
+        {places.length > 0 && (
+          <ul
+            className="mt-3 space-y-0.5 text-sm text-body"
+            aria-label="Your place"
+          >
+            {places.map((place) => (
+              <li key={place}>{place}</li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <section aria-labelledby="home-roles">

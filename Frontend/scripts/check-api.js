@@ -370,10 +370,30 @@ export function parseInventory(markdown) {
   return rows;
 }
 
-/** Inventory access text to the table's form: a role list, "signedIn" or "anonymous". */
+/**
+ * Plain-language "Who" phrases of docs/api/endpoint-inventory.md, by role. A phrase such as
+ * "unit head or deputy" names the role the server's organisation check is about (Head of Unit).
+ */
+const WHO_PHRASES = {
+  "super admin": "SuperAdmin",
+  "head of unit": "HeadOfUnit",
+  "unit head or deputy": "HeadOfUnit",
+  hod: "HOD",
+  "hod of its department": "HOD",
+  "case worker": "CaseWorker",
+  requester: "Requester",
+};
+
+/**
+ * Inventory access text to the table's form: a role list, "signedIn" or "anonymous".
+ * Understands "Policy: X", "Roles: A, B", and the plain words the Service Desk inventory uses:
+ * "anyone ..." (anonymous), "signed in ..." and "same people as above" (any signed-in person,
+ * the service checks the rest), and role phrases separated by commas ("Super Admin, Head of Unit").
+ */
 export function inventoryAccess(text) {
-  if (/^anonymous$/i.test(text)) return "anonymous";
-  if (/^signed in$/i.test(text)) return "signedIn";
+  if (/^(anonymous|anyone)\b/i.test(text)) return "anonymous";
+  if (/^signed in\b/i.test(text) || /^same people as above$/i.test(text))
+    return "signedIn";
   const policy = text.match(/^Policy:\s*(\S+)/);
   if (policy) return POLICIES[policy[1]] ?? `unknown policy ${policy[1]}`;
   const roles = text.match(/^Roles:\s*(.+)$/);
@@ -382,6 +402,9 @@ export function inventoryAccess(text) {
       .split(",")
       .map((role) => role.trim())
       .filter(Boolean);
+  const phrases = text.split(",").map((part) => part.trim().toLowerCase());
+  if (phrases.every((phrase) => WHO_PHRASES[phrase]))
+    return [...new Set(phrases.map((phrase) => WHO_PHRASES[phrase]))];
   return `unrecognised access "${text}"`;
 }
 
@@ -773,7 +796,11 @@ async function live() {
       });
       continue;
     }
-    if (entry.method !== "GET" || (entry.skip && allowed)) {
+    // skipAlways: the service decides by organisation, not role, so no role can be probed.
+    if (
+      entry.method !== "GET" ||
+      (entry.skip && (allowed || entry.skipAlways))
+    ) {
       rows.push({
         route,
         expected,

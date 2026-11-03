@@ -231,6 +231,25 @@ describe("access table", () => {
     expect(inventoryAccess("Policy: Nope")).toMatch(/unknown policy/);
   });
 
+  it("reads the plain-language Who column of the Service Desk inventory", () => {
+    expect(inventoryAccess("anyone")).toBe("anonymous");
+    expect(inventoryAccess("anyone with the refresh cookie")).toBe("anonymous");
+    expect(inventoryAccess("signed in")).toBe("signedIn");
+    expect(inventoryAccess("signed in (own only)")).toBe("signedIn");
+    expect(inventoryAccess("same people as above")).toBe("signedIn");
+    expect(inventoryAccess("Super Admin")).toEqual(["SuperAdmin"]);
+    expect(inventoryAccess("Super Admin, Head of Unit")).toEqual([
+      "SuperAdmin",
+      "HeadOfUnit",
+    ]);
+    expect(
+      inventoryAccess(
+        "unit head or deputy, HOD of its department, Super Admin",
+      ),
+    ).toEqual(["HeadOfUnit", "HOD", "SuperAdmin"]);
+    expect(inventoryAccess("the moon")).toMatch(/unrecognised/);
+  });
+
   it("flags declared endpoints without a role and inventory differences", () => {
     const declared = [
       { method: "GET", path: "/api/not-in-table", location: "x.js:1" },

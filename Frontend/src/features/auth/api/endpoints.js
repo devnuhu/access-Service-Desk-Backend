@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { defineEndpoint } from "../../../shared/lib/http/endpoint.js";
 
-/** AuthController wraps every answer in ApiResponse { statusCode, message, data, errors }. */
+/** AuthController wraps every answer in ApiResponse { statusCode, message, data, errors: { field: text } }. */
 const apiResponse = (data) =>
   z.object({
     statusCode: z.number(),
     message: z.string().nullable(),
     data,
-    errors: z.array(z.string()).nullable().optional(),
+    errors: z.record(z.string(), z.unknown()).nullable().optional(),
   });
 
 /**
@@ -17,6 +17,8 @@ const apiResponse = (data) =>
  * @property {string | null} username
  * @property {string | null} email
  * @property {string | null} fullName
+ * @property {string | null} firstName
+ * @property {string | null} lastName
  * @property {string | null} corporateEmail
  * @property {string | null} department
  * @property {string | null} jobTitle
@@ -28,6 +30,8 @@ const userProfileSchema = z.object({
   username: z.string().nullable(),
   email: z.string().nullable(),
   fullName: z.string().nullable(),
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
   corporateEmail: z.string().nullable(),
   department: z.string().nullable(),
   jobTitle: z.string().nullable(),

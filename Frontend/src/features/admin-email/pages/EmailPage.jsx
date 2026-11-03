@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { CircleAlert, CircleCheck, Send } from "lucide-react";
-import { request } from "@/shared/lib/http";
+import { applyFieldErrors, request } from "@/shared/lib/http";
 import { zodResolver } from "@/shared/lib/zodResolver";
 import { Button, Card, CardHeader, Spinner } from "@/shared/ui";
 import { getEmailStatus, sendTestEmail } from "../api/endpoints.js";
@@ -91,6 +91,7 @@ function TestCard() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm({ resolver: zodResolver(testSchema), defaultValues: { to: "" } });
 
@@ -99,6 +100,7 @@ function TestCard() {
     try {
       setResult(await send.mutateAsync(values));
     } catch (error) {
+      applyFieldErrors(error, setError, ["to"]);
       setResult({ success: false, message: error.message });
     }
   };

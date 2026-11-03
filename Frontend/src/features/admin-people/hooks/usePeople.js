@@ -26,6 +26,14 @@ export const peopleKeys = {
   directory: (query) => ["admin-people", "directory", query],
 };
 
+/** People matching a search, for pickers (the first 10). */
+export async function searchPeople(search) {
+  const result = await request(listUsers, {
+    query: { page: 1, pageSize: 10, search },
+  });
+  return result.items;
+}
+
 export function usePeopleList({ page, search, role }) {
   return useQuery({
     queryKey: peopleKeys.list({ page, search, role }),

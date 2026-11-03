@@ -34,6 +34,8 @@ export function makeUser(overrides = {}) {
     username: "amaka.obi",
     email: "amaka.obi@example.test",
     fullName: "Amaka Obi",
+    firstName: "Amaka",
+    lastName: "Obi",
     corporateEmail: null,
     department: "Operations",
     jobTitle: "Officer",

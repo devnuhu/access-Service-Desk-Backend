@@ -7,7 +7,7 @@ import {
 import { csrf, login, logout, me, refresh } from "./api/endpoints.js";
 
 /** The signed-in person lives in the query cache under this key: a UserProfile, or null when signed out. */
-export const SESSION_KEY = ["session"];
+export const SESSION_KEY = ["auth", "me"];
 
 /**
  * Session start: GET /api/auth/me (the client refreshes once on 401). 200 -> signed in, and a CSRF
@@ -60,7 +60,9 @@ export async function signIn(queryClient, credentials) {
 export function endSession(queryClient) {
   clearCsrfToken();
   queryClient.removeQueries({
-    predicate: (query) => query.queryKey[0] !== SESSION_KEY[0],
+    predicate: (query) =>
+      query.queryKey[0] !== SESSION_KEY[0] ||
+      query.queryKey[1] !== SESSION_KEY[1],
   });
   queryClient.setQueryData(SESSION_KEY, null);
 }
@@ -74,8 +76,9 @@ export async function signOut(queryClient) {
   }
 }
 
-/** First name for greetings. /me has no firstName, so it is the first word of the full name. */
+/** First name for greetings: firstName from /api/auth/me, else the first word of the full name. */
 export function firstNameOf(user) {
+  if (user?.firstName?.trim()) return user.firstName.trim();
   const name = user?.fullName?.trim() || user?.username || "";
   return name.split(/\s+/)[0];
 }

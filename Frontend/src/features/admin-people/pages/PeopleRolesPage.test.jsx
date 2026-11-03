@@ -62,39 +62,62 @@ describe("PeopleRolesPage", () => {
     expect(within(row).getByText("Not signed in yet")).toBeInTheDocument();
   });
 
-  it("offers no remove button on Requester, and one on other roles", async () => {
-    renderPage();
-    const panel = await openPanel();
-    const roles = await within(panel).findByTestId("panel-roles");
-    expect(
-      within(roles).getByRole("button", { name: "Remove Case Worker" }),
-    ).toBeInTheDocument();
-    expect(
-      within(roles).queryByRole("button", { name: /Remove Requester/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(roles).getByTitle("Every staff member is a Requester"),
-    ).toBeInTheDocument();
+  it("structure roles and Requester have no remove button; Super Admin does", async () => {
+    PERSON.roles = ["CaseWorker", "Requester", "SuperAdmin"];
+    try {
+      renderPage();
+      const panel = await openPanel();
+      const roles = await within(panel).findByTestId("panel-roles");
+      expect(
+        within(roles).queryByRole("button", { name: /Remove Case Worker/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(roles).getByTitle(
+          "Follows the organisation. Change it in Administration > Units.",
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(roles).queryByRole("button", { name: /Remove Requester/ }),
+      ).not.toBeInTheDocument();
+      expect(
+        within(roles).getByTitle("Every staff member is a Requester"),
+      ).toBeInTheDocument();
+      expect(
+        within(roles).getByRole("button", { name: "Remove Super Admin" }),
+      ).toBeInTheDocument();
+      expect(
+        within(panel).getByRole("link", { name: "Change them in Units" }),
+      ).toHaveAttribute("href", "/admin/units");
+    } finally {
+      PERSON.roles = ["CaseWorker", "Requester"];
+    }
   });
 
-  it("shows a 409 message as a toast, sending the CSRF header", async () => {
+  it("Give a role offers only Super Admin, and a 409 message appears as a toast", async () => {
     setCsrfToken("csrf-1");
     let sentHeader;
     renderPage({
       "POST /api/admin/users/:userId/roles": (config) => {
         sentHeader = config.headers.get("X-CSRF-Token");
-        expect(config.body).toEqual({ roleId: "r-hou" });
-        return [409, { message: "Tunde Bello already has this role." }];
+        expect(config.body).toEqual({ roleId: "r-sa" });
+        return [
+          409,
+          { message: "Tunde Bello already has this role.", errors: {} },
+        ];
       },
     });
     const panel = await openPanel();
     const select = await within(panel).findByLabelText("Give a role");
     await waitFor(() =>
       expect(
-        within(select).getByRole("option", { name: "Head of Unit" }),
+        within(select).getByRole("option", { name: "Super Admin" }),
       ).toBeInTheDocument(),
     );
-    await userEvent.selectOptions(select, "r-hou");
+    const offered = within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(offered).toEqual(["Choose a role…", "Super Admin"]);
+    await userEvent.selectOptions(select, "r-sa");
     await userEvent.click(within(panel).getByRole("button", { name: "Give" }));
     expect(
       await screen.findByText("Tunde Bello already has this role."),

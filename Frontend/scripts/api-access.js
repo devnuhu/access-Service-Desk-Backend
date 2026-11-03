@@ -8,6 +8,8 @@
  *   idFrom       fill the path parameter from the first row of another GET (no row: SKIP)
  *   queryFrom    fill a required query parameter the same way ({ listPath, field, param })
  *   skip         never called live; the text says why and what data it needs
+ *   skipAlways   with skip: not probed for any role (the service decides by organisation, and
+ *                answers 404 for an unknown id before it checks access)
  *   badRequestProbe  a request (body, query and/or a concrete path) that must be refused with 400
  *                    before anything is written
  *   schema       a zod schema the live response must pass (field check)
@@ -19,6 +21,12 @@ import {
   listUsers,
 } from "../src/features/admin-people/api/endpoints.js";
 import { getEmailStatus } from "../src/features/admin-email/api/endpoints.js";
+import { listAdminDepartments } from "../src/features/admin-units/api/endpoints.js";
+import { getMyAvailability } from "../src/features/availability/api/endpoints.js";
+import {
+  getMyOrganisation,
+  listOrgDepartments,
+} from "../src/features/org/api/endpoints.js";
 import { me } from "../src/features/auth/api/endpoints.js";
 import {
   getUnreadCount,
@@ -27,6 +35,10 @@ import {
 
 const SUPER = POLICIES.Super_Admin_Only;
 const UNIT = POLICIES.Unit_Management;
+// Availability views are [Authorize] only; the service checks the organisation (head or deputy of
+// the unit, HOD of the department), so a role alone is not enough. These are the roles involved.
+const TEAM_VIEW = ["HeadOfUnit", "HOD", "SuperAdmin"];
+const DEPARTMENT_VIEW = ["HOD", "SuperAdmin"];
 const SIGNED_IN = "signedIn";
 const ANONYMOUS = "anonymous";
 
@@ -106,6 +118,48 @@ export const ACCESS_TABLE = [
   }),
   write("PATCH", "/api/notifications/{id}/read", SIGNED_IN),
   write("PATCH", "/api/notifications/read-all", SIGNED_IN),
+
+  // Organisation (Super_Admin_Only for changes; any signed-in person reads their own place)
+  get("/api/admin/departments", SUPER, {
+    probe: {},
+    schema: listAdminDepartments.response,
+  }),
+  write("POST", "/api/admin/departments", SUPER),
+  write("PATCH", "/api/admin/departments/{departmentId}", SUPER),
+  write("PUT", "/api/admin/departments/{departmentId}/hod", SUPER),
+  write("POST", "/api/admin/departments/{departmentId}/units", SUPER),
+  write("PATCH", "/api/admin/units/{unitId}", SUPER),
+  write("PUT", "/api/admin/units/{unitId}/head", SUPER),
+  write("PUT", "/api/admin/units/{unitId}/deputy", SUPER),
+  get("/api/admin/units/{unitId}/members", SUPER, {
+    skip: "needs a unit id from GET /api/admin/departments (nested list)",
+  }),
+  write("POST", "/api/admin/units/{unitId}/members", SUPER),
+  write("DELETE", "/api/admin/units/{unitId}/members/{userId}", SUPER),
+  get("/api/org/me", SIGNED_IN, {
+    probe: {},
+    schema: getMyOrganisation.response,
+  }),
+  get("/api/org/departments", SIGNED_IN, {
+    probe: {},
+    schema: listOrgDepartments.response,
+  }),
+
+  // Availability
+  get("/api/availability/me", SIGNED_IN, {
+    probe: {},
+    schema: getMyAvailability.response,
+  }),
+  write("POST", "/api/availability/absences", SIGNED_IN),
+  write("DELETE", "/api/availability/absences/{absenceId}", SIGNED_IN),
+  get("/api/availability/units/{unitId}", TEAM_VIEW, {
+    skipAlways: true,
+    skip: "allowed by the organisation (head or deputy of that unit), not by role alone",
+  }),
+  get("/api/availability/departments/{departmentId}", DEPARTMENT_VIEW, {
+    skipAlways: true,
+    skip: "allowed by the organisation (HOD of that department), not by role alone",
+  }),
 
   // Health
   get("/api/health", ANONYMOUS),

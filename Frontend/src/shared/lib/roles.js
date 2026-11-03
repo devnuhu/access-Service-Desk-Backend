@@ -15,6 +15,19 @@ export const ROLE_ORDER = [
   ROLES.SuperAdmin,
 ];
 
+/**
+ * Structure roles follow the organisation (rule 15): a unit member is a Case Worker, a unit head or
+ * deputy is a Head of Unit, a department's HOD is HOD. They are never given or taken by hand.
+ */
+export const STRUCTURE_ROLES = [ROLES.CaseWorker, ROLES.HeadOfUnit, ROLES.HOD];
+
+/** The only role the People page gives by hand. Requester is everyone's. */
+export const ASSIGNABLE_ROLES = [ROLES.SuperAdmin];
+
+export function isStructureRole(role) {
+  return STRUCTURE_ROLES.includes(role);
+}
+
 const LABELS = {
   Requester: "Requester",
   CaseWorker: "Case Worker",

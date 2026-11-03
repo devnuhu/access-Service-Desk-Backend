@@ -1,5 +1,9 @@
 import { NavLink } from "react-router-dom";
+import { useMyOrganisation, useOrgDepartments } from "@/features/org";
+import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { buildNavigation } from "./navigation.js";
+
+const EXACT = new Set(["/", "/availability"]);
 
 function Item({ item, onNavigate }) {
   const Icon = item.icon;
@@ -20,7 +24,8 @@ function Item({ item, onNavigate }) {
   return (
     <NavLink
       to={item.to}
-      end={item.to === "/"}
+      // Home and My availability match exactly; /availability/units/... is its own item.
+      end={EXACT.has(item.to)}
       onClick={onNavigate}
       className={({ isActive }) =>
         `flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm font-medium ${
@@ -36,9 +41,17 @@ function Item({ item, onNavigate }) {
   );
 }
 
-/** The menu by role. Hiding is only for the user; the server decides access. */
+/**
+ * The menu by role and by the person's place in the organisation (GET /api/org/me). Hiding is only
+ * for the user; the server decides access.
+ */
 export default function Sidebar({ user, onNavigate }) {
-  const sections = buildNavigation(user);
+  const org = useMyOrganisation();
+  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
+  const all = useOrgDepartments({
+    enabled: isSuperAdmin && org.isSuccess && !org.data.departments.length,
+  });
+  const sections = buildNavigation(user, org.data, all.data);
   return (
     <nav aria-label="Main" className="flex flex-col gap-5 p-3">
       {sections.map((section) => (
