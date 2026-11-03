@@ -144,6 +144,8 @@ namespace ServiceDeskAPI
                 // Mark nullable fields (string?, nested objects that can be null) as nullable in the contract
                 options.SupportNonNullableReferenceTypes();
                 options.UseAllOfToExtendReferenceSchemas();
+                // File downloads are described as binary, not JSON
+                options.OperationFilter<ServiceDeskAPI.Infrastructure.Api.FileDownloadOperationFilter>();
                 options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
                 {
                     Name = "Authorization",
@@ -192,6 +194,8 @@ namespace ServiceDeskAPI
             builder.Services.AddScoped<IOrganisationService, ServiceDeskAPI.Infrastructure.Organisation.OrganisationService>();
             builder.Services.AddScoped<IAvailabilityService, ServiceDeskAPI.Infrastructure.Organisation.AvailabilityService>();
             builder.Services.AddScoped<ICatalogueService, ServiceDeskAPI.Infrastructure.Catalogue.CatalogueService>();
+            builder.Services.AddScoped<ILocationService, ServiceDeskAPI.Infrastructure.Tickets.LocationService>();
+            builder.Services.AddScoped<ITicketService, ServiceDeskAPI.Infrastructure.Tickets.TicketService>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 

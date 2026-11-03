@@ -48,6 +48,16 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/admin/categories/cover-warnings` | Super Admin | Active categories with fewer than two eligible case workers |
 | GET | `/api/admin/units/{unitId}/skills` | Super Admin | Skills matrix: the unit's categories, its members and what each handles, warnings |
 | PUT | `/api/admin/units/{unitId}/skills/{userId}` | Super Admin | Set exactly which of the unit's categories this member handles; message names categories still short of cover |
+| GET | `/api/locations?forUserId=` | signed in (forUserId: Super Admin) | Active locations and the one to pre-select |
+| GET | `/api/admin/locations` | Super Admin | All locations |
+| POST | `/api/admin/locations` | Super Admin | Add a location |
+| PATCH | `/api/admin/locations/{id}` | Super Admin | Rename, reorder, switch on/off (one must stay on) |
+| POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, priority?, subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
+| POST | `/api/tickets/duplicate-check` | signed in | Open tickets in the same category from the last 7 days with the same RSA PIN |
+| GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; status and search filters |
+| GET | `/api/tickets/{id}`, `/api/tickets/by-reference/{ref}` | requester, raiser, people copied, department staff, Super Admin (others 404) | The ticket, its files and comments (internal notes for staff only) |
+| POST | `/api/tickets/{id}/comments` | same as above; internal notes: department staff | Comment with 0-6 files |
+| GET | `/api/tickets/{id}/attachments/{attachmentId}` | same as above (internal-note files: staff) | Download (always as a file) |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |

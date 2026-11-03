@@ -6,6 +6,7 @@ using ServiceDeskAPI.Domain.Entities;
 using ServiceDeskAPI.Domain.Catalogue;
 using ServiceDeskAPI.Domain.Enums;
 using ServiceDeskAPI.Domain.Organisation;
+using ServiceDeskAPI.Domain.Tickets;
 
 namespace ServiceDeskAPI.Infrastructure.Persistence
 {
@@ -25,6 +26,13 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Absence> Absences => Set<Absence>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
+        public DbSet<Location> Locations => Set<Location>();
+        public DbSet<Ticket> Tickets => Set<Ticket>();
+        public DbSet<TicketWatcher> TicketWatchers => Set<TicketWatcher>();
+        public DbSet<TicketComment> TicketComments => Set<TicketComment>();
+        public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
+        public DbSet<TicketAttachmentContent> TicketAttachmentContents => Set<TicketAttachmentContent>();
+        public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -108,6 +116,93 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
             ConfigureAuditAndNotifications(builder);
             ConfigureOrganisation(builder);
             ConfigureCatalogue(builder);
+            ConfigureTickets(builder);
+        }
+
+        private static void ConfigureTickets(ModelBuilder builder)
+        {
+            builder.Entity<Location>(e =>
+            {
+                e.ToTable("Locations");
+                e.HasKey(l => l.Id);
+                e.Property(l => l.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(l => l.Name).IsUnique();
+                e.HasData(new Location { Id = TicketSeed.HeadquartersLocationId, Name = TicketSeed.HeadquartersName, SortOrder = 1, IsActive = true, CreatedAt = SeedDate });
+            });
+
+            builder.Entity<Ticket>(e =>
+            {
+                e.ToTable("Tickets");
+                e.HasKey(t => t.Id);
+                e.Property(t => t.Reference).HasMaxLength(30).IsRequired();
+                e.HasIndex(t => t.Reference).IsUnique();
+                e.Property(t => t.Subject).HasMaxLength(TicketSeed.MaxSubjectChars).IsRequired();
+                e.Property(t => t.DescriptionHtml).HasColumnType("nvarchar(max)").IsRequired();
+                e.Property(t => t.DescriptionText).HasColumnType("nvarchar(max)").IsRequired();
+                e.Property(t => t.RequesterDepartment).HasMaxLength(200);
+                e.Property(t => t.RowVersion).IsRowVersion();
+                e.HasOne(t => t.Department).WithMany().HasForeignKey(t => t.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(t => t.Unit).WithMany().HasForeignKey(t => t.UnitId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(t => t.Category).WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(t => t.Location).WithMany().HasForeignKey(t => t.LocationId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(t => t.RequesterUser).WithMany().HasForeignKey(t => t.RequesterUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<User>().WithMany().HasForeignKey(t => t.RaisedByUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(t => t.AssigneeUser).WithMany().HasForeignKey(t => t.AssigneeUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(t => new { t.RequesterUserId, t.CreatedAt });
+                e.HasIndex(t => new { t.UnitId, t.Status });
+                e.HasIndex(t => new { t.DepartmentId, t.Status });
+                e.HasIndex(t => new { t.AssigneeUserId, t.Status });
+                e.HasIndex(t => new { t.CategoryId, t.CreatedAt });
+            });
+
+            builder.Entity<TicketWatcher>(e =>
+            {
+                e.ToTable("TicketWatchers");
+                e.HasKey(w => w.Id);
+                e.HasOne(w => w.Ticket).WithMany(t => t.Watchers).HasForeignKey(w => w.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(w => w.User).WithMany().HasForeignKey(w => w.UserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(w => new { w.TicketId, w.UserId }).IsUnique();
+                e.HasIndex(w => w.UserId);
+            });
+
+            builder.Entity<TicketComment>(e =>
+            {
+                e.ToTable("TicketComments");
+                e.HasKey(c => c.Id);
+                e.Property(c => c.BodyHtml).HasColumnType("nvarchar(max)").IsRequired();
+                e.Property(c => c.BodyText).HasColumnType("nvarchar(max)").IsRequired();
+                e.HasOne(c => c.Ticket).WithMany(t => t.Comments).HasForeignKey(c => c.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(c => c.AuthorUser).WithMany().HasForeignKey(c => c.AuthorUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(c => new { c.TicketId, c.CreatedAt });
+            });
+
+            builder.Entity<TicketAttachment>(e =>
+            {
+                e.ToTable("TicketAttachments");
+                e.HasKey(a => a.Id);
+                e.Property(a => a.FileName).HasMaxLength(255).IsRequired();
+                e.Property(a => a.ContentType).HasMaxLength(100).IsRequired();
+                e.Property(a => a.Sha256).HasMaxLength(64).IsRequired();
+                e.HasOne(a => a.Ticket).WithMany(t => t.Attachments).HasForeignKey(a => a.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(a => a.Comment).WithMany().HasForeignKey(a => a.CommentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<User>().WithMany().HasForeignKey(a => a.UploadedByUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(a => a.TicketId);
+            });
+
+            builder.Entity<TicketAttachmentContent>(e =>
+            {
+                e.ToTable("TicketAttachmentContents");
+                e.HasKey(c => c.AttachmentId);
+                e.Property(c => c.Data).HasColumnType("varbinary(max)").IsRequired();
+                e.HasOne<TicketAttachment>().WithOne().HasForeignKey<TicketAttachmentContent>(c => c.AttachmentId).OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<TicketSequence>(e =>
+            {
+                e.ToTable("TicketSequences");
+                e.HasKey(q => new { q.DepartmentId, q.Year });
+                e.HasOne<Department>().WithMany().HasForeignKey(q => q.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+            });
         }
 
         private static void ConfigureCatalogue(ModelBuilder builder)
