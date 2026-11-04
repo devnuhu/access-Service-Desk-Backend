@@ -604,8 +604,8 @@ const WHO_PHRASES = {
  * Understands "Policy: X", "Roles: A, B", and the plain words the Service Desk inventory uses:
  * "anyone ..." (anonymous), "signed in ..." and "same people as above" (any signed-in person,
  * the service checks the rest), role phrases separated by commas ("Super Admin, Head of Unit"), and
- * a record's people ("requester, raiser, people copied, ...": any signed-in person, the service
- * checks the record).
+ * a record's people ("requester, raiser, people copied, ...", "department staff, Super Admin",
+ * "holder and unit head/deputy ...": any signed-in person, the service checks the record).
  */
 export function inventoryAccess(text) {
   if (/^(anonymous|anyone)\b/i.test(text)) return "anonymous";
@@ -626,9 +626,20 @@ export function inventoryAccess(text) {
     .split(",")
     .map((part) => part.trim().toLowerCase())
     .filter(Boolean);
-  // Everyone holds Requester, so a list that names the requester (with the people around a record:
-  // raiser, people copied, department staff) is any signed-in person; the service checks the rest.
-  if (phrases.includes("requester") && phrases.length > 1) return "signedIn";
+  // The people around a record (the requester among others, the raiser, people copied, department
+  // staff, the holder): any signed-in person, the service checks the record. Everyone holds
+  // Requester, so "requester" alone stays the role.
+  const recordPeople = [
+    "raiser",
+    "people copied",
+    "department staff",
+    "holder",
+  ];
+  if (
+    (phrases.includes("requester") && phrases.length > 1) ||
+    phrases.some((phrase) => recordPeople.some((word) => phrase.includes(word)))
+  )
+    return "signedIn";
   if (phrases.every((phrase) => WHO_PHRASES[phrase]))
     return [...new Set(phrases.map((phrase) => WHO_PHRASES[phrase]))];
   return `unrecognised access "${text}"`;

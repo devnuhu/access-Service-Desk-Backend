@@ -21,12 +21,17 @@ import {
 
 const OPEN = "open";
 const ALL = "all";
+const ASSIGNED = "assigned";
+const DEPARTMENT = "department";
 
 /**
  * A department's work queue (its staff and Super Admin). Status "Open" (the default) is New,
  * Assigned, In progress, Pending and Reopened: the API filters one status at a time, so the page
  * asks once per open status (newest 100 each), merges them and pages in the browser. Any other
  * choice is filtered and paged by the server.
+ *
+ * Unit members also get "Assigned to me" (view=assigned, kept to this department), which is the
+ * default for a case worker; heads, deputies, HODs and Super Admins start on "All open".
  */
 export default function WorkQueuePage() {
   const { departmentId } = useParams();
@@ -49,33 +54,54 @@ export default function WorkQueuePage() {
   const mine = org.data?.departments.find((d) => d.id === departmentId);
   const listed = allDepartments.data?.find((d) => d.id === departmentId);
   const department = mine ?? listed;
+  const ownUnit = mine?.units.find((unit) => unit.isMember);
   return (
     <WorkQueue
       key={departmentId}
       departmentId={departmentId}
+      code={department?.code ?? null}
       name={department?.name ?? "Department"}
       units={(listed ?? mine)?.units ?? []}
-      ownUnitId={mine?.units.find((unit) => unit.isMember)?.id ?? ""}
+      ownUnitId={ownUnit?.id ?? ""}
+      member={Boolean(ownUnit)}
+      startAssigned={
+        Boolean(ownUnit) &&
+        !ownUnit.isHead &&
+        !ownUnit.isDeputy &&
+        !isSuperAdmin
+      }
     />
   );
 }
 
-function WorkQueue({ departmentId, name, units, ownUnitId }) {
+const TABS = [
+  [ASSIGNED, "Assigned to me"],
+  [DEPARTMENT, "All open"],
+];
+
+function WorkQueue({
+  departmentId,
+  code,
+  name,
+  units,
+  ownUnitId,
+  member,
+  startAssigned,
+}) {
+  const [tab, setTab] = useState(startAssigned ? ASSIGNED : DEPARTMENT);
   const [unitId, setUnitId] = useState(ownUnitId);
   const [status, setStatus] = useState(OPEN);
   const [text, setText] = useState("");
   const search = useDebouncedValue(text.trim(), 300);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${unitId}|${status}|${search}`;
+  const key = `${tab}|${unitId}|${status}|${search}`;
   const page = pageState.key === key ? pageState.page : 1;
   const setPage = (next) => setPageState({ page: next, key });
 
-  const base = {
-    view: "department",
-    departmentId,
-    unitId: unitId || undefined,
-    search,
-  };
+  const assigned = tab === ASSIGNED;
+  const base = assigned
+    ? { view: "assigned", search }
+    : { view: "department", departmentId, unitId: unitId || undefined, search };
   const showOpen = status === OPEN;
   const open = useOpenTickets(base, { enabled: showOpen });
   const list = useTicketList(
@@ -88,10 +114,13 @@ function WorkQueue({ departmentId, name, units, ownUnitId }) {
     { enabled: !showOpen },
   );
 
-  const total = showOpen ? open.items.length : (list.data?.total ?? 0);
+  // view=assigned covers every department; keep this department's tickets.
+  const here = (ticket) => !assigned || !code || ticket.departmentCode === code;
+  const openItems = open.items.filter(here);
+  const total = showOpen ? openItems.length : (list.data?.total ?? 0);
   const items = showOpen
-    ? open.items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    : (list.data?.items ?? []);
+    ? openItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+    : (list.data?.items ?? []).filter(here);
   const filtered = Boolean(search) || status !== OPEN;
 
   return (
@@ -99,12 +128,31 @@ function WorkQueue({ departmentId, name, units, ownUnitId }) {
       <div>
         <h1 className="text-2xl font-semibold">{name}: work queue</h1>
         <p className="mt-1 text-sm text-muted">
-          Tickets raised to {name}. Assignment and status actions arrive in the
-          next release.
+          Tickets raised to {name}. Status actions arrive in the next release.
         </p>
       </div>
 
       <Card>
+        {member && (
+          <div
+            role="tablist"
+            aria-label="Which tickets"
+            className="flex gap-1 border-b border-line px-3 pt-2"
+          >
+            {TABS.map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => setTab(id)}
+                className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${tab === id ? "border-brand-orange text-brand-navy" : "border-transparent text-muted hover:text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="flex flex-wrap gap-3 border-b border-line px-5 py-3">
           <div className="relative min-w-56 flex-1">
             <Search
@@ -121,19 +169,21 @@ function WorkQueue({ departmentId, name, units, ownUnitId }) {
               className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
             />
           </div>
-          <select
-            aria-label="Unit"
-            value={unitId}
-            onChange={(event) => setUnitId(event.target.value)}
-            className="h-10 rounded-[6px] border border-line bg-white px-3 text-sm text-ink"
-          >
-            <option value="">All units</option>
-            {units.map((unit) => (
-              <option key={unit.id} value={unit.id}>
-                {unit.name}
-              </option>
-            ))}
-          </select>
+          {!assigned && (
+            <select
+              aria-label="Unit"
+              value={unitId}
+              onChange={(event) => setUnitId(event.target.value)}
+              className="h-10 rounded-[6px] border border-line bg-white px-3 text-sm text-ink"
+            >
+              <option value="">All units</option>
+              {units.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.name}
+                </option>
+              ))}
+            </select>
+          )}
           <select
             aria-label="Status"
             value={status}
@@ -170,7 +220,9 @@ function WorkQueue({ departmentId, name, units, ownUnitId }) {
             <p className="px-5 py-10 text-center text-sm text-muted">
               {filtered
                 ? "No tickets match these filters."
-                : "No open tickets. New requests show here as they arrive."}
+                : assigned
+                  ? "Nothing assigned to you is open."
+                  : "No open tickets. New requests show here as they arrive."}
             </p>
           }
         />

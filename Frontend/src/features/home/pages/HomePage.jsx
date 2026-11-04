@@ -8,6 +8,7 @@ import {
   TriangleAlert,
   UserCog,
   Users,
+  UserCheck,
 } from "lucide-react";
 import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
@@ -83,6 +84,21 @@ function MyOpenRequests() {
   );
 }
 
+/** Open tickets assigned to me (view=assigned), for case workers. */
+function AssignedToMe({ to }) {
+  const open = useOpenTickets({ view: "assigned" }, { pageSize: 1 });
+  return (
+    <CountCard
+      icon={UserCheck}
+      title="Assigned to me"
+      count={open.isLoading || open.error ? null : open.total}
+      to={to}
+      linkText="Work queue"
+      testId="count-assigned"
+    />
+  );
+}
+
 function NewInUnit({ department, unit }) {
   const list = useTicketList({
     view: "department",
@@ -108,6 +124,10 @@ export default function HomePage() {
   const { user } = useSession();
   const roles = sortRoles(user.roles);
   const { data: org } = useMyOrganisation();
+  // A case worker is a member of a unit; their queue opens on "Assigned to me".
+  const memberDepartment = org?.departments.find((department) =>
+    department.units.some((unit) => unit.isMember),
+  );
   const places = describePlaces(org);
   const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
   const { data: coverWarnings } = useCoverWarnings({ enabled: isSuperAdmin });
@@ -142,6 +162,9 @@ export default function HomePage() {
         </div>
         <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MyOpenRequests />
+          {memberDepartment && (
+            <AssignedToMe to={`/departments/${memberDepartment.id}/tickets`} />
+          )}
           {(org?.departments ?? []).flatMap((department) =>
             department.units
               .filter((unit) => unit.isMember)

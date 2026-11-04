@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryObserver } from "@tanstack/react-query";
 import { useSession } from "@/features/auth";
 import { useMyOrganisation } from "@/features/org";
+import { ticketKeys } from "@/features/tickets";
 import { installFakeApi } from "@/test/fakeApi";
 import {
   createTestQueryClient,
@@ -301,5 +303,57 @@ describe("NotificationBell", () => {
     ).toBeInTheDocument();
     await expect.poll(() => orgCalls).toBeGreaterThan(1);
     expect(refreshCalls).toBe(1);
+  });
+});
+
+describe("live ticket updates", () => {
+  it("an Assignment notification for the open ticket refetches it (and the queue), nothing else", async () => {
+    const { queryClient } = renderBell();
+    let ticketLoads = 0;
+    let queueLoads = 0;
+    let availabilityLoads = 0;
+    const observe = (queryKey, count) =>
+      new QueryObserver(queryClient, {
+        queryKey,
+        queryFn: async () => {
+          count();
+          return {};
+        },
+        staleTime: Infinity,
+      }).subscribe(() => {});
+    const stops = [
+      observe(ticketKeys.ticket({ reference: "CP-2026-000001" }), () => {
+        ticketLoads += 1;
+      }),
+      observe(ticketKeys.list({ view: "assigned", status: 2 }), () => {
+        queueLoads += 1;
+      }),
+      observe(["availability", "me"], () => {
+        availabilityLoads += 1;
+      }),
+    ];
+    await waitFor(() => expect(ticketLoads).toBe(1));
+    expect(hub.started).toBe(1);
+
+    act(() => {
+      hub.handlers.ReceiveNotification(
+        item({
+          id: "n-9",
+          title: "Ticket CP-2026-000001 assigned to you",
+          message: "Test Head of Unit passed it to you.",
+          type: 3,
+          category: 2,
+          relatedEntityType: "Ticket",
+          relatedEntityId: "t-1",
+          deepLinkUrl: "/tickets/CP-2026-000001",
+          isActionRequired: true,
+        }),
+      );
+    });
+
+    await waitFor(() => expect(ticketLoads).toBe(2));
+    await waitFor(() => expect(queueLoads).toBe(2));
+    expect(availabilityLoads).toBe(1);
+    stops.forEach((stop) => stop());
   });
 });

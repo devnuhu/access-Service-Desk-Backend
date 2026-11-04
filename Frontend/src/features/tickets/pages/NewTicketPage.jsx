@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchPeople } from "@/features/admin-people";
 import { useSession } from "@/features/auth";
+import { searchColleagues } from "@/features/people";
 import { PRIORITY, PRIORITY_LABELS, useCatalogue } from "@/features/catalogue";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { fieldError } from "@/shared/lib/http";
@@ -294,7 +295,7 @@ function TicketForm({ user, departments }) {
         priority,
         subject: form.subject.trim(),
         descriptionHtml: form.descriptionHtml,
-        ccUserIds: isSuperAdmin ? form.cc.map((person) => person.id) : [],
+        ccUserIds: form.cc.map((person) => person.id),
         requesterUserId: forUserId,
         files,
       });
@@ -561,17 +562,20 @@ function TicketForm({ user, departments }) {
                 disabled={busy}
               />
             </div>
-            {isSuperAdmin && (
-              <div data-field="ccUserIds">
-                <CcField
-                  people={form.cc}
-                  onChange={(cc) => set({ cc }, "ccUserIds")}
-                  search={searchPeople}
-                  error={errors.ccUserIds}
-                  exclude={form.requester ? [form.requester.id] : []}
-                />
-              </div>
-            )}
+            <div data-field="ccUserIds">
+              <CcField
+                people={form.cc}
+                onChange={(cc) => set({ cc }, "ccUserIds")}
+                search={searchColleagues}
+                error={errors.ccUserIds}
+                exclude={[
+                  user.id,
+                  ...(isSuperAdmin && form.raiseFor && form.requester
+                    ? [form.requester.id]
+                    : []),
+                ]}
+              />
+            </div>
           </div>
 
           {isSuperAdmin && (

@@ -29,6 +29,7 @@ import {
 } from "../src/features/admin-catalogue/api/endpoints.js";
 import { listCatalogue } from "../src/features/catalogue/api/endpoints.js";
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
+import { searchPeople } from "../src/features/people/api/endpoints.js";
 import {
   getTicket,
   getTicketByReference,
@@ -235,6 +236,21 @@ export const ACCESS_TABLE = [
   get("/api/tickets/{ticketId}/attachments/{attachmentId}", SIGNED_IN, {
     skipAlways: true,
     skip: "a file download; needs a ticket with a file (manual check 1 downloads one)",
+  }),
+
+  // Assignment (Step 5): the service decides by the ticket's department, not by role
+  get("/api/tickets/{ticketId}/reassign-options", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",
+  }),
+  write("POST", "/api/tickets/{ticketId}/reassign", SIGNED_IN),
+  get("/api/tickets/{ticketId}/assignments", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",
+  }),
+  get("/api/people/search", SIGNED_IN, {
+    probe: { query: "test" },
+    schema: searchPeople.response,
   }),
 
   // Health

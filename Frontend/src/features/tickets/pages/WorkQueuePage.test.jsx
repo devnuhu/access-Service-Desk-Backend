@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { SESSION_KEY } from "@/features/auth";
 import { installFakeApi } from "@/test/fakeApi";
@@ -21,7 +22,9 @@ const unit = (id, name, flags = {}) => ({
   ...flags,
 });
 
-const item = (reference, status, createdAt) => ({
+const CW1 = { userId: "u-cw1", userName: "test.caseworker1", fullName: null };
+
+const item = (reference, status, createdAt, assignee = null) => ({
   id: `t-${reference}`,
   reference,
   subject: `Subject ${reference}`,
@@ -32,7 +35,7 @@ const item = (reference, status, createdAt) => ({
   priority: 2,
   status,
   requester: { userId: "u-r", userName: "test.requester", fullName: null },
-  assignee: null,
+  assignee,
   createdAt,
   updatedAt: null,
 });
@@ -45,7 +48,9 @@ function renderQueue(roles, org, tickets = {}) {
     "GET /api/org/departments": () => [200, []],
     "GET /api/tickets": (config) => {
       asked.push(config.params);
-      const items = tickets[config.params.status] ?? [];
+      // tickets: { [status]: items } for every view, or { [view]: { [status]: items } }
+      const byView = tickets[config.params.view] ?? tickets;
+      const items = byView[config.params.status] ?? [];
       return [
         200,
         {
@@ -78,7 +83,7 @@ describe("Work queue", () => {
     expect(asked).toHaveLength(0);
   });
 
-  it("staff see their unit's open tickets (one call per open status, newest first), Unassigned", async () => {
+  it("a head starts on All open: the unit's open tickets (one call per open status, newest first); New shows Waiting", async () => {
     const asked = renderQueue(
       ["Requester", "CaseWorker", "HeadOfUnit"],
       {
@@ -97,9 +102,12 @@ describe("Work queue", () => {
       },
       {
         1: [item("CP-2026-000002", 1, "2026-11-03T10:00:00Z")],
-        4: [item("CP-2026-000001", 4, "2026-11-02T10:00:00Z")],
+        4: [item("CP-2026-000001", 4, "2026-11-02T10:00:00Z", CW1)],
       },
     );
+    expect(
+      await screen.findByRole("tab", { name: "All open" }),
+    ).toHaveAttribute("aria-selected", "true");
     expect(
       await screen.findByRole("heading", {
         name: "Contribution Processing: work queue",
@@ -110,8 +118,9 @@ describe("Work queue", () => {
       "ticket-row-CP-2026-000002",
       "ticket-row-CP-2026-000001",
     ]);
-    expect(within(rows[0]).getByText("Unassigned")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Waiting")).toBeInTheDocument();
     expect(within(rows[0]).getByText("New")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("test.caseworker1")).toBeInTheDocument();
     expect(screen.getByLabelText("Unit")).toHaveDisplayValue(
       "Contribution Matching",
     );
@@ -124,5 +133,52 @@ describe("Work queue", () => {
           query.unitId === "u-cm",
       ),
     ).toBe(true);
+  });
+
+  it("a case worker starts on Assigned to me (view=assigned, this department only)", async () => {
+    const user = userEvent.setup();
+    const asked = renderQueue(
+      ["Requester", "CaseWorker"],
+      {
+        departments: [
+          {
+            ...CP,
+            isHod: false,
+            units: [unit("u-cm", "Contribution Matching", { isMember: true })],
+          },
+        ],
+      },
+      {
+        assigned: {
+          2: [
+            item("CP-2026-000010", 2, "2026-11-03T11:00:00Z", CW1),
+            {
+              ...item("HR-2026-000001", 2, "2026-11-03T12:00:00Z", CW1),
+              departmentCode: "HR",
+            },
+          ],
+        },
+        department: {
+          1: [item("CP-2026-000011", 1, "2026-11-03T12:00:00Z")],
+        },
+      },
+    );
+    expect(
+      await screen.findByRole("tab", { name: "Assigned to me" }),
+    ).toHaveAttribute("aria-selected", "true");
+    const rows = await screen.findAllByTestId(/^ticket-row-/);
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "ticket-row-CP-2026-000010",
+    ]);
+    expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
+    expect(asked.every((query) => query.view === "assigned")).toBe(true);
+
+    await user.click(screen.getByRole("tab", { name: "All open" }));
+    expect(
+      await screen.findByTestId("ticket-row-CP-2026-000011"),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit")).toHaveDisplayValue(
+      "Contribution Matching",
+    );
   });
 });

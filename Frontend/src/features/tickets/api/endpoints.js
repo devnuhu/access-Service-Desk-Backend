@@ -219,3 +219,69 @@ export const downloadAttachment = defineEndpoint({
   path: "/api/tickets/{ticketId}/attachments/{attachmentId}",
   responseType: "blob",
 });
+
+/** TicketAssignment.method. */
+export const ASSIGNMENT_METHOD = Object.freeze({ Auto: 1, Reassigned: 2 });
+
+/**
+ * Whether I may reassign the ticket and to whom (department staff and Super Admin; a requester or
+ * a copied colleague gets 403, anyone else 404). `reason` says why not when canReassign is false.
+ */
+export const getReassignOptions = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/reassign-options",
+  response: z.object({
+    canReassign: z.boolean(),
+    reason: z.string().nullable(),
+    candidates: list(
+      z.object({
+        userId: z.string(),
+        userName: z.string(),
+        fullName: z.string().nullable(),
+        unitId: z.string(),
+        unitName: z.string(),
+        handlesCategory: z.boolean(),
+        workload: z.number(),
+        isCurrentAssignee: z.boolean(),
+      }),
+    ),
+  }),
+});
+
+/** Reassign with a reason (5-500). 400 errors.reason / errors.toUserId, 403, 404, 409. */
+export const reassignTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/reassign",
+  body: z.object({ toUserId: z.string().min(1), reason: z.string() }),
+  response: z.object({ message: z.string() }),
+});
+
+/** Assignment history, oldest first; Auto entries carry the workloads the engine compared. */
+export const listAssignments = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/assignments",
+  response: list(
+    z.object({
+      id: z.string(),
+      at: z.string(),
+      method: z.number().int(),
+      reason: z.string(),
+      from: personSchema.nullable(),
+      to: personSchema,
+      by: personSchema.nullable(),
+      fromUnitName: z.string(),
+      toUnitName: z.string(),
+      scores: list(
+        z.object({
+          userId: z.string(),
+          userName: z.string(),
+          fullName: z.string().nullable(),
+          workload: z.number(),
+          openTickets: z.number(),
+          lastAssignedAt: z.string().nullable(),
+          chosen: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+});

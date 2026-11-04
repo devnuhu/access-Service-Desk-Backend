@@ -3,6 +3,7 @@ import { ChevronRight, SearchX } from "lucide-react";
 import { PriorityChip } from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
 import { Card, MessageCard, RichTextView, Spinner } from "@/shared/ui";
+import AssignmentPanel from "../components/AssignmentPanel.jsx";
 import AttachmentList from "../components/AttachmentList.jsx";
 import Conversation from "../components/Conversation.jsx";
 import ReplyBox from "../components/ReplyBox.jsx";
@@ -176,13 +177,18 @@ export default function TicketPage() {
               </Detail>
             </dl>
           </Card>
-          <Card className="p-5">
-            <h2 className="text-base font-semibold">Actions</h2>
-            <p className="mt-1 text-sm text-muted">
-              Assignment, acknowledgement and resolution arrive in the next
-              release.
-            </p>
-          </Card>
+          {ticket.isStaffView && (
+            <>
+              <AssignmentPanel ticket={ticket} />
+              <Card className="p-5">
+                <h2 className="text-base font-semibold">Actions</h2>
+                <p className="mt-1 text-sm text-muted">
+                  Acknowledgement, pending and resolution arrive in the next
+                  release.
+                </p>
+              </Card>
+            </>
+          )}
         </aside>
       </div>
     </div>

@@ -10,11 +10,14 @@ import {
   checkDuplicates,
   createTicket,
   downloadAttachment,
+  getReassignOptions,
   getTicket,
   getTicketByReference,
+  listAssignments,
   listLocations,
   listTickets,
   OPEN_STATUSES,
+  reassignTicket,
 } from "../api/endpoints.js";
 
 export const PAGE_SIZE = 20;
@@ -33,6 +36,10 @@ export const ticketKeys = {
       ? ["tickets", "detail", reference]
       : ["tickets", "detail", "id", id],
   locations: (forUserId) => ["tickets", "locations", forUserId ?? "me"],
+  /** Reassign options and history of one ticket (staff only); under "tickets", so a push refetches them. */
+  assignment: (ticketId) => ["tickets", "assignment", ticketId],
+  reassignOptions: (ticketId) => ["tickets", "assignment", ticketId, "options"],
+  history: (ticketId) => ["tickets", "assignment", ticketId, "history"],
 };
 
 export function useLocationChoices(forUserId) {
@@ -146,4 +153,39 @@ export async function downloadFile(ticketId, attachment) {
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   return name;
+}
+
+/** Staff only: never call these for a requester or a copied colleague (they would get 403). */
+export function useReassignOptions(ticketId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ticketKeys.reassignOptions(ticketId),
+    queryFn: () => request(getReassignOptions, { params: { ticketId } }),
+    enabled: Boolean(ticketId) && enabled,
+  });
+}
+
+export function useAssignmentHistory(ticketId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ticketKeys.history(ticketId),
+    queryFn: () => request(listAssignments, { params: { ticketId } }),
+    enabled: Boolean(ticketId) && enabled,
+  });
+}
+
+/** After a reassignment (or a 409), the ticket, its options and history and the lists refetch. */
+export function refreshAfterReassign(queryClient, ticketId) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: ticketKeys.tickets }),
+    queryClient.invalidateQueries({
+      queryKey: ticketKeys.assignment(ticketId),
+    }),
+    queryClient.invalidateQueries({ queryKey: ticketKeys.lists }),
+  ]);
+}
+
+export function useReassign(ticketId) {
+  return useMutation({
+    mutationFn: (body) =>
+      request(reassignTicket, { params: { ticketId }, body }),
+  });
 }

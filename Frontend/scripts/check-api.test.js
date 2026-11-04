@@ -564,6 +564,15 @@ describe("check-api multipart forms and file downloads", () => {
       "POST /api/tickets/{id}/comments",
       "GET /api/tickets",
     ]);
+    expect(
+      inventoryAccess("department staff, Super Admin (requester or CC: 403)"),
+    ).toBe("signedIn");
+    expect(
+      inventoryAccess(
+        "holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department)",
+      ),
+    ).toBe("signedIn");
+    expect(inventoryAccess("Requester")).toEqual(["Requester"]);
     expect(rows.map((row) => inventoryAccess(row.access))).toEqual([
       "signedIn",
       "signedIn",

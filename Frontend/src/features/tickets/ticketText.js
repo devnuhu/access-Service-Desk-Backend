@@ -39,3 +39,30 @@ export function draftKey(userId) {
 
 /** Most people a ticket can copy. */
 export const MAX_CC = 10;
+
+/** "just now", "5 minutes ago", "3 hours ago", "2 days ago". */
+export function sinceText(utc, now = Date.now()) {
+  const text = /(Z|[+-]\d\d:?\d\d)$/i.test(utc) ? utc : `${utc}Z`;
+  const minutes = Math.floor((now - new Date(text).getTime()) / 60_000);
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"} ago`;
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return plural(minutes, "minute");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return plural(hours, "hour");
+  return plural(Math.floor(hours / 24), "day");
+}
+
+/** Why the engine assigned it, in plain words (the reason of an Auto history entry). */
+const AUTO_REASONS = {
+  raised: "When it was raised",
+  retry: "When someone became available",
+  "assignee unavailable": "Because the assignee was unavailable",
+};
+
+export function autoReasonText(reason) {
+  return AUTO_REASONS[reason] ?? reason;
+}
+
+/** Reassignment reasons: 5 to 500 characters. */
+export const REASON_MIN = 5;
+export const REASON_MAX = 500;

@@ -272,3 +272,79 @@ describe("Raise a ticket", () => {
     expect(calls.duplicates.length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("Copy colleagues (CC) for everyone", () => {
+  it("a plain requester searches /api/people/search from 2 characters, cannot pick themselves, and copies at most 10", async () => {
+    const user = userEvent.setup();
+    const searched = [];
+    const nine = Array.from({ length: 9 }, (_, i) => ({
+      id: `p-${i}`,
+      fullName: `Person ${i}`,
+      userName: `person.${i}`,
+    }));
+    const { calls } = renderForm({
+      draft: {
+        categoryId: "c-ar",
+        subject: "Balance query",
+        descriptionHtml: "<p>Please check.</p>",
+        cc: nine,
+      },
+      routes: {
+        "GET /api/people/search": (config) => {
+          searched.push(config.params.query);
+          return [
+            200,
+            [
+              {
+                userId: "u-1",
+                userName: "amaka.obi",
+                fullName: "Amaka Obi",
+                department: "Operations",
+              },
+              {
+                userId: "u-x",
+                userName: "test.caseworker2",
+                fullName: "Test Caseworker Two",
+                department: "Contribution Processing",
+              },
+            ],
+          ];
+        },
+      },
+    });
+    const box = await screen.findByLabelText("Add a colleague");
+    await user.type(box, "t");
+    expect(
+      await screen.findByText("Type at least 2 letters."),
+    ).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(searched).toHaveLength(0);
+
+    await user.type(box, "e");
+    const results = await screen.findByRole("list", {
+      name: "Matching people",
+    });
+    expect(searched).toEqual(["te"]);
+    expect(within(results).queryByText("Amaka Obi")).not.toBeInTheDocument();
+    expect(
+      within(results).getByText("contribution processing", { exact: false }),
+    ).toBeInTheDocument();
+    await user.click(within(results).getByText("Test Caseworker Two"));
+
+    expect(
+      screen.getByText("10 people copied: the most a ticket takes."),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Add a colleague")).not.toBeInTheDocument();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Location")).toHaveDisplayValue("Abuja"),
+    );
+    await screen.findByRole("toolbar", { name: "Formatting" });
+    await user.click(screen.getByRole("button", { name: "Raise ticket" }));
+    await waitFor(() => expect(calls.create).toHaveLength(1));
+    const sent = calls.create[0].body.getAll("ccUserIds");
+    expect(sent).toHaveLength(10);
+    expect(sent).toContain("u-x");
+    expect(sent).not.toContain("u-1");
+  });
+});

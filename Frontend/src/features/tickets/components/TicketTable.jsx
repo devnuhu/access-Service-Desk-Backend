@@ -2,7 +2,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PriorityChip } from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
-import { Button, Spinner } from "@/shared/ui";
+import { Button, Chip, Spinner } from "@/shared/ui";
+import { STATUS } from "../api/endpoints.js";
 import { personName } from "../ticketText.js";
 import StatusChip from "./StatusChip.jsx";
 
@@ -10,7 +11,8 @@ const th = "px-4 py-2.5 whitespace-nowrap";
 const td = "px-4 py-3";
 
 /**
- * A list of tickets; a row opens the ticket. `queue` adds Unit, Requester and Assignee (work queue).
+ * A list of tickets; a row opens the ticket. `queue` adds Unit, Requester and Assignee (work queue);
+ * a New ticket's assignee shows an orange "Waiting" chip (no one available yet).
  * The pager shows when `pages` > 1.
  */
 export default function TicketTable({
@@ -126,7 +128,9 @@ export default function TicketTable({
                   <>
                     <td className={td}>{personName(ticket.requester)}</td>
                     <td className={td}>
-                      {ticket.assignee ? (
+                      {ticket.status === STATUS.New ? (
+                        <Chip tone="orange">Waiting</Chip>
+                      ) : ticket.assignee ? (
                         personName(ticket.assignee)
                       ) : (
                         <span className="text-muted">Unassigned</span>

@@ -27,7 +27,11 @@ function renderHome(roles, cover = COVER, org = { departments: [] }) {
     // My open requests: 2 New + 1 Pending; the unit has 4 New.
     "GET /api/tickets": ({ params }) => {
       const totals =
-        params.view === "mine" ? { 1: 2, 4: 1 } : { 1: params.unitId ? 4 : 0 };
+        params.view === "assigned"
+          ? { 2: 2, 3: 1 }
+          : params.view === "mine"
+            ? { 1: 2, 4: 1 }
+            : { 1: params.unitId ? 4 : 0 };
       return [
         200,
         { items: [], total: totals[params.status] ?? 0, page: 1, pageSize: 1 },
@@ -70,7 +74,7 @@ describe("Home", () => {
     expect(requester.coverCalls()).toBe(0);
   });
 
-  it("shows Raise a ticket, my open requests and, for unit members, New in my unit", async () => {
+  it("shows Raise a ticket, my open requests and, for unit members, Assigned to me and New in my unit", async () => {
     renderHome(["Requester", "CaseWorker"], [], {
       departments: [
         {
@@ -96,6 +100,10 @@ describe("Home", () => {
     ).toHaveAttribute("href", "/tickets/new");
     expect(await screen.findByTestId("count-my-open")).toHaveTextContent("3");
     expect(await screen.findByTestId("count-new-u-rf")).toHaveTextContent("4");
+    expect(await screen.findByTestId("count-assigned")).toHaveTextContent("3");
+    expect(
+      screen.getByRole("link", { name: "Work queue (Assigned to me)" }),
+    ).toHaveAttribute("href", "/departments/d-cp/tickets");
     expect(
       screen.getByRole("link", { name: "Work queue (New in Refund)" }),
     ).toHaveAttribute("href", "/departments/d-cp/tickets");

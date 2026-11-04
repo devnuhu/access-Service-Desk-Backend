@@ -1,11 +1,13 @@
 import { X } from "lucide-react";
 import { PersonPicker } from "@/shared/ui";
+import { MIN_QUERY } from "@/features/people";
 import { MAX_CC } from "../ticketText.js";
 
 /**
- * Copy colleagues: up to 10 people. Takes the people search as `search` (Super Admin uses
- * /api/admin/users today; backend Step 5 adds a search for everyone). A person is
- * { id, fullName, userName, department }.
+ * Copy colleagues: up to 10 people, for everyone raising a ticket. Takes the people search as
+ * `search` (GET /api/people/search through searchColleagues); it starts at 2 characters. A
+ * person is { id, fullName, userName, department }. `exclude` keeps out the person raising it
+ * (and the requester when a Super Admin raises for someone else).
  */
 export default function CcField({
   people,
@@ -57,6 +59,8 @@ export default function CcField({
             onSelect={(person) => onChange([...people, person])}
             exclude={[...exclude, ...people.map((p) => p.id)]}
             queryKey={["tickets", "cc-search"]}
+            minLength={MIN_QUERY}
+            placeholder="Name or login name"
           />
         )}
       </div>
