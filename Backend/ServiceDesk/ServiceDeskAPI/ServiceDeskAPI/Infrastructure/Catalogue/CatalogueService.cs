@@ -146,6 +146,25 @@ namespace ServiceDeskAPI.Infrastructure.Catalogue
                 .Distinct()
                 .ToListAsync();
 
+        public async Task<List<MyCategoriesDto>> MineAsync(Guid userId)
+        {
+            var units = await _db.UnitMembers.AsNoTracking()
+                .Where(m => m.UserId == userId && m.IsActive && m.Unit!.IsActive)
+                .OrderBy(m => m.Unit!.Department!.Name).ThenBy(m => m.Unit!.Name)
+                .Select(m => new MyCategoriesDto { UnitId = m.UnitId, UnitName = m.Unit!.Name, DepartmentName = m.Unit.Department!.Name })
+                .ToListAsync();
+            if (units.Count == 0) return units;
+            var unitIds = units.Select(u => u.UnitId).ToList();
+            var skills = await _db.CategorySkills.AsNoTracking()
+                .Where(s => s.UserId == userId && s.IsActive && unitIds.Contains(s.Category!.UnitId))
+                .OrderBy(s => s.Category!.SortOrder).ThenBy(s => s.Category!.Name)
+                .Select(s => new { s.Category!.UnitId, s.CategoryId, s.Category.Name, s.Category.IsActive })
+                .ToListAsync();
+            foreach (var unit in units)
+                unit.Categories = skills.Where(s => s.UnitId == unit.UnitId).Select(s => new MyCategoryDto(s.CategoryId, s.Name, s.IsActive)).ToList();
+            return units;
+        }
+
         // ---------------- categories ----------------
 
         public async Task<(AdminResult Result, CategoryAdminDto? Category)> CreateAsync(CreateCategoryRequest request, Guid? actorUserId)

@@ -13,8 +13,8 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<AdminResult> UpdateAsync(Guid locationId, SaveLocationRequest request, Guid? actorUserId);
     }
 
-    /// <summary>A failed ticket action: HTTP status, message and (when one field is to blame) its name.</summary>
-    public sealed record TicketProblem(int Status, string Message, string? Field = null);
+    /// <summary>A failed ticket action: HTTP status, message, the first field to blame and (Step 6) every field to blame.</summary>
+    public sealed record TicketProblem(int Status, string Message, string? Field = null, IReadOnlyDictionary<string, string>? Errors = null);
 
     /// <summary>
     /// Raising, reading and commenting on tickets (BRD M2, M4). Visibility: the requester, whoever raised it, the people copied, staff of
@@ -26,8 +26,11 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(TicketProblem? Problem, CreatedTicketDto? Ticket)> CreateAsync(CreateTicketRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, DuplicateCheckDto? Result)> CheckDuplicatesAsync(DuplicateCheckRequest request, Guid actorUserId);
 
-        /// <summary>view: mine (raised by or for me), copied, assigned (to me), department (departmentId; staff of it or Super Admin; optional unitId).</summary>
-        Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status, string? search,
+        /// <summary>
+        /// view: mine (raised by or for me), copied, assigned (to me), department (departmentId; staff of it or Super Admin).
+        /// departmentId and unitId narrow every view; open=true keeps New, Assigned, In progress, Pending and Reopened.
+        /// </summary>
+        Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status, bool? open, string? search,
             int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin);
 
         Task<(TicketProblem? Problem, TicketDetailDto? Ticket)> GetAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);

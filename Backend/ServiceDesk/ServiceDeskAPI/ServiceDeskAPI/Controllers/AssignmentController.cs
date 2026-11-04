@@ -83,7 +83,7 @@ namespace ServiceDeskAPI.Controllers
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<List<PersonSearchResultDto>>> Search([FromQuery] string? query)
         {
-            var (problem, people) = await _assignment.SearchPeopleAsync(query);
+            var (problem, people) = await _assignment.SearchPeopleAsync(query, Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value));
             if (problem != null) return StatusCode(problem.Status, new ApiError(problem.Message, problem.Field ?? "query", problem.Message));
             return Ok(people);
         }

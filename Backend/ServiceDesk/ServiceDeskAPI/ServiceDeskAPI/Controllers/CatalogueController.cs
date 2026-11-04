@@ -92,5 +92,11 @@ namespace ServiceDeskAPI.Controllers
         [HttpGet("categories")]
         [ProducesResponseType(typeof(List<CatalogueDepartmentDto>), StatusCodes.Status200OK)]
         public async Task<ActionResult<List<CatalogueDepartmentDto>>> Categories() => Ok(await _catalogue.ListForRequestersAsync());
+
+        /// <summary>The categories I handle, per unit (empty for people who are not in a unit).</summary>
+        [HttpGet("mine")]
+        [ProducesResponseType(typeof(List<MyCategoriesDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<MyCategoriesDto>>> Mine() =>
+            Ok(await _catalogue.MineAsync(Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value)));
     }
 }

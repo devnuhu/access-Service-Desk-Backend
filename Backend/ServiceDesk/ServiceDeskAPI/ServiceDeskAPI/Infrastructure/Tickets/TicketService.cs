@@ -22,6 +22,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         private const int DuplicateDays = 7;
         private static readonly Regex RsaPin = new(@"\bPEN\d{12}\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly TicketStatus[] FinishedStatuses = { TicketStatus.Resolved, TicketStatus.Closed, TicketStatus.Cancelled };
+        private static readonly TicketStatus[] OpenStatuses = { TicketStatus.New, TicketStatus.Assigned, TicketStatus.InProgress, TicketStatus.Pending, TicketStatus.Reopened };
 
         private readonly AppDbContext _db;
         private readonly IAuditService _audit;
@@ -55,33 +56,37 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (requester == null) return (new TicketProblem(404, "Person not found.", "requesterUserId"), null);
             if (!requester.IsActive) return (new TicketProblem(400, Name(requester) + " is blocked.", "requesterUserId"), null);
 
-            // What and where
+            // Every field is checked, and every problem reported at once (Step 6)
+            var errors = new Dictionary<string, string>();
             var category = await _db.Categories.Include(c => c.Unit).Include(c => c.Department)
                 .FirstOrDefaultAsync(c => c.Id == request.CategoryId);
             if (category == null || !category.IsActive || !category.Unit!.IsActive || !category.Department!.IsActive)
-                return (new TicketProblem(400, "Choose one of the listed categories.", "categoryId"), null);
+                errors["categoryId"] = "Choose one of the listed categories.";
             var location = await _db.Locations.FirstOrDefaultAsync(l => l.Id == request.LocationId && l.IsActive);
-            if (location == null) return (new TicketProblem(400, "Choose your location.", "locationId"), null);
-            var priority = request.Priority ?? category.DefaultPriority;
-            if (!Enum.IsDefined(priority)) return (new TicketProblem(400, "Choose Low, Medium, High or Critical.", "priority"), null);
+            if (location == null) errors["locationId"] = "Choose your location.";
+            var priority = request.Priority ?? category?.DefaultPriority ?? TicketPriority.Medium;
+            if (!Enum.IsDefined(priority)) errors["priority"] = "Choose Low, Medium, High or Critical.";
 
             var subject = (request.Subject ?? string.Empty).Trim();
             if (subject.Length < 3 || subject.Length > TicketSeed.MaxSubjectChars)
-                return (new TicketProblem(400, "The subject must be 3 to " + TicketSeed.MaxSubjectChars + " characters.", "subject"), null);
+                errors["subject"] = "The subject must be 3 to " + TicketSeed.MaxSubjectChars + " characters.";
             var (html, text, descriptionProblem) = CleanBody(request.DescriptionHtml, "descriptionHtml", "Describe the request.");
-            if (descriptionProblem != null) return (descriptionProblem, null);
+            if (descriptionProblem != null) errors["descriptionHtml"] = descriptionProblem.Message;
 
             // Copied colleagues
             var cc = (request.CcUserIds ?? new List<Guid>()).Where(id => id != Guid.Empty && id != requesterId).Distinct().ToList();
-            if (cc.Count > MaxCc) return (new TicketProblem(400, "Copy at most " + MaxCc + " people.", "ccUserIds"), null);
-            if (cc.Count > 0)
+            if (cc.Count > MaxCc) errors["ccUserIds"] = "Copy at most " + MaxCc + " people.";
+            else if (cc.Count > 0)
             {
                 var found = await _db.Users.Where(u => cc.Contains(u.Id) && u.IsActive).Select(u => u.Id).ToListAsync();
-                if (found.Count != cc.Count) return (new TicketProblem(400, "Some of the people to copy were not found or are blocked.", "ccUserIds"), null);
+                if (found.Count != cc.Count) errors["ccUserIds"] = "Some of the people to copy were not found or are blocked.";
             }
 
             var (fileProblem, files) = await AttachmentRules.CheckAsync(request.Files);
-            if (fileProblem != null) return (new TicketProblem(400, fileProblem, "files"), null);
+            if (fileProblem != null) errors["files"] = fileProblem;
+
+            if (errors.Count > 0 || category == null || location == null)
+                return (Invalid(errors), null);
 
             var now = DateTime.UtcNow;
             var ticket = new Ticket
@@ -164,7 +169,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- reading ----------------
 
         public async Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status,
-            string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin)
+            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin)
         {
             page = Math.Max(1, page);
             pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
@@ -186,15 +191,18 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     if (!departmentId.HasValue) return (new TicketProblem(400, "Choose a department.", "departmentId"), null);
                     if (!actorIsSuperAdmin && !await IsDepartmentStaffAsync(actorUserId, departmentId.Value))
                         return (new TicketProblem(403, "Only staff of this department can see its tickets."), null);
-                    query = query.Where(t => t.DepartmentId == departmentId.Value);
-                    if (unitId.HasValue) query = query.Where(t => t.UnitId == unitId.Value);
                     staffView = true;
                     break;
                 default:
                     return (new TicketProblem(400, "view must be mine, copied, assigned or department.", "view"), null);
             }
 
+            // These narrow every view (Step 6)
+            if (departmentId.HasValue) query = query.Where(t => t.DepartmentId == departmentId.Value);
+            if (unitId.HasValue) query = query.Where(t => t.UnitId == unitId.Value);
             if (status.HasValue) query = query.Where(t => t.Status == status.Value);
+            if (open == true) query = query.Where(t => OpenStatuses.Contains(t.Status));
+            else if (open == false) query = query.Where(t => !OpenStatuses.Contains(t.Status));
             var term = (search ?? string.Empty).Trim();
             if (term.Length > 0)
             {
@@ -228,7 +236,10 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             {
                 Id = x.Id, Reference = x.Reference, Subject = x.Subject, DepartmentCode = x.DepartmentCode, CategoryName = x.CategoryName,
                 UnitName = x.UnitName, LocationName = x.LocationName, Priority = x.Priority, Status = x.Status, Requester = x.Requester,
-                Assignee = x.Assignee, CreatedAt = x.CreatedAt, UpdatedAt = x.UpdatedAt
+                Assignee = x.Assignee, AssignedAt = x.AssignedAt, CreatedAt = x.CreatedAt, UpdatedAt = x.UpdatedAt,
+                AcknowledgedAt = ticket.AcknowledgedAt, PendingReason = ticket.PendingReason, PendingSince = ticket.PendingSince,
+                ResolvedAt = ticket.ResolvedAt, ResolutionCode = ticket.ResolutionCode, ResolutionNote = ticket.ResolutionNote,
+                ClosedAt = ticket.ClosedAt, CancelledAt = ticket.CancelledAt, ReopenCount = ticket.ReopenCount
             };
             var extra = await _db.Tickets.AsNoTracking().Where(t => t.Id == ticketId)
                 .Select(t => new { t.DepartmentId, DepartmentName = t.Department!.Name, t.CategoryId, t.UnitId, t.LocationId, t.RequesterDepartment, t.RaisedByUserId, t.DescriptionHtml })
@@ -308,10 +319,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (request.IsInternal && !isStaff)
                 return (new TicketProblem(403, "Only staff of the department can add internal notes.", "isInternal"), null);
 
+            var errors = new Dictionary<string, string>();
             var (html, text, bodyProblem) = CleanBody(request.BodyHtml, "bodyHtml", "Write a comment.");
-            if (bodyProblem != null) return (bodyProblem, null);
+            if (bodyProblem != null) errors["bodyHtml"] = bodyProblem.Message;
             var (fileProblem, files) = await AttachmentRules.CheckAsync(request.Files);
-            if (fileProblem != null) return (new TicketProblem(400, fileProblem, "files"), null);
+            if (fileProblem != null) errors["files"] = fileProblem;
+            if (errors.Count > 0) return (Invalid(errors), null);
 
             var now = DateTime.UtcNow;
             var comment = new TicketComment { Id = Guid.NewGuid(), TicketId = ticketId, AuthorUserId = actorUserId, BodyHtml = html, BodyText = text, IsInternal = request.IsInternal, CreatedAt = now };
@@ -320,6 +333,22 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             ticket.UpdatedAt = now;
             ticket.UpdatedByUserId = actorUserId;
             Stage(AuditAction.Created, "TicketComment", comment.Id, ticket.Reference, null, new { ticket = ticket.Reference, internalNote = request.IsInternal, files = files.Count });
+
+            // Waiting on the requester and the requester answered: back to In progress (BRD Section 8)
+            var resumed = false;
+            if (!request.IsInternal && ticket.Status == TicketStatus.Pending && ticket.PendingReason == PendingReason.Requester
+                && (actorUserId == ticket.RequesterUserId || actorUserId == ticket.RaisedByUserId))
+            {
+                _db.TicketStatusChanges.Add(new TicketStatusChange
+                {
+                    Id = Guid.NewGuid(), TicketId = ticket.Id, FromStatus = TicketStatus.Pending, ToStatus = TicketStatus.InProgress,
+                    ByUserId = actorUserId, Reason = "The requester replied", At = now
+                });
+                ticket.Status = TicketStatus.InProgress;
+                ticket.PendingReason = null;
+                ticket.PendingSince = null;
+                resumed = true;
+            }
 
             // Who hears about it: public comments go to everyone on the ticket; internal notes to the assignee and the unit's heads
             var author = await PersonAsync(actorUserId);
@@ -334,6 +363,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 foreach (var head in new[] { ticket.Unit!.HeadUserId, ticket.Unit.DeputyHeadUserId }.Where(h => h.HasValue)) recipients.Add(head!.Value);
             recipients.Remove(actorUserId);
             var who = author.FullName ?? author.UserName;
+            if (resumed && ticket.AssigneeUserId.HasValue && ticket.AssigneeUserId != actorUserId)
+            {
+                recipients.Remove(ticket.AssigneeUserId.Value);
+                _notifications.Stage(ticket.AssigneeUserId.Value, "Ticket " + ticket.Reference + " resumed",
+                    who + " replied, so the ticket is back in progress.", NotificationType.ActionRequired, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
+            }
             foreach (var userId in recipients)
                 _notifications.Stage(userId,
                     (request.IsInternal ? "Internal note on " : "New comment on ") + ticket.Reference,
@@ -383,6 +418,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 UnitName = t.Unit!.Name, LocationName = t.Location!.Name, Priority = t.Priority, Status = t.Status,
                 Requester = new PersonDto(t.RequesterUserId, t.RequesterUser!.UserName ?? string.Empty, t.RequesterUser.FullName),
                 Assignee = t.AssigneeUserId == null ? null : new PersonDto(t.AssigneeUserId.Value, t.AssigneeUser!.UserName ?? string.Empty, t.AssigneeUser.FullName),
+                AssignedAt = t.AssigneeUserId == null ? null : t.AssignedAt,
                 CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt
             });
 
@@ -439,6 +475,13 @@ OUTPUT inserted.LastNumber AS [Value];").ToListAsync();
         }
 
         private static TicketProblem NotFound() => new(404, "Ticket not found.");
+
+        private static TicketProblem Invalid(Dictionary<string, string> errors)
+        {
+            if (errors.Count == 0) errors["form"] = "Check the form.";
+            var first = errors.First();
+            return new TicketProblem(400, errors.Count == 1 ? first.Value : "Check the " + errors.Count + " highlighted fields.", first.Key, errors);
+        }
 
         private void Stage(AuditAction action, string entityType, Guid entityId, string? display, object? before, object? after)
         {

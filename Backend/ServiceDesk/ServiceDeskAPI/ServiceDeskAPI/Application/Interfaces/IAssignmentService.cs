@@ -21,7 +21,8 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(TicketProblem? Problem, string? Message)> ReassignAsync(Guid ticketId, ReassignRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, List<TicketAssignmentDto>? History)> GetHistoryAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
 
-        Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query);
+        /// <summary>The person searching is left out of their own results.</summary>
+        Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query, Guid actorUserId);
     }
 
     /// <summary>Wakes the assignment queue early (someone came back from leave, got new skills or joined a unit). Never blocks.</summary>

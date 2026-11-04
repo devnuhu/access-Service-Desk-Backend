@@ -62,6 +62,13 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/{id}/reassign` | holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department) | Reassign with a reason (5-500); becomes Assigned |
 | GET | `/api/tickets/{id}/assignments` | department staff, Super Admin | Assignment history with the workloads the engine compared |
 | GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
+| GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes |
+| POST | `/api/tickets/{id}/acknowledge`, `/resume` | the assignee | Assigned/Reopened -> In progress; Pending -> In progress |
+| POST | `/api/tickets/{id}/pending` | the assignee | `{ reason: 1 requester / 2 third party, note }` |
+| POST | `/api/tickets/{id}/resolve` | the assignee | `{ code, note }` |
+| POST | `/api/tickets/{id}/confirm`, `/reopen` | the requester (or who raised it) | Resolved -> Closed; Resolved -> Reopened `{ reason }` |
+| POST | `/api/tickets/{id}/cancel` | requester (New/Assigned), Super Admin (any open) | `{ reason }` |
+| GET | `/api/catalogue/mine` | signed in | The categories I handle, per unit |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |

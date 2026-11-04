@@ -890,6 +890,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("AssignedAt")
                         .HasColumnType("datetime2");
 
@@ -899,8 +902,14 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AssigneeUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -919,6 +928,12 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("PendingReason")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PendingSince")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Priority")
                         .HasColumnType("int");
 
@@ -933,11 +948,27 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<int>("ReopenCount")
+                        .HasColumnType("int");
+
                     b.Property<string>("RequesterDepartment")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("RequesterUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("ResolutionCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ResolvedByUserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<byte[]>("RowVersion")
@@ -1142,6 +1173,38 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.HasKey("DepartmentId", "Year");
 
                     b.ToTable("TicketSequences", (string)null);
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketStatusChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("FromStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ToStatus")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TicketId", "At");
+
+                    b.ToTable("TicketStatusChanges", (string)null);
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketWatcher", b =>
@@ -1705,6 +1768,17 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketStatusChange", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketWatcher", b =>

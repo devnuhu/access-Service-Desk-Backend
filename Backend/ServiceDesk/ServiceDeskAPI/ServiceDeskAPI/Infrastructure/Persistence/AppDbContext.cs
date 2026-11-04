@@ -34,6 +34,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<TicketAttachmentContent> TicketAttachmentContents => Set<TicketAttachmentContent>();
         public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
         public DbSet<TicketAssignment> TicketAssignments => Set<TicketAssignment>();
+        public DbSet<TicketStatusChange> TicketStatusChanges => Set<TicketStatusChange>();
 
         /// <summary>The audit log is append-only: any update or delete of an AuditLog row is refused before it reaches the database.</summary>
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -142,6 +143,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.Property(t => t.DescriptionText).HasColumnType("nvarchar(max)").IsRequired();
                 e.Property(t => t.RequesterDepartment).HasMaxLength(200);
                 e.Property(t => t.RowVersion).IsRowVersion();
+                e.Property(t => t.ResolutionNote).HasMaxLength(4000);
                 e.HasOne(t => t.Department).WithMany().HasForeignKey(t => t.DepartmentId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(t => t.Unit).WithMany().HasForeignKey(t => t.UnitId).OnDelete(DeleteBehavior.Restrict);
                 e.HasOne(t => t.Category).WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Restrict);
@@ -208,6 +210,15 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasOne<User>().WithMany().HasForeignKey(a => a.ToUserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(a => new { a.TicketId, a.At });
                 e.HasIndex(a => a.ToUserId);
+            });
+
+            builder.Entity<TicketStatusChange>(e =>
+            {
+                e.ToTable("TicketStatusChanges");
+                e.HasKey(c => c.Id);
+                e.Property(c => c.Reason).HasMaxLength(500);
+                e.HasOne(c => c.Ticket).WithMany().HasForeignKey(c => c.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(c => new { c.TicketId, c.At });
             });
 
             builder.Entity<TicketSequence>(e =>

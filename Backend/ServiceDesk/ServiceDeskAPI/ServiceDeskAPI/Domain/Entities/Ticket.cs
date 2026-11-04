@@ -51,6 +51,20 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? QueueAlertedAt { get; set; }
         /// <summary>When the unit's head was told the assignee is away while the ticket is in progress (cleared on reassignment).</summary>
         public DateTime? AssigneeAwayFlaggedAt { get; set; }
+
+        // ---- workflow (Step 6, BRD Section 8) ----
+        /// <summary>When the current assignee acknowledged it (Assigned or Reopened to In progress); cleared on every new assignment.</summary>
+        public DateTime? AcknowledgedAt { get; set; }
+        public PendingReason? PendingReason { get; set; }
+        public DateTime? PendingSince { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        public Guid? ResolvedByUserId { get; set; }
+        public ResolutionCode? ResolutionCode { get; set; }
+        /// <summary>Plain text; also posted as a public comment.</summary>
+        public string? ResolutionNote { get; set; }
+        public DateTime? ClosedAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public int ReopenCount { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public Guid? UpdatedByUserId { get; set; }

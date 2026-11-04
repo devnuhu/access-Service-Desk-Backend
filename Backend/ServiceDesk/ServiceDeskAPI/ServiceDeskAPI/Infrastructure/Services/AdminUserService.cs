@@ -105,7 +105,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
 
             Stage(AuditAction.RoleChanged, user, null, Json(new { granted = role.Name }));
             _notifications.Stage(userId, "Your Access Desk access changed",
-                "You now have the " + Friendly(role.Name) + " role. Sign out and back in if you do not see the new pages yet.",
+                "You now have the " + Friendly(role.Name) + " role.",
                 NotificationType.Info, NotificationCategory.System, "User", userId, null);
 
             try

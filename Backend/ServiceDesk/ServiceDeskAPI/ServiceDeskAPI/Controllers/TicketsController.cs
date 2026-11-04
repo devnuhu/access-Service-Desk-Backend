@@ -32,8 +32,13 @@ namespace ServiceDeskAPI.Controllers
 
         private bool IsSuperAdmin() => User.IsInRole(AppRoles.SuperAdmin);
 
-        private ObjectResult Fail(TicketProblem problem) =>
-            StatusCode(problem.Status, problem.Field == null ? new ApiError(problem.Message) : new ApiError(problem.Message, problem.Field, problem.Message));
+        private ObjectResult Fail(TicketProblem problem)
+        {
+            var error = new ApiError(problem.Message);
+            if (problem.Errors != null) foreach (var (field, message) in problem.Errors) error.Errors[field] = message;
+            else if (problem.Field != null) error.Errors[problem.Field] = problem.Message;
+            return StatusCode(problem.Status, error);
+        }
 
         /// <summary>Raises a ticket. multipart/form-data: categoryId, locationId, priority (optional), subject, descriptionHtml, ccUserIds (repeat), requesterUserId (Super Admin only), files (0 to 6, each at most 1 MB).</summary>
         [HttpPost]
@@ -61,15 +66,15 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 
-        /// <summary>view = mine (default), copied, assigned, or department (with departmentId; optional unitId). Newest first.</summary>
+        /// <summary>view = mine (default), copied, assigned, or department (with departmentId). departmentId and unitId narrow any view; open=true: New, Assigned, In progress, Pending, Reopened. Newest first.</summary>
         [HttpGet]
         [ProducesResponseType(typeof(TicketPageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<TicketPageDto>> List([FromQuery] string? view, [FromQuery] Guid? departmentId, [FromQuery] Guid? unitId,
-            [FromQuery] TicketStatus? status, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
-            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, search, page, pageSize, Me(), IsSuperAdmin());
+            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin());
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 

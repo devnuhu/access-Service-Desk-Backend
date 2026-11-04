@@ -21,6 +21,9 @@ namespace ServiceDeskAPI.Application.Interfaces
         /// <summary>Every active category with fewer than two eligible case workers.</summary>
         Task<List<CategoryCoverDto>> CoverWarningsAsync();
 
+        /// <summary>The categories this person handles, per unit they are an active member of (Step 6).</summary>
+        Task<List<MyCategoriesDto>> MineAsync(Guid userId);
+
         /// <summary>For automatic assignment (Step 4): mapped, active members of the owning unit with active accounts. Availability is checked separately.</summary>
         Task<List<Guid>> EligibleCaseWorkerIdsAsync(Guid categoryId);
     }

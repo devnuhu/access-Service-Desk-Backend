@@ -71,15 +71,15 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
                 foreach (var id in waiting)
                     if (await AssignCoreAsync(id, "retry")) assigned++;
 
-                // 2. Not started, but the assignee is away, blocked or left the unit (FR-3.11)
-                var notStarted = await AwayAssignee(_db.Tickets.AsNoTracking().Where(t => t.Status == TicketStatus.Assigned), today)
+                // 2. Not started (Assigned, or Reopened and not yet acknowledged), but the assignee is away, blocked or left the unit (FR-3.11)
+                var notStarted = await AwayAssignee(_db.Tickets.AsNoTracking().Where(t => t.Status == TicketStatus.Assigned || t.Status == TicketStatus.Reopened), today)
                     .OrderBy(t => t.AssignedAt).Select(t => t.Id).Take(200).ToListAsync(cancellationToken);
                 foreach (var id in notStarted)
                     if (await AssignCoreAsync(id, "assignee unavailable")) assigned++;
 
-                // 3. Already started and the assignee is away: they keep it, the unit's head is told once (FR-3.11)
+                // 3. Already started (In progress or Pending) and the assignee is away: they keep it, the unit's head is told once (FR-3.11)
                 var started = await AwayAssignee(_db.Tickets.Include(t => t.Unit).Include(t => t.AssigneeUser)
-                        .Where(t => (t.Status == TicketStatus.InProgress || t.Status == TicketStatus.Reopened) && t.AssigneeAwayFlaggedAt == null), today)
+                        .Where(t => (t.Status == TicketStatus.InProgress || t.Status == TicketStatus.Pending) && t.AssigneeAwayFlaggedAt == null), today)
                     .Take(200).ToListAsync(cancellationToken);
                 foreach (var ticket in started)
                 {
@@ -108,7 +108,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             {
                 var ticket = await _db.Tickets.Include(t => t.Unit).Include(t => t.Category).FirstOrDefaultAsync(t => t.Id == ticketId);
                 if (ticket == null) return false;
-                var assigneeAway = ticket.Status == TicketStatus.Assigned && ticket.AssigneeUserId.HasValue
+                var assigneeAway = (ticket.Status == TicketStatus.Assigned || ticket.Status == TicketStatus.Reopened) && ticket.AssigneeUserId.HasValue
                     && !await IsWorkingInUnitAsync(ticket.AssigneeUserId.Value, ticket.UnitId);
                 if (ticket.Status != TicketStatus.New && !assigneeAway) return ticket.AssigneeUserId.HasValue;
 
@@ -132,7 +132,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
                 chosen.Chosen = true;
                 var previous = ticket.AssigneeUserId;
                 var now = DateTime.UtcNow;
-                await ApplyAsync(ticket, chosen.UserId, ticket.UnitId, now);
+                await ApplyAsync(ticket, chosen.UserId, ticket.UnitId, now, null, "Automatic assignment (" + trigger + ")");
                 _db.TicketAssignments.Add(new TicketAssignment
                 {
                     Id = Guid.NewGuid(), TicketId = ticket.Id, FromUserId = previous, ToUserId = chosen.UserId, Method = AssignmentMethod.Auto,
@@ -217,13 +217,24 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             await _db.UnitMembers.AnyAsync(m => m.UserId == userId && m.UnitId == unitId && m.IsActive)
             && await _availability.IsAvailableAsync(userId);
 
-        /// <summary>Puts the ticket with this person in this unit: status Assigned, a new acknowledgement window, flags cleared.</summary>
-        private async Task ApplyAsync(Ticket ticket, Guid userId, Guid unitId, DateTime now)
+        /// <summary>
+        /// Puts the ticket with this person in this unit: status Assigned (a reopened ticket stays Reopened), a new acknowledgement
+        /// window (FR-5.11), flags cleared. The status change is recorded for the SLA clock.
+        /// </summary>
+        private async Task ApplyAsync(Ticket ticket, Guid userId, Guid unitId, DateTime now, Guid? byUserId = null, string? why = null)
         {
+            var newStatus = ticket.Status == TicketStatus.Reopened ? TicketStatus.Reopened : TicketStatus.Assigned;
+            if (newStatus != ticket.Status)
+                _db.TicketStatusChanges.Add(new TicketStatusChange
+                {
+                    Id = Guid.NewGuid(), TicketId = ticket.Id, FromStatus = ticket.Status, ToStatus = newStatus, ByUserId = byUserId,
+                    Reason = why == null ? null : (why.Length > 500 ? why.Substring(0, 500) : why), At = now
+                });
             ticket.AssigneeUserId = userId;
             ticket.UnitId = unitId;
-            ticket.Status = TicketStatus.Assigned;
+            ticket.Status = newStatus;
             ticket.AssignedAt = now;
+            ticket.AcknowledgedAt = null;
             ticket.QueueAlertedAt = null;
             ticket.AssigneeAwayFlaggedAt = null;
             ticket.UpdatedAt = now;
@@ -323,7 +334,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
                 var previous = ticket.AssigneeUserId;
                 var fromUnitId = ticket.UnitId;
                 var now = DateTime.UtcNow;
-                await ApplyAsync(ticket, target.UserId, target.UnitId, now);
+                await ApplyAsync(ticket, target.UserId, target.UnitId, now, actorUserId, reason);
                 _db.TicketAssignments.Add(new TicketAssignment
                 {
                     Id = Guid.NewGuid(), TicketId = ticket.Id, FromUserId = previous, ToUserId = target.UserId, Method = AssignmentMethod.Reassigned,
@@ -386,13 +397,13 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
 
         // ---------------- people search (for copying colleagues) ----------------
 
-        public async Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query)
+        public async Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query, Guid actorUserId)
         {
             var term = (query ?? string.Empty).Trim();
             if (term.Length < 2) return (new TicketProblem(400, "Type at least 2 letters.", "query"), null);
             if (term.Length > 100) term = term.Substring(0, 100);
             var people = await _db.Users.AsNoTracking()
-                .Where(u => u.IsActive && ((u.UserName != null && u.UserName.Contains(term)) || (u.FullName != null && u.FullName.Contains(term))))
+                .Where(u => u.IsActive && u.Id != actorUserId && ((u.UserName != null && u.UserName.Contains(term)) || (u.FullName != null && u.FullName.Contains(term))))
                 .OrderBy(u => u.FullName ?? u.UserName)
                 .Take(20)
                 .Select(u => new PersonSearchResultDto(u.Id, u.UserName ?? string.Empty, u.FullName, u.Department))

@@ -1,3 +1,4 @@
+using ServiceDeskAPI.Domain.Entities;
 using ServiceDeskAPI.Domain.Enums;
 
 namespace ServiceDeskAPI.Application.DTOs
@@ -75,6 +76,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public TicketStatus Status { get; set; }
         public PersonDto Requester { get; set; } = new(Guid.Empty, string.Empty, null);
         public PersonDto? Assignee { get; set; }
+        /// <summary>When the current assignee got it (Step 6).</summary>
+        public DateTime? AssignedAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -127,6 +130,19 @@ namespace ServiceDeskAPI.Application.DTOs
         public bool IsStaffView { get; set; }
         public bool CanComment { get; set; }
         public bool CanAddInternalNote { get; set; }
+
+        // ---- workflow (Step 6); what the signed-in person may do: GET /api/tickets/{id}/actions ----
+        public DateTime? AcknowledgedAt { get; set; }
+        /// <summary>1 waiting on the requester, 2 waiting on a third party.</summary>
+        public PendingReason? PendingReason { get; set; }
+        public DateTime? PendingSince { get; set; }
+        public DateTime? ResolvedAt { get; set; }
+        /// <summary>1 Completed, 2 Information provided, 3 Referred elsewhere, 4 Duplicate, 5 No action required.</summary>
+        public ResolutionCode? ResolutionCode { get; set; }
+        public string? ResolutionNote { get; set; }
+        public DateTime? ClosedAt { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public int ReopenCount { get; set; }
     }
 
     /// <summary>multipart/form-data: bodyHtml, isInternal, and 0 to 6 files named "files".</summary>
