@@ -1004,6 +1004,15 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<DateTime?>("SlaBreachedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SlaL2At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("SlaWarnedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 

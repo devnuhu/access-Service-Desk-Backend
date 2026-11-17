@@ -62,6 +62,12 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? AcknowledgedAt { get; set; }
         /// <summary>The first time anyone answered the requester: the earlier of the assignee's first acknowledgement and first public comment. Set once; kept when the ticket is reassigned.</summary>
         public DateTime? FirstRespondedAt { get; set; }
+        /// <summary>SLA (step 7): when the warning (half the time used) was sent. Each level is sent once.</summary>
+        public DateTime? SlaWarnedAt { get; set; }
+        /// <summary>SLA level 1: when the ticket passed its deadline and the unit's head and deputy were told.</summary>
+        public DateTime? SlaBreachedAt { get; set; }
+        /// <summary>SLA level 2: when the Head of Department and the Department Admin were told.</summary>
+        public DateTime? SlaL2At { get; set; }
         public PendingReason? PendingReason { get; set; }
         public DateTime? PendingSince { get; set; }
         public DateTime? ResolvedAt { get; set; }

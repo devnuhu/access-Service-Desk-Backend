@@ -169,11 +169,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- reading ----------------
 
         public async Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status,
-            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null)
+            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null)
         {
             page = Math.Max(1, page);
             pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
             var query = _db.Tickets.AsNoTracking();
+            List<Guid>? unitScope = null;
             var staffView = false;
 
             switch ((view ?? "mine").Trim().ToLowerInvariant())
@@ -189,7 +190,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     break;
                 case "department":
                     if (!departmentId.HasValue) return (new TicketProblem(400, "Choose a department.", "departmentId"), null);
-                    if (!actorIsSuperAdmin && !await IsDepartmentStaffAsync(actorUserId, departmentId.Value))
+                    if (!actorIsSuperAdmin && !await TicketAccess.IsDepartmentWideAsync(_db, actorUserId, departmentId.Value) && (unitScope = await TicketAccess.UnitIdsAsync(_db, actorUserId, departmentId.Value)).Count == 0)
                         return (new TicketProblem(403, "Only staff of this department can see its tickets."), null);
                     staffView = true;
                     break;
@@ -197,6 +198,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     return (new TicketProblem(400, "view must be mine, copied, assigned or department.", "view"), null);
             }
 
+            if (unitScope != null) query = query.Where(t => unitScope.Contains(t.UnitId)); // a case worker or head sees only their own unit(s)
             // These narrow every view (Step 6)
             if (departmentId.HasValue) query = query.Where(t => t.DepartmentId == departmentId.Value);
             if (unitId.HasValue) query = query.Where(t => t.UnitId == unitId.Value);
@@ -204,6 +206,10 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (open == true) query = query.Where(t => OpenStatuses.Contains(t.Status));
             else if (open == false) query = query.Where(t => !OpenStatuses.Contains(t.Status));
             if (waitingToStart == true) query = query.Where(t => t.Status == TicketStatus.Assigned || t.Status == TicketStatus.Reopened);
+            if (slaBreached == true && (staffView || (view ?? "mine").Trim().ToLowerInvariant() == "assigned"))
+                query = query.Where(t => t.SlaBreachedAt != null && OpenStatuses.Contains(t.Status));
+                if (escalated == true && (staffView || (view ?? "mine").Trim().ToLowerInvariant() == "assigned"))
+                    query = query.Where(t => t.EscalatedToHeadAt != null);
             var term = (search ?? string.Empty).Trim();
             if (term.Length > 0)
             {
@@ -224,7 +230,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var items = await Project(ordered.Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync();
             var viewKey = (view ?? "mine").Trim().ToLowerInvariant();
             if (!staffView && viewKey != "assigned")
-                foreach (var item in items) item.EscalatedToHeadAt = null;
+                foreach (var item in items) { item.EscalatedToHeadAt = null; item.SlaLevel = SlaLevel.OnTrack; }
+            foreach (var item in items) if (!OpenStatuses.Contains(item.Status)) item.SlaLevel = SlaLevel.OnTrack;
             return (null, new TicketPageDto { Items = items, Total = total, Page = page, PageSize = pageSize });
         }
 
@@ -247,7 +254,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             {
                 Id = x.Id, Reference = x.Reference, Subject = x.Subject, DepartmentCode = x.DepartmentCode, CategoryName = x.CategoryName,
                 UnitName = x.UnitName, LocationName = x.LocationName, Priority = x.Priority, Status = x.Status, Requester = x.Requester,
-                Assignee = x.Assignee, AssignedAt = x.AssignedAt, CreatedAt = x.CreatedAt, UpdatedAt = x.UpdatedAt,
+                Assignee = x.Assignee, AssignedAt = x.AssignedAt, FirstRespondedAt = x.FirstRespondedAt, SlaLevel = x.SlaLevel, CreatedAt = x.CreatedAt, UpdatedAt = x.UpdatedAt,
                 AcknowledgedAt = ticket.AcknowledgedAt, PendingReason = ticket.PendingReason, PendingSince = ticket.PendingSince,
                 ResolvedAt = ticket.ResolvedAt, ResolutionCode = ticket.ResolutionCode, ResolutionNote = ticket.ResolutionNote,
                 ClosedAt = ticket.ClosedAt, CancelledAt = ticket.CancelledAt, ReopenCount = ticket.ReopenCount
@@ -291,6 +298,14 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             detail.Comments = comments;
 
             detail.IsStaffView = isStaff;
+            if (isStaff)
+            {
+                detail.SlaWarnedAt = ticket.SlaWarnedAt;
+                detail.SlaBreachedAt = ticket.SlaBreachedAt;
+                detail.SlaL2At = ticket.SlaL2At;
+            }
+            else detail.SlaLevel = SlaLevel.OnTrack;
+            if (!OpenStatuses.Contains(ticket.Status)) detail.SlaLevel = SlaLevel.OnTrack;
             if (isStaff && ticket.EscalatedToHeadAt.HasValue)
             {
                 detail.EscalatedToHeadAt = ticket.EscalatedToHeadAt;
@@ -412,12 +427,32 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             });
         }
 
+        // ---------------- SLA summary (Step 7b) ----------------
+
+        public async Task<(TicketProblem? Problem, SlaSummaryDto? Summary)> SlaSummaryAsync(Guid departmentId, Guid? unitId, Guid actorUserId, bool actorIsSuperAdmin)
+        {
+            List<Guid>? scope = null;
+            if (!actorIsSuperAdmin && !await TicketAccess.IsDepartmentWideAsync(_db, actorUserId, departmentId) && (scope = await TicketAccess.UnitIdsAsync(_db, actorUserId, departmentId)).Count == 0)
+                return (new TicketProblem(403, "Only staff of this department can see its SLA summary."), null);
+            var query = _db.Tickets.AsNoTracking().Where(t => t.DepartmentId == departmentId && OpenStatuses.Contains(t.Status));
+            if (scope != null) query = query.Where(t => scope.Contains(t.UnitId));
+            if (unitId.HasValue) query = query.Where(t => t.UnitId == unitId.Value);
+            var summary = await query.GroupBy(t => 1).Select(g => new SlaSummaryDto
+            {
+                Open = g.Count(),
+                Warning = g.Count(t => t.SlaWarnedAt != null && t.SlaBreachedAt == null),
+                Overdue = g.Count(t => t.SlaBreachedAt != null && t.SlaL2At == null),
+                FarPast = g.Count(t => t.SlaL2At != null),
+                Unassigned = g.Count(t => t.AssigneeUserId == null)
+            }).FirstOrDefaultAsync();
+            return (null, summary ?? new SlaSummaryDto());
+        }
         // ---------------- helpers ----------------
 
         /// <summary>Requester, raiser, copied people, department staff (unit members and HOD) and Super Admins can view; staff also see internal notes.</summary>
         private async Task<(bool CanView, bool IsStaff)> AccessAsync(Ticket ticket, Guid userId, bool isSuperAdmin)
         {
-            var isStaff = isSuperAdmin || await IsDepartmentStaffAsync(userId, ticket.DepartmentId);
+            var isStaff = isSuperAdmin || await TicketAccess.IsStaffForTicketAsync(_db, userId, ticket.DepartmentId, ticket.UnitId);
             if (isStaff) return (true, true);
             var canView = ticket.RequesterUserId == userId || ticket.RaisedByUserId == userId
                 || await _db.TicketWatchers.AnyAsync(w => w.TicketId == ticket.Id && w.UserId == userId);
@@ -436,7 +471,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 Requester = new PersonDto(t.RequesterUserId, t.RequesterUser!.UserName ?? string.Empty, t.RequesterUser.FullName),
                 Assignee = t.AssigneeUserId == null ? null : new PersonDto(t.AssigneeUserId.Value, t.AssigneeUser!.UserName ?? string.Empty, t.AssigneeUser.FullName),
                 AssignedAt = t.AssigneeUserId == null ? null : t.AssignedAt,
-                FirstRespondedAt = t.FirstRespondedAt, EscalatedToHeadAt = t.EscalatedToHeadAt, CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt
+                FirstRespondedAt = t.FirstRespondedAt, EscalatedToHeadAt = t.EscalatedToHeadAt, CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt, SlaLevel = t.SlaL2At != null ? SlaLevel.FarPast : t.SlaBreachedAt != null ? SlaLevel.Overdue : t.SlaWarnedAt != null ? SlaLevel.Warning : SlaLevel.OnTrack
             });
 
         /// <summary>DEPT-YYYY-000001: the next number for the department and (Lagos) year, taken inside the caller's transaction.</summary>

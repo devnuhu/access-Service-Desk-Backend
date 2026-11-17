@@ -72,12 +72,21 @@ namespace ServiceDeskAPI.Controllers
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<TicketPageDto>> List([FromQuery] string? view, [FromQuery] Guid? departmentId, [FromQuery] Guid? unitId,
-            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? waitingToStart = null, [FromQuery] string? sort = null)
+            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? waitingToStart = null, [FromQuery] string? sort = null, [FromQuery] bool? slaBreached = null, [FromQuery] bool? escalated = null)
         {
-            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin(), waitingToStart, sort);
+            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin(), waitingToStart, sort, slaBreached, escalated);
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 
+        /// <summary>Counts of open tickets by SLA level for a department (and optionally one unit): open, warning, overdue, farPast, unassigned. Staff of the department and Super Admin.</summary>
+        [HttpGet("sla-summary")]
+        [ProducesResponseType(typeof(SlaSummaryDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<SlaSummaryDto>> SlaSummary([FromQuery] Guid departmentId, [FromQuery] Guid? unitId)
+        {
+            var (problem, summary) = await _tickets.SlaSummaryAsync(departmentId, unitId, Me(), IsSuperAdmin());
+            return problem == null && summary != null ? Ok(summary) : Fail(problem!);
+        }
         [HttpGet("{ticketId:guid}")]
         [ProducesResponseType(typeof(TicketDetailDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]

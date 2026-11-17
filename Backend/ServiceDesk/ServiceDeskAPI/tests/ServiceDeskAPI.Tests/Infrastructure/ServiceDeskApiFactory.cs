@@ -48,7 +48,7 @@ namespace ServiceDeskAPI.Tests.Infrastructure
                 ["LdapSettings:ServiceAccountUsername"] = "",
                 ["LdapSettings:ServiceAccountPassword"] = "",
                 ["TestAccounts:Enabled"] = "true",
-                ["TestAccounts:Password"] = TestPassword,
+                ["TestAccounts:Password"] = TestPassword, ["Sla:WorkerEnabled"] = "false",
                 ["RateLimiting:Enabled"] = "false", // many sign-ins per minute in tests; RateLimitingTests checks the counter directly
                 // Made-up values: the tests check that the status endpoint never shows the key. No real key is used.
                 ["EmailSettings:Provider"] = "Infobip",

@@ -939,6 +939,107 @@
         }
       }
     },
+    "/api/admin/departments/{departmentId}/admin": {
+      "put": {
+        "tags": [
+          "AdminOrganisation"
+        ],
+        "parameters": [
+          {
+            "name": "departmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SetPersonRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/departments/{departmentId}/units": {
       "post": {
         "tags": [
@@ -3952,6 +4053,20 @@
               "format": "int32",
               "default": 20
             }
+          },
+          {
+            "name": "waitingToStart",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5075,6 +5190,117 @@
           }
         }
       }
+    },
+    "/api/tickets/{ticketId}/escalate": {
+      "post": {
+        "tags": [
+          "Workflow"
+        ],
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WorkflowReasonRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WorkflowReasonRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/WorkflowReasonRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5427,6 +5653,14 @@
         },
         "additionalProperties": false
       },
+      "CommentKind": {
+        "enum": [
+          0,
+          1
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "CreateAbsenceRequest": {
         "type": "object",
         "properties": {
@@ -5544,6 +5778,14 @@
             "type": "boolean"
           },
           "hod": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonRefDto"
+              }
+            ],
+            "nullable": true
+          },
+          "admin": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/PersonRefDto"
@@ -6079,6 +6321,9 @@
             "type": "string"
           },
           "isHod": {
+            "type": "boolean"
+          },
+          "isAdmin": {
             "type": "boolean"
           },
           "units": {
@@ -6648,6 +6893,9 @@
           "canCancel": {
             "type": "boolean"
           },
+          "canEscalate": {
+            "type": "boolean"
+          },
           "resolutionCodes": {
             "type": "array",
             "items": {
@@ -6772,6 +7020,13 @@
           "isInternal": {
             "type": "boolean"
           },
+          "kind": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CommentKind"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -6840,6 +7095,16 @@
             "nullable": true
           },
           "assignedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "firstRespondedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "escalatedToHeadAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
@@ -6961,6 +7226,10 @@
           "reopenCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "escalatedToHeadReason": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7020,6 +7289,16 @@
             "nullable": true
           },
           "assignedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "firstRespondedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "escalatedToHeadAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true

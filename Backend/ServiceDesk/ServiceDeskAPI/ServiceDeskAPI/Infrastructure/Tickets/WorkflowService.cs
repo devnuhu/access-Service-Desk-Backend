@@ -306,8 +306,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var isRequester = ticket.RequesterUserId == actorUserId || ticket.RaisedByUserId == actorUserId;
             var canView = actorIsSuperAdmin || isRequester
                 || await _db.TicketWatchers.AnyAsync(w => w.TicketId == ticketId && w.UserId == actorUserId)
-                || await _db.UnitMembers.AnyAsync(m => m.UserId == actorUserId && m.IsActive && m.Unit!.DepartmentId == ticket.DepartmentId)
-                || await _db.Departments.AnyAsync(d => d.Id == ticket.DepartmentId && d.HodUserId == actorUserId);
+                || await _db.UnitMembers.AnyAsync(m => m.UserId == actorUserId && m.IsActive && m.UnitId == ticket.UnitId)
+                || await _db.Departments.AnyAsync(d => d.Id == ticket.DepartmentId && (d.HodUserId == actorUserId || d.AdminUserId == actorUserId));
             if (!canView) return (new TicketProblem(404, "Ticket not found."), null, null);
             return (null, ticket, new Who(ticket.AssigneeUserId == actorUserId, isRequester, actorIsSuperAdmin));
         }

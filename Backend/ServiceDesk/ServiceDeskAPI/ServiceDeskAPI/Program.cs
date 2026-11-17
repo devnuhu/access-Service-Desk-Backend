@@ -203,6 +203,9 @@ namespace ServiceDeskAPI
             builder.Services.AddScoped<IAssignmentService, ServiceDeskAPI.Infrastructure.Assignment.AssignmentService>();
             builder.Services.AddScoped<IWorkflowService, ServiceDeskAPI.Infrastructure.Tickets.WorkflowService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Assignment.AssignmentWorker>();
+            builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Sla.SlaOptions>().BindConfiguration("Sla");
+            builder.Services.AddScoped<ISlaService, ServiceDeskAPI.Infrastructure.Sla.SlaService>();
+            builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.SlaWorker>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 

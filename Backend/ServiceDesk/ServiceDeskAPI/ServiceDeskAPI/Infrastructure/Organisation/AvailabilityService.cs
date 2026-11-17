@@ -74,7 +74,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         {
             var unit = await _db.Units.AsNoTracking().Include(u => u.Department).FirstOrDefaultAsync(u => u.Id == unitId);
             if (unit == null) return (AdminResult.NotFound("Unit not found."), null);
-            var allowed = actorIsSuperAdmin || unit.HeadUserId == actorUserId || unit.DeputyHeadUserId == actorUserId || unit.Department!.HodUserId == actorUserId;
+            var allowed = actorIsSuperAdmin || unit.HeadUserId == actorUserId || unit.DeputyHeadUserId == actorUserId || unit.Department!.HodUserId == actorUserId || unit.Department.AdminUserId == actorUserId;
             if (!allowed) return (Forbidden("Only the unit's head or deputy, the Head of Department or a Super Admin can see this unit's availability."), null);
             return (AdminResult.Ok("OK"), await BuildUnitAsync(unit));
         }
@@ -83,8 +83,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         {
             var department = await _db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == departmentId);
             if (department == null) return (AdminResult.NotFound("Department not found."), null);
-            if (!actorIsSuperAdmin && department.HodUserId != actorUserId)
-                return (Forbidden("Only the Head of Department or a Super Admin can see the whole department's availability."), null);
+            if (!actorIsSuperAdmin && department.HodUserId != actorUserId && department.AdminUserId != actorUserId)
+                return (Forbidden("Only the Head of Department, the Department Admin or a Super Admin can see the whole department's availability."), null);
 
             var units = await _db.Units.AsNoTracking().Include(u => u.Department)
                 .Where(u => u.DepartmentId == departmentId && u.IsActive)
@@ -222,7 +222,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         /// <summary>True when the actor heads or deputises one of the person's units, or is HOD of that unit's department.</summary>
         private async Task<bool> ManagesAsync(Guid actorUserId, Guid targetUserId) =>
             await _db.UnitMembers.AnyAsync(m => m.UserId == targetUserId && m.IsActive && m.Unit!.IsActive
-                && (m.Unit.HeadUserId == actorUserId || m.Unit.DeputyHeadUserId == actorUserId || m.Unit.Department!.HodUserId == actorUserId));
+                && (m.Unit.HeadUserId == actorUserId || m.Unit.DeputyHeadUserId == actorUserId || m.Unit.Department!.HodUserId == actorUserId || m.Unit.Department.AdminUserId == actorUserId));
 
         /// <summary>Tells the heads and deputies of the person's units (not the person, not the one making the change).</summary>
         private async Task TellHeadsAsync(Guid targetUserId, Guid actorUserId, string message, Guid absenceId)

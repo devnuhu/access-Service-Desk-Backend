@@ -8,6 +8,7 @@ using ServiceDeskAPI.Domain.Enums;
 using ServiceDeskAPI.Infrastructure.Audit;
 using ServiceDeskAPI.Infrastructure.Email;
 using ServiceDeskAPI.Infrastructure.Persistence;
+using ServiceDeskAPI.Infrastructure.Tickets;
 
 namespace ServiceDeskAPI.Infrastructure.Assignment
 {
@@ -262,7 +263,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             var ticket = await _db.Tickets.Include(t => t.Unit).Include(t => t.Department).Include(t => t.Category).Include(t => t.AssigneeUser)
                 .FirstOrDefaultAsync(t => t.Id == ticketId);
             if (ticket == null) return (new TicketProblem(404, "Ticket not found."), null, Scope.None);
-            var isStaff = actorIsSuperAdmin || await IsDepartmentStaffAsync(actorUserId, ticket.DepartmentId);
+            var isStaff = actorIsSuperAdmin || await TicketAccess.IsStaffForTicketAsync(_db, actorUserId, ticket.DepartmentId, ticket.UnitId);
             if (!isStaff)
             {
                 var canView = ticket.RequesterUserId == actorUserId || ticket.RaisedByUserId == actorUserId

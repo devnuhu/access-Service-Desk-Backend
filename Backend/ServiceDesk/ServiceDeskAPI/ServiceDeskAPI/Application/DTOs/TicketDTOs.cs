@@ -82,6 +82,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public DateTime? FirstRespondedAt { get; set; }
         /// <summary>Staff only: when the assignee asked the unit's head for help. Null in the requester's lists.</summary>
         public DateTime? EscalatedToHeadAt { get; set; }
+        /// <summary>Staff only, and only while the ticket is open: 0 OnTrack, 1 Warning, 2 Overdue, 3 FarPast. Everyone else always gets 0.</summary>
+        public SlaLevel SlaLevel { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -152,6 +154,10 @@ namespace ServiceDeskAPI.Application.DTOs
         /// <summary>Staff only: when the assignee asked the unit's head for help, and why. Null for everyone else.</summary>
 
         public string? EscalatedToHeadReason { get; set; }
+        /// <summary>Staff only: when the warning, the overdue alert and the Head of Department alert were sent. Null until then.</summary>
+        public DateTime? SlaWarnedAt { get; set; }
+        public DateTime? SlaBreachedAt { get; set; }
+        public DateTime? SlaL2At { get; set; }
     }
 
     /// <summary>multipart/form-data: bodyHtml, isInternal, and 0 to 6 files named "files".</summary>
@@ -162,5 +168,15 @@ namespace ServiceDeskAPI.Application.DTOs
         public List<IFormFile> Files { get; set; } = new();
     }
 
+    /// <summary>Counts of open tickets by SLA level, for the oversight screens (a ticket is counted once, at its highest level).</summary>
+    public class SlaSummaryDto
+    {
+        public int Open { get; set; }
+        public int Warning { get; set; }
+        public int Overdue { get; set; }
+        public int FarPast { get; set; }
+        /// <summary>Open tickets nobody holds yet.</summary>
+        public int Unassigned { get; set; }
+    }
     public record CreatedTicketDto(Guid Id, string Reference, string Message);
 }

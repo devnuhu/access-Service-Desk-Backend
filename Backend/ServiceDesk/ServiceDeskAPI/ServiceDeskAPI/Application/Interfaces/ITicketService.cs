@@ -31,10 +31,12 @@ namespace ServiceDeskAPI.Application.Interfaces
         /// departmentId and unitId narrow every view; open=true keeps New, Assigned, In progress, Pending and Reopened.
         /// </summary>
         Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status, bool? open, string? search,
-            int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null);
+            int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null);
 
         Task<(TicketProblem? Problem, TicketDetailDto? Ticket)> GetAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
         Task<Guid?> FindIdByReferenceAsync(string reference);
+        /// <summary>Open tickets of a department (optionally one unit) counted by SLA level. Staff of the department and Super Admin.</summary>
+        Task<(TicketProblem? Problem, SlaSummaryDto? Summary)> SlaSummaryAsync(Guid departmentId, Guid? unitId, Guid actorUserId, bool actorIsSuperAdmin);
 
         Task<(TicketProblem? Problem, TicketCommentDto? Comment)> AddCommentAsync(Guid ticketId, AddCommentRequest request, Guid actorUserId, bool actorIsSuperAdmin);
 
