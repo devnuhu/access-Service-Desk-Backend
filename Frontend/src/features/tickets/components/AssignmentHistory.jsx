@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { formatWat } from "@/shared/lib/time";
 import { ASSIGNMENT_METHOD } from "../api/endpoints.js";
+import { useAssignmentHistory } from "../hooks/useTickets.js";
 import { autoReasonText, personName } from "../ticketText.js";
 
 /** The candidates the engine compared for one Auto entry; the chosen one is highlighted. */
@@ -111,9 +112,10 @@ function Entry({ entry }) {
   );
 }
 
-/** Assignment history, oldest first; collapsed until opened. */
-export default function AssignmentHistory({ history }) {
+/** Assignment history, oldest first; collapsed, and loaded only when opened. */
+export default function AssignmentHistory({ ticketId }) {
   const [open, setOpen] = useState(false);
+  const history = useAssignmentHistory(ticketId, { enabled: open });
   return (
     <div className="border-t border-line pt-3">
       <button
@@ -124,14 +126,11 @@ export default function AssignmentHistory({ history }) {
         className="flex w-full items-center justify-between text-sm font-semibold text-ink"
       >
         Assignment history
-        <span className="flex items-center gap-1 text-xs font-normal text-muted">
-          {history.data ? history.data.length : ""}
-          {open ? (
-            <ChevronDown aria-hidden="true" size={15} />
-          ) : (
-            <ChevronRight aria-hidden="true" size={15} />
-          )}
-        </span>
+        {open ? (
+          <ChevronDown aria-hidden="true" size={15} className="text-muted" />
+        ) : (
+          <ChevronRight aria-hidden="true" size={15} className="text-muted" />
+        )}
       </button>
       {open && (
         <div id="assignment-history" className="mt-3">

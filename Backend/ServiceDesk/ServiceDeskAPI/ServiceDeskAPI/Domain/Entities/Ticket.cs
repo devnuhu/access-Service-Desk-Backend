@@ -51,10 +51,17 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? QueueAlertedAt { get; set; }
         /// <summary>When the unit's head was told the assignee is away while the ticket is in progress (cleared on reassignment).</summary>
         public DateTime? AssigneeAwayFlaggedAt { get; set; }
+        /// <summary>Set when the assignee escalated the ticket to the unit's head (asked for help). Cleared when it is reassigned.</summary>
+        public DateTime? EscalatedToHeadAt { get; set; }
+        public Guid? EscalatedToHeadByUserId { get; set; }
+        /// <summary>Why. Staff only: also saved as an internal note.</summary>
+        public string? EscalatedToHeadReason { get; set; }
 
         // ---- workflow (Step 6, BRD Section 8) ----
         /// <summary>When the current assignee acknowledged it (Assigned or Reopened to In progress); cleared on every new assignment.</summary>
         public DateTime? AcknowledgedAt { get; set; }
+        /// <summary>The first time anyone answered the requester: the earlier of the assignee's first acknowledgement and first public comment. Set once; kept when the ticket is reassigned.</summary>
+        public DateTime? FirstRespondedAt { get; set; }
         public PendingReason? PendingReason { get; set; }
         public DateTime? PendingSince { get; set; }
         public DateTime? ResolvedAt { get; set; }
@@ -99,6 +106,7 @@ namespace ServiceDeskAPI.Domain.Entities
         public string BodyHtml { get; set; } = string.Empty;
         public string BodyText { get; set; } = string.Empty;
         public bool IsInternal { get; set; }
+        public CommentKind Kind { get; set; } = CommentKind.Comment;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 

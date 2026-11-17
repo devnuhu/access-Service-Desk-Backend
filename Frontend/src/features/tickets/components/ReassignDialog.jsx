@@ -3,10 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
 import { fieldError } from "@/shared/lib/http";
 import { Button, Chip, Dialog, useToast } from "@/shared/ui";
-import { refreshAfterReassign, useReassign } from "../hooks/useTickets.js";
-import { personName, REASON_MAX, REASON_MIN } from "../ticketText.js";
-
-const CONFLICT = "The ticket changed at the same moment. It has been reloaded.";
+import { refreshTickets, useReassign } from "../hooks/useTickets.js";
+import {
+  personName,
+  REASON_MAX,
+  REASON_MIN,
+  TICKET_CONFLICT,
+} from "../ticketText.js";
 
 /**
  * Choose who should handle the ticket, and why. Candidates come from reassign-options (grouped by
@@ -54,12 +57,12 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
         reason: reason.trim(),
       });
       toast.success(result.message);
-      await refreshAfterReassign(queryClient, ticket.id);
+      await refreshTickets(queryClient);
       onClose();
     } catch (error) {
       if (error.status === 409) {
-        toast.warning(CONFLICT);
-        await refreshAfterReassign(queryClient, ticket.id);
+        toast.warning(TICKET_CONFLICT);
+        await refreshTickets(queryClient);
         onClose();
         return;
       }

@@ -24,7 +24,13 @@ const unit = (id, name, flags = {}) => ({
 
 const CW1 = { userId: "u-cw1", userName: "test.caseworker1", fullName: null };
 
-const item = (reference, status, createdAt, assignee = null) => ({
+const item = (
+  reference,
+  status,
+  createdAt,
+  assignee = null,
+  assignedAt = null,
+) => ({
   id: `t-${reference}`,
   reference,
   subject: `Subject ${reference}`,
@@ -36,11 +42,12 @@ const item = (reference, status, createdAt, assignee = null) => ({
   status,
   requester: { userId: "u-r", userName: "test.requester", fullName: null },
   assignee,
+  assignedAt,
   createdAt,
   updatedAt: null,
 });
 
-function renderQueue(roles, org, tickets = {}) {
+function renderQueue(roles, org, tickets = {}, search = "") {
   const queryClient = createTestQueryClient();
   const asked = [];
   installFakeApi(queryClient, {
@@ -48,9 +55,10 @@ function renderQueue(roles, org, tickets = {}) {
     "GET /api/org/departments": () => [200, []],
     "GET /api/tickets": (config) => {
       asked.push(config.params);
-      // tickets: { [status]: items } for every view, or { [view]: { [status]: items } }
+      // tickets: { open | [status]: items } for every view, or { [view]: { ... } }
       const byView = tickets[config.params.view] ?? tickets;
-      const items = byView[config.params.status] ?? [];
+      const items =
+        byView[config.params.open ? "open" : config.params.status] ?? [];
       return [
         200,
         {
@@ -71,7 +79,7 @@ function renderQueue(roles, org, tickets = {}) {
       />
       <Route path="/no-access" element={<p>No access page</p>} />
     </Routes>,
-    { route: "/departments/d-cp/tickets", queryClient },
+    { route: `/departments/d-cp/tickets${search}`, queryClient },
   );
   return asked;
 }
@@ -83,7 +91,7 @@ describe("Work queue", () => {
     expect(asked).toHaveLength(0);
   });
 
-  it("a head starts on All open: the unit's open tickets (one call per open status, newest first); New shows Waiting", async () => {
+  it("a head starts on All open: one call with open=true for the unit; New shows Waiting", async () => {
     const asked = renderQueue(
       ["Requester", "CaseWorker", "HeadOfUnit"],
       {
@@ -101,8 +109,16 @@ describe("Work queue", () => {
         ],
       },
       {
-        1: [item("CP-2026-000002", 1, "2026-11-03T10:00:00Z")],
-        4: [item("CP-2026-000001", 4, "2026-11-02T10:00:00Z", CW1)],
+        open: [
+          item("CP-2026-000002", 1, "2026-11-03T10:00:00Z"),
+          item(
+            "CP-2026-000001",
+            4,
+            "2026-11-02T10:00:00Z",
+            CW1,
+            "2026-11-02T10:00:05Z",
+          ),
+        ],
       },
     );
     expect(
@@ -121,21 +137,23 @@ describe("Work queue", () => {
     expect(within(rows[0]).getByText("Waiting")).toBeInTheDocument();
     expect(within(rows[0]).getByText("New")).toBeInTheDocument();
     expect(within(rows[1]).getByText("test.caseworker1")).toBeInTheDocument();
+    const assigned = within(rows[1]).getByText(/days? ago/);
+    expect(assigned.closest("span")).toHaveTextContent(/^Assigned /);
+    expect(assigned).toHaveAttribute("title", "Mon 2 Nov 2026, 11:00 WAT");
     expect(screen.getByLabelText("Unit")).toHaveDisplayValue(
       "Contribution Matching",
     );
-    expect(asked.map((query) => query.status).sort()).toEqual([1, 2, 3, 4, 6]);
-    expect(
-      asked.every(
-        (query) =>
-          query.view === "department" &&
-          query.departmentId === "d-cp" &&
-          query.unitId === "u-cm",
-      ),
-    ).toBe(true);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({
+      view: "department",
+      departmentId: "d-cp",
+      unitId: "u-cm",
+      open: true,
+    });
+    expect(asked[0].status).toBeUndefined();
   });
 
-  it("a case worker starts on Assigned to me (view=assigned, this department only)", async () => {
+  it("a case worker starts on Assigned to me: departmentId sent, the oldest unstarted ticket on top", async () => {
     const user = userEvent.setup();
     const asked = renderQueue(
       ["Requester", "CaseWorker"],
@@ -150,16 +168,32 @@ describe("Work queue", () => {
       },
       {
         assigned: {
-          2: [
-            item("CP-2026-000010", 2, "2026-11-03T11:00:00Z", CW1),
-            {
-              ...item("HR-2026-000001", 2, "2026-11-03T12:00:00Z", CW1),
-              departmentCode: "HR",
-            },
+          open: [
+            item(
+              "CP-2026-000012",
+              3,
+              "2026-11-03T13:00:00Z",
+              CW1,
+              "2026-11-03T07:00:00Z",
+            ),
+            item(
+              "CP-2026-000011",
+              2,
+              "2026-11-03T12:00:00Z",
+              CW1,
+              "2026-11-03T12:00:00Z",
+            ),
+            item(
+              "CP-2026-000010",
+              2,
+              "2026-11-03T11:00:00Z",
+              CW1,
+              "2026-11-03T11:00:00Z",
+            ),
           ],
         },
         department: {
-          1: [item("CP-2026-000011", 1, "2026-11-03T12:00:00Z")],
+          open: [item("CP-2026-000020", 1, "2026-11-03T12:00:00Z")],
         },
       },
     );
@@ -169,16 +203,58 @@ describe("Work queue", () => {
     const rows = await screen.findAllByTestId(/^ticket-row-/);
     expect(rows.map((row) => row.dataset.testid)).toEqual([
       "ticket-row-CP-2026-000010",
+      "ticket-row-CP-2026-000011",
+      "ticket-row-CP-2026-000012",
     ]);
     expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
-    expect(asked.every((query) => query.view === "assigned")).toBe(true);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({
+      view: "assigned",
+      departmentId: "d-cp",
+      open: true,
+    });
 
     await user.click(screen.getByRole("tab", { name: "All open" }));
     expect(
-      await screen.findByTestId("ticket-row-CP-2026-000011"),
+      await screen.findByTestId("ticket-row-CP-2026-000020"),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Unit")).toHaveDisplayValue(
       "Contribution Matching",
     );
+  });
+
+  it("opens filtered from a Home card: Waiting to start asks for Assigned and Reopened", async () => {
+    const asked = renderQueue(
+      ["Requester", "CaseWorker", "HeadOfUnit"],
+      {
+        departments: [
+          {
+            ...CP,
+            isHod: false,
+            units: [
+              unit("u-cm", "Contribution Matching", {
+                isHead: true,
+                isMember: true,
+              }),
+            ],
+          },
+        ],
+      },
+      {
+        assigned: {
+          2: [item("CP-2026-000030", 2, "2026-11-03T11:00:00Z", CW1)],
+          6: [item("CP-2026-000031", 6, "2026-11-03T12:00:00Z", CW1)],
+        },
+      },
+      "?tab=assigned&status=start",
+    );
+    expect(
+      await screen.findByRole("tab", { name: "Assigned to me" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Status")).toHaveDisplayValue(
+      "Waiting to start",
+    );
+    expect(await screen.findAllByTestId(/^ticket-row-/)).toHaveLength(2);
+    expect(asked.map((query) => query.status).sort()).toEqual([2, 6]);
   });
 });

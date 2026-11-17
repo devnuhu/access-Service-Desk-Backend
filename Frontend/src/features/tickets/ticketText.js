@@ -57,11 +57,35 @@ const AUTO_REASONS = {
   raised: "When it was raised",
   retry: "When someone became available",
   "assignee unavailable": "Because the assignee was unavailable",
+  "reopened while the assignee is unavailable":
+    "When it was reopened and the assignee was unavailable",
 };
 
 export function autoReasonText(reason) {
   return AUTO_REASONS[reason] ?? reason;
 }
+
+/** A 409 on any ticket change. */
+export const TICKET_CONFLICT =
+  "The ticket changed at the same moment. It has been reloaded.";
+
+/**
+ * The bold label a workflow comment (kind 1) starts with: "Resolved: Completed", "Escalated to the
+ * head of unit", ... The system writes it; nothing else in the body is read.
+ */
+export function workflowLabel(comment) {
+  return (
+    comment.bodyHtml.match(/^<p><strong>([^<]+)<\/strong><\/p>/)?.[1] ?? null
+  );
+}
+
+/** The body of a workflow comment without its label. */
+export function workflowBody(comment) {
+  return comment.bodyHtml.replace(/^<p><strong>[^<]+<\/strong><\/p>/, "");
+}
+
+/** Escalation reasons: 5 to 1000 characters. */
+export const ESCALATE_MAX = 1000;
 
 /** Reassignment reasons: 5 to 500 characters. */
 export const REASON_MIN = 5;

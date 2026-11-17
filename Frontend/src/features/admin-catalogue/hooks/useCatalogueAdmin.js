@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CATALOGUE_KEY } from "@/features/catalogue";
+import { CATALOGUE_KEY, MY_CATEGORIES_KEY } from "@/features/catalogue";
 import { request } from "@/shared/lib/http";
 import {
   createCategory,
@@ -53,6 +53,7 @@ export function refreshCatalogue(queryClient) {
     queryClient.invalidateQueries({ queryKey: catalogueKeys.all }),
     queryClient.invalidateQueries({ queryKey: catalogueKeys.allSkills }),
     queryClient.invalidateQueries({ queryKey: CATALOGUE_KEY }),
+    queryClient.invalidateQueries({ queryKey: MY_CATEGORIES_KEY }),
   ]);
 }
 

@@ -1,13 +1,10 @@
 import { useState } from "react";
 import { UserRoundCog } from "lucide-react";
-import { formatWat } from "@/shared/lib/time";
 import { Button, Card } from "@/shared/ui";
 import { STATUS } from "../api/endpoints.js";
-import {
-  useAssignmentHistory,
-  useReassignOptions,
-} from "../hooks/useTickets.js";
-import { personName, sinceText } from "../ticketText.js";
+import { useReassignOptions } from "../hooks/useTickets.js";
+import { personName } from "../ticketText.js";
+import Ago from "./Ago.jsx";
 import AssignmentHistory from "./AssignmentHistory.jsx";
 import ReassignDialog from "./ReassignDialog.jsx";
 
@@ -19,8 +16,6 @@ import ReassignDialog from "./ReassignDialog.jsx";
 export default function AssignmentPanel({ ticket }) {
   const [reassigning, setReassigning] = useState(false);
   const options = useReassignOptions(ticket.id);
-  const history = useAssignmentHistory(ticket.id);
-  const last = history.data?.at(-1);
   const waiting = ticket.status === STATUS.New;
 
   return (
@@ -44,12 +39,9 @@ export default function AssignmentPanel({ ticket }) {
                 {personName(ticket.assignee)}
               </p>
               <p className="text-xs text-muted">{ticket.unitName}</p>
-              {last && (
+              {ticket.assignedAt && (
                 <p className="text-xs text-muted">
-                  Assigned{" "}
-                  <time dateTime={last.at} title={formatWat(last.at)}>
-                    {sinceText(last.at)}
-                  </time>
+                  Assigned <Ago at={ticket.assignedAt} />
                 </p>
               )}
             </>
@@ -78,7 +70,7 @@ export default function AssignmentPanel({ ticket }) {
       </div>
 
       <div className="mt-4">
-        <AssignmentHistory history={history} />
+        <AssignmentHistory ticketId={ticket.id} />
       </div>
 
       {reassigning && (

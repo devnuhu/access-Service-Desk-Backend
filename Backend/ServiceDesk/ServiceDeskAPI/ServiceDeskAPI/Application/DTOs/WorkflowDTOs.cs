@@ -12,6 +12,7 @@ namespace ServiceDeskAPI.Application.DTOs
         public bool CanConfirm { get; set; }
         public bool CanReopen { get; set; }
         public bool CanCancel { get; set; }
+        public bool CanEscalate { get; set; }
         public List<ResolutionCodeDto> ResolutionCodes { get; set; } = new();
     }
 

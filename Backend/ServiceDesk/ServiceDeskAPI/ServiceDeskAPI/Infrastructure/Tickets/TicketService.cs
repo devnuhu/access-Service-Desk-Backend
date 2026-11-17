@@ -169,7 +169,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- reading ----------------
 
         public async Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status,
-            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin)
+            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null)
         {
             page = Math.Max(1, page);
             pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
@@ -203,6 +203,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (status.HasValue) query = query.Where(t => t.Status == status.Value);
             if (open == true) query = query.Where(t => OpenStatuses.Contains(t.Status));
             else if (open == false) query = query.Where(t => !OpenStatuses.Contains(t.Status));
+            if (waitingToStart == true) query = query.Where(t => t.Status == TicketStatus.Assigned || t.Status == TicketStatus.Reopened);
             var term = (search ?? string.Empty).Trim();
             if (term.Length > 0)
             {
@@ -212,8 +213,18 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     : query.Where(t => t.Reference.Contains(term) || t.Subject.Contains(term));
             }
 
+            var sortKey = (sort ?? "created").Trim().ToLowerInvariant();
+            IOrderedQueryable<Ticket> ordered = sortKey switch
+            {
+                "assignedat" => query.OrderBy(t => t.AssignedAt == null).ThenBy(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
+                "assignedat_desc" => query.OrderBy(t => t.AssignedAt == null).ThenByDescending(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
+                _ => query.OrderByDescending(t => t.CreatedAt)
+            };
             var total = await query.CountAsync();
-            var items = await Project(query.OrderByDescending(t => t.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync();
+            var items = await Project(ordered.Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync();
+            var viewKey = (view ?? "mine").Trim().ToLowerInvariant();
+            if (!staffView && viewKey != "assigned")
+                foreach (var item in items) item.EscalatedToHeadAt = null;
             return (null, new TicketPageDto { Items = items, Total = total, Page = page, PageSize = pageSize });
         }
 
@@ -263,7 +274,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 .OrderBy(c => c.CreatedAt)
                 .Select(c => new TicketCommentDto
                 {
-                    Id = c.Id, BodyHtml = c.BodyHtml, IsInternal = c.IsInternal, CreatedAt = c.CreatedAt,
+                    Id = c.Id, BodyHtml = c.BodyHtml, IsInternal = c.IsInternal, Kind = c.Kind, CreatedAt = c.CreatedAt,
                     Author = new PersonDto(c.AuthorUserId, c.AuthorUser!.UserName ?? string.Empty, c.AuthorUser.FullName)
                 })
                 .ToListAsync();
@@ -280,6 +291,11 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             detail.Comments = comments;
 
             detail.IsStaffView = isStaff;
+            if (isStaff && ticket.EscalatedToHeadAt.HasValue)
+            {
+                detail.EscalatedToHeadAt = ticket.EscalatedToHeadAt;
+                detail.EscalatedToHeadReason = ticket.EscalatedToHeadReason;
+            }
             detail.CanComment = ticket.Status is not (TicketStatus.Closed or TicketStatus.Cancelled);
             detail.CanAddInternalNote = isStaff && detail.CanComment;
             return (null, detail);
@@ -332,6 +348,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             AddFiles(ticketId, comment.Id, files, actorUserId, now);
             ticket.UpdatedAt = now;
             ticket.UpdatedByUserId = actorUserId;
+            if (!request.IsInternal && ticket.AssigneeUserId == actorUserId) ticket.FirstRespondedAt ??= now;
             Stage(AuditAction.Created, "TicketComment", comment.Id, ticket.Reference, null, new { ticket = ticket.Reference, internalNote = request.IsInternal, files = files.Count });
 
             // Waiting on the requester and the requester answered: back to In progress (BRD Section 8)
@@ -419,7 +436,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 Requester = new PersonDto(t.RequesterUserId, t.RequesterUser!.UserName ?? string.Empty, t.RequesterUser.FullName),
                 Assignee = t.AssigneeUserId == null ? null : new PersonDto(t.AssigneeUserId.Value, t.AssigneeUser!.UserName ?? string.Empty, t.AssigneeUser.FullName),
                 AssignedAt = t.AssigneeUserId == null ? null : t.AssignedAt,
-                CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt
+                FirstRespondedAt = t.FirstRespondedAt, EscalatedToHeadAt = t.EscalatedToHeadAt, CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt
             });
 
         /// <summary>DEPT-YYYY-000001: the next number for the department and (Lagos) year, taken inside the caller's transaction.</summary>

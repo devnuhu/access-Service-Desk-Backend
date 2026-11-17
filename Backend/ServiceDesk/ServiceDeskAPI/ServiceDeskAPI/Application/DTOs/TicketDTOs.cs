@@ -78,6 +78,10 @@ namespace ServiceDeskAPI.Application.DTOs
         public PersonDto? Assignee { get; set; }
         /// <summary>When the current assignee got it (Step 6).</summary>
         public DateTime? AssignedAt { get; set; }
+        /// <summary>When someone first answered the requester (acknowledged or commented); null until then.</summary>
+        public DateTime? FirstRespondedAt { get; set; }
+        /// <summary>Staff only: when the assignee asked the unit's head for help. Null in the requester's lists.</summary>
+        public DateTime? EscalatedToHeadAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
@@ -107,6 +111,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public PersonDto Author { get; set; } = new(Guid.Empty, string.Empty, null);
         public string BodyHtml { get; set; } = string.Empty;
         public bool IsInternal { get; set; }
+        /// <summary>0 Comment (typed by a person), 1 Workflow (written by the system for an action on the ticket).</summary>
+        public CommentKind Kind { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<TicketAttachmentDto> Attachments { get; set; } = new();
     }
@@ -143,6 +149,9 @@ namespace ServiceDeskAPI.Application.DTOs
         public DateTime? ClosedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
         public int ReopenCount { get; set; }
+        /// <summary>Staff only: when the assignee asked the unit's head for help, and why. Null for everyone else.</summary>
+
+        public string? EscalatedToHeadReason { get; set; }
     }
 
     /// <summary>multipart/form-data: bodyHtml, isInternal, and 0 to 6 files named "files".</summary>

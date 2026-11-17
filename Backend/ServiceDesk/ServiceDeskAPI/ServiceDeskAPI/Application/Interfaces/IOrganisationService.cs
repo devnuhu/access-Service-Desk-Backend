@@ -13,6 +13,7 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(AdminResult Result, DepartmentDto? Department)> CreateDepartmentAsync(CreateDepartmentRequest request, Guid? actorUserId);
         Task<AdminResult> UpdateDepartmentAsync(Guid departmentId, UpdateOrgItemRequest request, Guid? actorUserId);
         Task<AdminResult> SetHodAsync(Guid departmentId, Guid? userId, Guid? actorUserId);
+        Task<AdminResult> SetAdminAsync(Guid departmentId, Guid? userId, Guid? actorUserId);
 
         Task<(AdminResult Result, UnitDto? Unit)> CreateUnitAsync(Guid departmentId, CreateUnitRequest request, Guid? actorUserId);
         Task<AdminResult> UpdateUnitAsync(Guid unitId, UpdateOrgItemRequest request, Guid? actorUserId);

@@ -50,6 +50,10 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- what may I do ----------------
 
         private sealed record Who(bool IsAssignee, bool IsRequester, bool IsSuperAdmin);
+
+        private static bool CanEscalate(Ticket t, Who w) =>
+            w.IsAssignee && t.EscalatedToHeadAt == null
+            && t.Status is TicketStatus.Assigned or TicketStatus.InProgress or TicketStatus.Pending or TicketStatus.Reopened;
 
         private static bool CanAcknowledge(Ticket t, Who w) => w.IsAssignee && t.Status is TicketStatus.Assigned or TicketStatus.Reopened;
         private static bool CanSetPending(Ticket t, Who w) => w.IsAssignee && t.Status == TicketStatus.InProgress;
@@ -72,7 +76,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 CanResolve = CanResolve(ticket!, who!),
                 CanConfirm = CanConfirm(ticket!, who!),
                 CanReopen = CanReopen(ticket!, who!),
-                CanCancel = CanCancel(ticket!, who!),
+                CanCancel = CanCancel(ticket!, who!),
+                CanEscalate = CanEscalate(ticket!, who!) && !await IsUnitHeadAsync(ticket!, actorUserId),
                 ResolutionCodes = CodeLabels.Select(c => new ResolutionCodeDto(c.Key, c.Value)).ToList()
             });
         }
@@ -88,6 +93,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var now = DateTime.UtcNow;
             Change(ticket!, TicketStatus.InProgress, actorUserId, "Acknowledged", now);
             ticket!.AcknowledgedAt = now;
+            ticket.FirstRespondedAt ??= now;
             Stage(AuditAction.Acknowledged, ticket, null);
             var assignee = await NameOfAsync(actorUserId);
             Tell(ticket.RequesterUserId, actorUserId, ticket, "Ticket " + ticket.Reference + " in progress",
@@ -226,6 +232,42 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             return (null, message);
         }
 
+        /// <summary>The assignee asks the unit's head for help. Separate from the SLA escalation levels. The reason is an internal note.</summary>
+        public async Task<(TicketProblem? Problem, string? Message)> EscalateAsync(Guid ticketId, WorkflowReasonRequest request, Guid actorUserId, bool actorIsSuperAdmin)
+        {
+            var reason = (request.Reason ?? string.Empty).Trim();
+            if (reason.Length < 5 || reason.Length > 1000)
+                return (Invalid(new Dictionary<string, string> { ["reason"] = "Say why it needs the head of the unit (5 to 1000 characters)." }), null);
+
+            var (problem, ticket, who) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin);
+            if (problem != null) return (problem, null);
+            if (who!.IsAssignee && await IsUnitHeadAsync(ticket!, actorUserId))
+                return (new TicketProblem(400, "You head this unit, so there is nobody above you to escalate to here. Reassign it, or ask the Head of Department."), null);
+            if (!CanEscalate(ticket!, who))
+                return (Refuse(ticket!, who.IsAssignee, "Only the assignee can escalate it to the head of the unit, while it is open and not already escalated."), null);
+
+            var unit = await _db.Units.AsNoTracking().FirstAsync(u => u.Id == ticket!.UnitId);
+            var now = DateTime.UtcNow;
+            ticket!.EscalatedToHeadAt = now;
+            ticket.EscalatedToHeadByUserId = actorUserId;
+            ticket.EscalatedToHeadReason = reason;
+            ticket.UpdatedAt = now;
+            ticket.UpdatedByUserId = actorUserId;
+            var body = string.Join("<br>", reason.Replace("\r", string.Empty).Split('\n').Select(WebUtility.HtmlEncode));
+            _db.TicketComments.Add(new TicketComment
+            {
+                Id = Guid.NewGuid(), TicketId = ticket.Id, AuthorUserId = actorUserId, IsInternal = true, Kind = CommentKind.Workflow, CreatedAt = now,
+                BodyHtml = "<p><strong>Escalated to the head of unit</strong></p><p>" + body + "</p>",
+                BodyText = "Escalated to the head of unit\n" + reason
+            });
+            Stage(AuditAction.Escalated, ticket, new { to = "HeadOfUnit" });
+            var assignee = await NameOfAsync(actorUserId);
+            foreach (var head in new[] { unit.HeadUserId, unit.DeputyHeadUserId }.Where(h => h.HasValue).Select(h => h!.Value).Distinct())
+                if (head != actorUserId)
+                    _notifications.Stage(head, "Ticket " + ticket.Reference + " escalated to you", assignee + " needs your help with a " + ticket.Category!.Name + " request.",
+                        NotificationType.ActionRequired, NotificationCategory.Escalation, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
+            return await SaveAsync(ticket.Reference + " is escalated to the head of " + unit.Name + ".");
+        }
         public async Task<(TicketProblem? Problem, string? Message)> CancelAsync(Guid ticketId, WorkflowReasonRequest request, Guid actorUserId, bool actorIsSuperAdmin)
         {
             var reason = (request.Reason ?? string.Empty).Trim();
@@ -251,6 +293,9 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         }
 
         // ---------------- helpers ----------------
+
+        private async Task<bool> IsUnitHeadAsync(Ticket ticket, Guid userId) =>
+            await _db.Units.AnyAsync(u => u.Id == ticket.UnitId && (u.HeadUserId == userId || u.DeputyHeadUserId == userId));
 
         private async Task<(TicketProblem? Problem, Ticket? Ticket, Who? Who)> LoadAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin, bool track = true)
         {
@@ -290,7 +335,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var body = string.Join("<br>", text.Replace("\r", string.Empty).Split('\n').Select(WebUtility.HtmlEncode));
             _db.TicketComments.Add(new TicketComment
             {
-                Id = Guid.NewGuid(), TicketId = ticket.Id, AuthorUserId = authorUserId, IsInternal = false, CreatedAt = now,
+                Id = Guid.NewGuid(), TicketId = ticket.Id, AuthorUserId = authorUserId, IsInternal = false, Kind = CommentKind.Workflow, CreatedAt = now,
                 BodyHtml = "<p><strong>" + WebUtility.HtmlEncode(label) + "</strong></p><p>" + body + "</p>",
                 BodyText = label + "\n" + text
             });

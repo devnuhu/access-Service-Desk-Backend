@@ -5,7 +5,16 @@ import { formatWat } from "@/shared/lib/time";
 import { Button, Chip, Spinner } from "@/shared/ui";
 import { STATUS } from "../api/endpoints.js";
 import { personName } from "../ticketText.js";
+import Ago from "./Ago.jsx";
+import EscalatedBadge from "./EscalatedBadge.jsx";
 import StatusChip from "./StatusChip.jsx";
+
+/** The first answer to the requester; "Waiting" while an assigned ticket has none. */
+function FirstResponse({ ticket }) {
+  if (ticket.firstRespondedAt) return formatWat(ticket.firstRespondedAt);
+  if (ticket.assignee) return <Chip tone="orange">Waiting</Chip>;
+  return <span className="text-muted">—</span>;
+}
 
 const th = "px-4 py-2.5 whitespace-nowrap";
 const td = "px-4 py-3";
@@ -81,14 +90,16 @@ export default function TicketTable({
                   </th>
                 </>
               )}
+              {!queue && (
+                <th scope="col" className={th}>
+                  Location
+                </th>
+              )}
               <th scope="col" className={th}>
-                Location
+                {queue ? "Created (WAT)" : "Raised (WAT)"}
               </th>
               <th scope="col" className={th}>
-                Raised (WAT)
-              </th>
-              <th scope="col" className={th}>
-                Updated
+                {queue ? "First response" : "Updated"}
               </th>
             </tr>
           </thead>
@@ -120,6 +131,11 @@ export default function TicketTable({
                 {queue && <td className={td}>{ticket.unitName}</td>}
                 <td className={td}>
                   <StatusChip status={ticket.status} />
+                  {ticket.escalatedToHeadAt && (
+                    <span className="mt-1 block">
+                      <EscalatedBadge at={ticket.escalatedToHeadAt} short />
+                    </span>
+                  )}
                 </td>
                 <td className={td}>
                   <PriorityChip priority={ticket.priority} />
@@ -131,19 +147,35 @@ export default function TicketTable({
                       {ticket.status === STATUS.New ? (
                         <Chip tone="orange">Waiting</Chip>
                       ) : ticket.assignee ? (
-                        personName(ticket.assignee)
+                        <>
+                          {personName(ticket.assignee)}
+                          {ticket.assignedAt && (
+                            <span className="block text-xs whitespace-nowrap text-muted">
+                              Assigned <Ago at={ticket.assignedAt} />
+                            </span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-muted">Unassigned</span>
                       )}
                     </td>
                   </>
                 )}
-                <td className={td}>{ticket.locationName}</td>
+                {!queue && <td className={td}>{ticket.locationName}</td>}
                 <td className={`${td} whitespace-nowrap text-body`}>
                   {formatWat(ticket.createdAt)}
                 </td>
-                <td className={`${td} whitespace-nowrap text-body`}>
-                  {ticket.updatedAt ? formatWat(ticket.updatedAt) : "—"}
+                <td
+                  className={`${td} whitespace-nowrap text-body`}
+                  data-testid={queue ? "first-response" : undefined}
+                >
+                  {queue ? (
+                    <FirstResponse ticket={ticket} />
+                  ) : ticket.updatedAt ? (
+                    formatWat(ticket.updatedAt)
+                  ) : (
+                    "—"
+                  )}
                 </td>
               </tr>
             ))}

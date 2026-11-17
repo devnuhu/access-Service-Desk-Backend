@@ -2,8 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
+import { SESSION_KEY } from "@/features/auth";
 import { installFakeApi } from "@/test/fakeApi";
-import { createTestQueryClient, renderWithProviders } from "@/test/render";
+import {
+  createTestQueryClient,
+  makeUser,
+  renderWithProviders,
+} from "@/test/render";
+import { autoReasonText } from "../ticketText.js";
 import TicketPage from "./TicketPage.jsx";
 
 const person = (userId, fullName) => ({
@@ -53,12 +59,37 @@ const ticket = (overrides = {}) => ({
   isStaffView: false,
   canComment: true,
   canAddInternalNote: false,
+  assignedAt: null,
+  acknowledgedAt: null,
+  pendingReason: null,
+  pendingSince: null,
+  resolvedAt: null,
+  resolutionCode: null,
+  resolutionNote: null,
+  closedAt: null,
+  cancelledAt: null,
+  reopenCount: 0,
   ...overrides,
 });
 
+const NO_ACTIONS = {
+  canAcknowledge: false,
+  canSetPending: false,
+  canResume: false,
+  canResolve: false,
+  canConfirm: false,
+  canReopen: false,
+  canCancel: false,
+  resolutionCodes: [],
+};
+
 function renderTicket(routes, route = "/tickets/CP-2026-000001") {
   const queryClient = createTestQueryClient();
-  const api = installFakeApi(queryClient, routes);
+  const api = installFakeApi(queryClient, {
+    "GET /api/tickets/:ticketId/actions": () => [200, NO_ACTIONS],
+    ...routes,
+  });
+  queryClient.setQueryData(SESSION_KEY, makeUser({ id: "u-viewer" }));
   renderWithProviders(
     <Routes>
       <Route path="/tickets/:reference" element={<TicketPage />} />
@@ -218,7 +249,11 @@ describe("Ticket page", () => {
       {
         "GET /api/tickets/:ticketId": () => [
           200,
-          ticket({ status: 7, canComment: false }),
+          ticket({
+            status: 7,
+            canComment: false,
+            closedAt: "2026-11-04T09:00:00Z",
+          }),
         ],
       },
       "/tickets/id/t-1",
@@ -240,6 +275,7 @@ const staffTicket = (overrides = {}) =>
   ticket({
     status: 2,
     assignee: CW1,
+    assignedAt: "2026-11-03T09:00:05Z",
     isStaffView: true,
     canAddInternalNote: true,
     ...overrides,
@@ -328,9 +364,9 @@ describe("Assignment panel", () => {
         return [403, { message: "No." }];
       },
     });
-    expect(
-      await screen.findByText(/Assigned to Chidi One/),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId("status-callout")).toHaveTextContent(
+      "Assigned to Chidi One",
+    );
     expect(
       screen.queryByRole("heading", { name: "Assignment" }),
     ).not.toBeInTheDocument();
@@ -505,7 +541,7 @@ describe("Assignment panel", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await user.click(toggle);
 
-    const auto = screen.getByTestId("assignment-a-1");
+    const auto = await screen.findByTestId("assignment-a-1");
     expect(within(auto).getByText("Auto")).toBeInTheDocument();
     expect(within(auto).getByText("When it was raised")).toBeInTheDocument();
     expect(within(auto).getByText("To Chidi One")).toBeInTheDocument();
@@ -533,5 +569,8 @@ describe("Assignment panel", () => {
         "Because the assignee was unavailable",
       ),
     ).toBeInTheDocument();
+    expect(autoReasonText("reopened while the assignee is unavailable")).toBe(
+      "When it was reopened and the assignee was unavailable",
+    );
   });
 });

@@ -87,6 +87,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                     SeedRole(AppRoles.CaseWorkerId, AppRoles.CaseWorker, "Works the tickets assigned to them in their unit."),
                     SeedRole(AppRoles.HeadOfUnitId, AppRoles.HeadOfUnit, "Runs one unit: assignment, reassignment, unit reports and level 1 escalations."),
                     SeedRole(AppRoles.HODId, AppRoles.HOD, "Oversees the department and receives level 2 escalations. Does not resolve tickets."),
+                    SeedRole(AppRoles.DepartmentAdminId, AppRoles.DepartmentAdmin, "A unit head named by the Super Admin who also sees and administers the whole department: every unit, every ticket, reassignment across units."),
                     SeedRole(AppRoles.SuperAdminId, AppRoles.SuperAdmin, "Full control of the system: configuration, users, roles and every unit."));
             });
 
@@ -137,6 +138,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.ToTable("Tickets");
                 e.HasKey(t => t.Id);
                 e.Property(t => t.Reference).HasMaxLength(30).IsRequired();
+                e.Property(t => t.EscalatedToHeadReason).HasMaxLength(1000);
                 e.HasIndex(t => t.Reference).IsUnique();
                 e.Property(t => t.Subject).HasMaxLength(TicketSeed.MaxSubjectChars).IsRequired();
                 e.Property(t => t.DescriptionHtml).HasColumnType("nvarchar(max)").IsRequired();
@@ -271,6 +273,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasIndex(d => d.Code).IsUnique();
                 e.HasIndex(d => d.Name).IsUnique();
                 e.HasOne(d => d.HodUser).WithMany().HasForeignKey(d => d.HodUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(d => d.AdminUser).WithMany().HasForeignKey(d => d.AdminUserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasData(new Department
                 {
                     Id = OrgSeed.ContributionProcessingId,

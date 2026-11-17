@@ -6,8 +6,8 @@ import { MAX_CC } from "../ticketText.js";
 /**
  * Copy colleagues: up to 10 people, for everyone raising a ticket. Takes the people search as
  * `search` (GET /api/people/search through searchColleagues); it starts at 2 characters. A
- * person is { id, fullName, userName, department }. `exclude` keeps out the person raising it
- * (and the requester when a Super Admin raises for someone else).
+ * person is { id, fullName, userName, department }. The search leaves out the person searching;
+ * `exclude` keeps out the requester when a Super Admin raises for someone else.
  */
 export default function CcField({
   people,

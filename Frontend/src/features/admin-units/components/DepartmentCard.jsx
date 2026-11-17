@@ -4,9 +4,11 @@ import { Plus } from "lucide-react";
 import { Button, Card, Chip, ConfirmDialog, useToast } from "@/shared/ui";
 import {
   useCreateUnit,
+  useSetAdmin,
   useSetHod,
   useUpdateDepartment,
 } from "../hooks/useUnits.js";
+import AdminDialog from "./AdminDialog.jsx";
 import OrgItemDialog from "./OrgItemDialog.jsx";
 import PickPersonDialog from "./PickPersonDialog.jsx";
 import RenameDialog from "./RenameDialog.jsx";
@@ -19,6 +21,7 @@ function personName(person) {
 export default function DepartmentCard({ department }) {
   const toast = useToast();
   const setHod = useSetHod();
+  const setAdmin = useSetAdmin();
   const update = useUpdateDepartment();
   const createUnit = useCreateUnit();
   const [dialog, setDialog] = useState(null);
@@ -55,6 +58,7 @@ export default function DepartmentCard({ department }) {
   };
 
   const hod = personName(department.hod);
+  const admin = personName(department.admin);
   const units = [...department.units].sort(
     (a, b) => Number(b.isActive) - Number(a.isActive),
   );
@@ -82,6 +86,16 @@ export default function DepartmentCard({ department }) {
               <span className="text-muted">No HOD</span>
             )}
           </p>
+          <p className="mt-0.5 text-sm">
+            <span className="text-muted">Department Admin: </span>
+            {admin ? (
+              <span className="text-ink" data-testid="department-admin">
+                {admin}
+              </span>
+            ) : (
+              <span className="text-muted">None</span>
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -100,6 +114,13 @@ export default function DepartmentCard({ department }) {
               Clear HOD
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setDialog("admin")}
+          >
+            Department Admin
+          </Button>
           <Button
             size="sm"
             variant="secondary"
@@ -215,6 +236,15 @@ export default function DepartmentCard({ department }) {
         }}
         onCancel={() => setDialog(null)}
       />
+      {dialog === "admin" && (
+        <AdminDialog
+          department={department}
+          onClose={() => setDialog(null)}
+          onSave={(userId) =>
+            setAdmin.mutateAsync({ departmentId: department.id, userId })
+          }
+        />
+      )}
       {dialog === "rename" && (
         <RenameDialog
           open

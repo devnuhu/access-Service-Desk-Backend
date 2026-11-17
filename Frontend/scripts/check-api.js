@@ -564,8 +564,8 @@ function lineOf(source, name, route) {
 /**
  * "| GET | `/api/x` | Policy: HR_Access | Action | Note |" rows of endpoint-inventory.md.
  * A row may name several routes ("`/api/tickets/{id}`, `/api/tickets/by-reference/{ref}`"), one
- * row each, and a route may show its query ("/api/admin/categories?departmentId="): the path is
- * compared without it. "Same as above" in the access column takes the access of the row above.
+ * row each; a later one may name only its last part (`/resume`). A route may show its query
+ * ("/api/admin/categories?departmentId="): the path is compared without it. "Same as above" in the access column takes the access of the row above.
  */
 export function parseInventory(markdown) {
   const rows = [];
@@ -578,8 +578,14 @@ export function parseInventory(markdown) {
     const access =
       /^same as above\b/i.test(match[3]) && previous ? previous : match[3];
     previous = access;
+    let first = null;
     for (const [, route] of match[2].matchAll(/`([^`]+)`/g)) {
-      rows.push({ method: match[1], path: route.split("?")[0], access });
+      const full = route.split("?")[0];
+      const path = full.startsWith("/api/")
+        ? full
+        : first.replace(/\/[^/]+$/, full);
+      first ??= path;
+      rows.push({ method: match[1], path, access });
     }
   }
   return rows;
@@ -608,6 +614,7 @@ const WHO_PHRASES = {
  * "holder and unit head/deputy ...": any signed-in person, the service checks the record).
  */
 export function inventoryAccess(text) {
+  if (/^anyone who can see\b/i.test(text)) return "signedIn";
   if (/^(anonymous|anyone)\b/i.test(text)) return "anonymous";
   if (/^signed in\b/i.test(text) || /^same people as above$/i.test(text))
     return "signedIn";
@@ -634,6 +641,8 @@ export function inventoryAccess(text) {
     "people copied",
     "department staff",
     "holder",
+    "the assignee",
+    "the requester",
   ];
   if (
     (phrases.includes("requester") && phrases.length > 1) ||
@@ -839,6 +848,22 @@ function firstRows(body) {
   return [];
 }
 
+/**
+ * A real id for an organisation route: the unit or department this person runs, else the first in
+ * the list. A role that must be refused then gets its 403 for a real id, not a 404 for a dummy one.
+ */
+async function realOrgId(scope, fetchJson) {
+  const mine = (await fetchJson("/api/org/me", {})).body?.departments ?? [];
+  const all = (await fetchJson("/api/org/departments", {})).body ?? [];
+  const hod = mine.find((department) => department.isHod);
+  if (scope === "department") return hod?.id ?? all[0]?.id;
+  const led = mine
+    .flatMap((department) => department.units)
+    .find((unit) => unit.isHead || unit.isDeputy);
+  const department = all.find((d) => d.id === hod?.id) ?? all[0];
+  return led?.id ?? department?.units[0]?.id;
+}
+
 /** Plans the request for one GET entry, or explains why it is skipped. */
 async function planRequest(entry, allowed, fetchJson) {
   const query = { ...(entry.probe ?? {}) };
@@ -864,6 +889,11 @@ async function planRequest(entry, allowed, fetchJson) {
   }
   const hasParams = /\{[^}]+\}/.test(entry.path);
   if (!hasParams) return { path: entry.path, query };
+  if (entry.orgScope) {
+    const value = await realOrgId(entry.orgScope, fetchJson);
+    if (!value) return { skip: "needs a department or unit (none found)" };
+    return { path: entry.path.replace(/\{[^}]+\}/, value), query };
+  }
   // A role that must be refused is refused before any lookup, so no real data is needed.
   if (!allowed)
     return { path: entry.path.replace(/\{[^}]+\}/g, DUMMY_ID), query };

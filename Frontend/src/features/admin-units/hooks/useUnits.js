@@ -9,6 +9,7 @@ import {
   listAdminDepartments,
   listUnitMembers,
   removeUnitMember,
+  setDepartmentAdmin,
   setDepartmentHod,
   setUnitDeputy,
   setUnitHead,
@@ -72,6 +73,11 @@ export const useUpdateDepartment = () =>
 export const useSetHod = () =>
   useOrgMutation(({ departmentId, userId }) =>
     request(setDepartmentHod, { params: { departmentId }, body: { userId } }),
+  );
+
+export const useSetAdmin = () =>
+  useOrgMutation(({ departmentId, userId }) =>
+    request(setDepartmentAdmin, { params: { departmentId }, body: { userId } }),
   );
 
 export const useCreateUnit = () =>

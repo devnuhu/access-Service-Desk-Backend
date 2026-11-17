@@ -13,7 +13,10 @@ namespace ServiceDeskAPI.Domain.Entities
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public Guid? HodUserId { get; set; }
-        public User? HodUser { get; set; }
+        public User? HodUser { get; set; }
+        /// <summary>The Department Admin: a head or deputy of a unit in this department, named by the Super Admin. Sees and administers the whole department.</summary>
+        public Guid? AdminUserId { get; set; }
+        public User? AdminUser { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public Guid? CreatedByUserId { get; set; }

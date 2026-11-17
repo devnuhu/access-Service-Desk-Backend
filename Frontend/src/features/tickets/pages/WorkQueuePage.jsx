@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useSession } from "@/features/auth";
 import {
@@ -10,28 +10,33 @@ import {
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { Card, Spinner } from "@/shared/ui";
-import { STATUS_LABELS } from "../api/endpoints.js";
+import { STATUS_LABELS, TICKET_SORT } from "../api/endpoints.js";
 import TicketTable from "../components/TicketTable.jsx";
-import {
-  OPEN_PAGE_SIZE,
-  PAGE_SIZE,
-  useOpenTickets,
-  useTicketList,
-} from "../hooks/useTickets.js";
+import { PAGE_SIZE, useTicketList } from "../hooks/useTickets.js";
 
 const OPEN = "open";
 const ALL = "all";
 const ASSIGNED = "assigned";
-const DEPARTMENT = "department";
+const UNIT = "unit";
+const ADMIN = "admin";
+
+const SORTS = [
+  [TICKET_SORT.Newest, "Newest"],
+  [TICKET_SORT.LongestWaiting, "Longest waiting since assigned"],
+  [TICKET_SORT.RecentlyAssigned, "Most recently assigned"],
+];
 
 /**
- * A department's work queue (its staff and Super Admin). Status "Open" (the default) is New,
- * Assigned, In progress, Pending and Reopened: the API filters one status at a time, so the page
- * asks once per open status (newest 100 each), merges them and pages in the browser. Any other
- * choice is filtered and paged by the server.
+ * A department's work queue (its staff and Super Admin).
  *
- * Unit members also get "Assigned to me" (view=assigned, kept to this department), which is the
- * default for a case worker; heads, deputies, HODs and Super Admins start on "All open".
+ * Unit members get tabs: "Assigned to me" (view=assigned; the default for a case worker), "All
+ * open" for their own unit (the default for heads and deputies), and, for the department's Admin
+ * (org/me isAdmin), "Admin": every ticket in the department, like the HOD. The HOD and a Super Admin
+ * are not members and see the whole department with a unit filter.
+ *
+ * Filters go to the server (status or open=true, waitingToStart=true, sort) except "Escalated",
+ * which keeps the escalated tickets of the page shown (escalatedToHeadAt). Home's cards open a
+ * filtered list with ?tab=, ?status=, ?waiting=1 and ?sort=.
  */
 export default function WorkQueuePage() {
   const { departmentId } = useParams();
@@ -59,11 +64,10 @@ export default function WorkQueuePage() {
     <WorkQueue
       key={departmentId}
       departmentId={departmentId}
-      code={department?.code ?? null}
       name={department?.name ?? "Department"}
       units={(listed ?? mine)?.units ?? []}
-      ownUnitId={ownUnit?.id ?? ""}
-      member={Boolean(ownUnit)}
+      ownUnit={ownUnit ?? null}
+      isAdmin={Boolean(mine?.isAdmin)}
       startAssigned={
         Boolean(ownUnit) &&
         !ownUnit.isHead &&
@@ -74,78 +78,113 @@ export default function WorkQueuePage() {
   );
 }
 
-const TABS = [
-  [ASSIGNED, "Assigned to me"],
-  [DEPARTMENT, "All open"],
-];
+function firstTab(asked, tabs, startAssigned) {
+  const ids = tabs.map(([id]) => id);
+  const wanted = asked === "department" ? UNIT : asked;
+  if (ids.includes(wanted)) return wanted;
+  return startAssigned ? ASSIGNED : (ids.find((id) => id !== ASSIGNED) ?? null);
+}
 
 function WorkQueue({
   departmentId,
-  code,
   name,
   units,
-  ownUnitId,
-  member,
+  ownUnit,
+  isAdmin,
   startAssigned,
 }) {
-  const [tab, setTab] = useState(startAssigned ? ASSIGNED : DEPARTMENT);
-  const [unitId, setUnitId] = useState(ownUnitId);
-  const [status, setStatus] = useState(OPEN);
+  const tabs = ownUnit
+    ? [
+        [ASSIGNED, "Assigned to me"],
+        [UNIT, "All open"],
+        ...(isAdmin ? [[ADMIN, "Admin"]] : []),
+      ]
+    : [];
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() =>
+    firstTab(searchParams.get("tab"), tabs, startAssigned),
+  );
+  const assigned = tab === ASSIGNED;
+  // Department-wide: the HOD and Super Admin (no tabs) and the Admin tab.
+  const wide = tab === null || tab === ADMIN;
+  const [unitId, setUnitId] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") ?? OPEN);
+  const [waiting, setWaiting] = useState(searchParams.get("waiting") === "1");
+  const [escalated, setEscalated] = useState(false);
+  const [sortChoice, setSortChoice] = useState(searchParams.get("sort"));
+  const sort =
+    sortChoice ?? (assigned ? TICKET_SORT.LongestWaiting : TICKET_SORT.Newest);
   const [text, setText] = useState("");
   const search = useDebouncedValue(text.trim(), 300);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${tab}|${unitId}|${status}|${search}`;
+  const key = `${tab}|${unitId}|${status}|${waiting}|${sort}|${search}`;
   const page = pageState.key === key ? pageState.page : 1;
   const setPage = (next) => setPageState({ page: next, key });
 
-  const assigned = tab === ASSIGNED;
   const base = assigned
-    ? { view: "assigned", search }
-    : { view: "department", departmentId, unitId: unitId || undefined, search };
-  const showOpen = status === OPEN;
-  const open = useOpenTickets(base, { enabled: showOpen });
-  const list = useTicketList(
-    {
-      ...base,
-      status: status === ALL ? undefined : Number(status),
-      page,
-      pageSize: PAGE_SIZE,
-    },
-    { enabled: !showOpen },
-  );
+    ? { view: "assigned", departmentId }
+    : {
+        view: "department",
+        departmentId,
+        unitId: wide ? unitId || undefined : ownUnit.id,
+      };
+  const list = useTicketList({
+    ...base,
+    search,
+    open: status === OPEN ? true : undefined,
+    status: status === OPEN || status === ALL ? undefined : Number(status),
+    waitingToStart: waiting || undefined,
+    sort: sort === TICKET_SORT.Newest ? undefined : sort,
+    page,
+    pageSize: PAGE_SIZE,
+  });
 
-  // view=assigned covers every department; keep this department's tickets.
-  const here = (ticket) => !assigned || !code || ticket.departmentCode === code;
-  const openItems = open.items.filter(here);
-  const total = showOpen ? openItems.length : (list.data?.total ?? 0);
-  const items = showOpen
-    ? openItems.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-    : (list.data?.items ?? []).filter(here);
-  const filtered = Boolean(search) || status !== OPEN;
+  const pageItems = list.data?.items ?? [];
+  const items = escalated
+    ? pageItems.filter((ticket) => ticket.escalatedToHeadAt)
+    : pageItems;
+  const total = list.data?.total ?? 0;
+  const filtered = Boolean(search) || status !== OPEN || waiting || escalated;
+
+  const chip = (pressed, onClick, label) => (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`h-8 rounded-full border px-3 text-sm font-semibold ${pressed ? "border-brand-navy bg-brand-navy text-white" : "border-line bg-white text-body hover:border-brand-navy"}`}
+    >
+      {label}
+    </button>
+  );
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold">{name}: work queue</h1>
         <p className="mt-1 text-sm text-muted">
-          Tickets raised to {name}. Status actions arrive in the next release.
+          {wide || assigned
+            ? `Tickets raised to ${name}.`
+            : `Tickets of ${ownUnit.name}.`}
         </p>
       </div>
 
       <Card>
-        {member && (
+        {tabs.length > 0 && (
           <div
             role="tablist"
             aria-label="Which tickets"
             className="flex gap-1 border-b border-line px-3 pt-2"
           >
-            {TABS.map(([id, label]) => (
+            {tabs.map(([id, label]) => (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={tab === id}
-                onClick={() => setTab(id)}
+                onClick={() => {
+                  setTab(id);
+                  setSortChoice(null);
+                }}
                 className={`-mb-px border-b-2 px-3 py-2 text-sm font-semibold ${tab === id ? "border-brand-orange text-brand-navy" : "border-transparent text-muted hover:text-ink"}`}
               >
                 {label}
@@ -153,7 +192,7 @@ function WorkQueue({
             ))}
           </div>
         )}
-        <div className="flex flex-wrap gap-3 border-b border-line px-5 py-3">
+        <div className="flex flex-wrap gap-3 px-5 pt-3">
           <div className="relative min-w-56 flex-1">
             <Search
               aria-hidden="true"
@@ -169,7 +208,7 @@ function WorkQueue({
               className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
             />
           </div>
-          {!assigned && (
+          {wide && (
             <select
               aria-label="Unit"
               value={unitId}
@@ -198,20 +237,35 @@ function WorkQueue({
               </option>
             ))}
           </select>
+          <select
+            aria-label="Sort"
+            value={sort}
+            onChange={(event) => setSortChoice(event.target.value)}
+            className="h-10 rounded-[6px] border border-line bg-white px-3 text-sm text-ink"
+          >
+            {SORTS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
         </div>
-        {showOpen && open.truncated && (
-          <p className="border-b border-line bg-brand-orange-light px-5 py-2 text-xs text-brand-orange-ink">
-            Showing the newest {OPEN_PAGE_SIZE} tickets of each open status.
-            Search or choose a status to see the rest.
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+          {chip(waiting, () => setWaiting((on) => !on), "Waiting to start")}
+          {chip(escalated, () => setEscalated((on) => !on), "Escalated")}
+          {escalated && (
+            <span className="text-xs text-muted">
+              Escalated keeps the escalated tickets of this page.
+            </span>
+          )}
+        </div>
 
         <TicketTable
           queue
           items={items}
-          isLoading={showOpen ? open.isLoading : list.isLoading}
-          error={showOpen ? open.error : list.error}
-          dimmed={!showOpen && list.isPlaceholderData}
+          isLoading={list.isLoading}
+          error={list.error}
+          dimmed={list.isPlaceholderData}
           total={total}
           page={page}
           pages={Math.max(1, Math.ceil(total / PAGE_SIZE))}

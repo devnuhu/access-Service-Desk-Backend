@@ -22,6 +22,26 @@ const list = (schema) =>
     .nullable()
     .transform((items) => items ?? []);
 
+/** The categories the signed-in person handles, per unit (read-only). */
+export const listMyCategories = defineEndpoint({
+  method: "GET",
+  path: "/api/catalogue/mine",
+  response: list(
+    z.object({
+      unitId: z.string(),
+      unitName: z.string(),
+      departmentName: z.string(),
+      categories: list(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          isActive: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+});
+
 /**
  * What a requester chooses from when raising a ticket (FE-3): active departments with their active
  * categories. Categories have no extra form fields; the requester describes the request in the body.

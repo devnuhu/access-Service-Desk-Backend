@@ -20,5 +20,6 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(TicketProblem? Problem, string? Message)> ConfirmAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, string? Message)> ReopenAsync(Guid ticketId, WorkflowReasonRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, string? Message)> CancelAsync(Guid ticketId, WorkflowReasonRequest request, Guid actorUserId, bool actorIsSuperAdmin);
+        Task<(TicketProblem? Problem, string? Message)> EscalateAsync(Guid ticketId, WorkflowReasonRequest request, Guid actorUserId, bool actorIsSuperAdmin);
     }
 }

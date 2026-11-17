@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
@@ -12,6 +12,9 @@ import {
 } from "@/test/render";
 import { draftKey } from "../ticketText.js";
 import NewTicketPage from "./NewTicketPage.jsx";
+
+// The editor is a lazy chunk; a cold import of TipTap in a full parallel run can outlast findBy's wait.
+beforeAll(() => import("@/shared/ui/RichTextEditorCore.jsx"), 60_000);
 
 const CATALOGUE = [
   {
@@ -274,7 +277,7 @@ describe("Raise a ticket", () => {
 });
 
 describe("Copy colleagues (CC) for everyone", () => {
-  it("a plain requester searches /api/people/search from 2 characters, cannot pick themselves, and copies at most 10", async () => {
+  it("a plain requester searches /api/people/search from 2 characters and copies at most 10", async () => {
     const user = userEvent.setup();
     const searched = [];
     const nine = Array.from({ length: 9 }, (_, i) => ({
@@ -295,12 +298,6 @@ describe("Copy colleagues (CC) for everyone", () => {
           return [
             200,
             [
-              {
-                userId: "u-1",
-                userName: "amaka.obi",
-                fullName: "Amaka Obi",
-                department: "Operations",
-              },
               {
                 userId: "u-x",
                 userName: "test.caseworker2",
@@ -325,7 +322,6 @@ describe("Copy colleagues (CC) for everyone", () => {
       name: "Matching people",
     });
     expect(searched).toEqual(["te"]);
-    expect(within(results).queryByText("Amaka Obi")).not.toBeInTheDocument();
     expect(
       within(results).getByText("contribution processing", { exact: false }),
     ).toBeInTheDocument();
@@ -345,6 +341,5 @@ describe("Copy colleagues (CC) for everyone", () => {
     const sent = calls.create[0].body.getAll("ccUserIds");
     expect(sent).toHaveLength(10);
     expect(sent).toContain("u-x");
-    expect(sent).not.toContain("u-1");
   });
 });

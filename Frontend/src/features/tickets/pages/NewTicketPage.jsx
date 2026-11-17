@@ -568,12 +568,7 @@ function TicketForm({ user, departments }) {
                 onChange={(cc) => set({ cc }, "ccUserIds")}
                 search={searchColleagues}
                 error={errors.ccUserIds}
-                exclude={[
-                  user.id,
-                  ...(isSuperAdmin && form.raiseFor && form.requester
-                    ? [form.requester.id]
-                    : []),
-                ]}
+                exclude={forUserId ? [forUserId] : []}
               />
             </div>
           </div>

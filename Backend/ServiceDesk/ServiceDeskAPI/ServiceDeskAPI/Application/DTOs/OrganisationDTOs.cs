@@ -24,6 +24,7 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public PersonRefDto? Hod { get; set; }
+        public PersonRefDto? Admin { get; set; }
         public List<UnitDto> Units { get; set; } = new();
     }
 
@@ -86,6 +87,7 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsHod { get; set; }
+        public bool IsAdmin { get; set; }
         public List<MyUnitDto> Units { get; set; } = new();
     }
 

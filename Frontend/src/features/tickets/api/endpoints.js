@@ -24,14 +24,18 @@ export const STATUS_LABELS = Object.freeze({
   [STATUS.Cancelled]: "Cancelled",
 });
 
-/** Still being worked on: what "Open" means in the lists and on Home. */
-export const OPEN_STATUSES = Object.freeze([
-  STATUS.New,
-  STATUS.Assigned,
-  STATUS.InProgress,
-  STATUS.Pending,
-  STATUS.Reopened,
-]);
+/** TicketCommentDto.kind: typed by a person, or written by the system for an action. */
+export const COMMENT_KIND = Object.freeze({ Comment: 0, Workflow: 1 });
+
+/** GET /api/tickets sort: newest first (default), oldest assignment first, newest assignment first. */
+export const TICKET_SORT = Object.freeze({
+  Newest: "created",
+  LongestWaiting: "assignedAt",
+  RecentlyAssigned: "assignedAt_desc",
+});
+
+/** Who a Pending ticket is waiting on. */
+export const PENDING_REASON = Object.freeze({ Requester: 1, ThirdParty: 2 });
 
 const list = (schema) =>
   z
@@ -61,6 +65,7 @@ const commentSchema = z.object({
   author: personSchema,
   bodyHtml: z.string(),
   isInternal: z.boolean(),
+  kind: z.number().int(),
   createdAt: z.string(),
   attachments: list(fileSchema),
 });
@@ -77,6 +82,11 @@ const listItemFields = {
   status: z.number().int(),
   requester: personSchema,
   assignee: personSchema.nullable(),
+  assignedAt: z.string().nullable(),
+  /** The first answer to the requester (acknowledged, or the assignee's first public reply). */
+  firstRespondedAt: z.string().nullable(),
+  /** Staff only: when the assignee escalated it to the unit's head. */
+  escalatedToHeadAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 };
@@ -97,6 +107,17 @@ const ticketSchema = z.object({
   isStaffView: z.boolean(),
   canComment: z.boolean(),
   canAddInternalNote: z.boolean(),
+  acknowledgedAt: z.string().nullable(),
+  pendingReason: z.number().int().nullable(),
+  pendingSince: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
+  resolutionCode: z.number().int().nullable(),
+  resolutionNote: z.string().nullable(),
+  closedAt: z.string().nullable(),
+  cancelledAt: z.string().nullable(),
+  reopenCount: z.number().int(),
+  /** Staff only: why it was escalated to the unit's head. */
+  escalatedToHeadReason: z.string().nullable(),
 });
 
 const file = z.instanceof(Blob);
@@ -166,7 +187,10 @@ export const checkDuplicates = defineEndpoint({
   }),
 });
 
-/** view: mine (default), copied, assigned, department (with departmentId; optional unitId). */
+/**
+ * view: mine (default), copied, assigned, department (needs departmentId). departmentId and unitId
+ * narrow any view. open=true: New, Assigned, In progress, Pending, Reopened; open=false: the rest.
+ */
 export const listTickets = defineEndpoint({
   method: "GET",
   path: "/api/tickets",
@@ -175,6 +199,9 @@ export const listTickets = defineEndpoint({
     "departmentId",
     "unitId",
     "status",
+    "open",
+    "waitingToStart",
+    "sort",
     "search",
     "page",
     "pageSize",
@@ -284,4 +311,79 @@ export const listAssignments = defineEndpoint({
       ),
     }),
   ),
+});
+
+const messageSchema = z.object({ message: z.string() });
+
+/** What I may do with this ticket now, for anyone who can see it. The server decides; never guess. */
+export const getTicketActions = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/actions",
+  response: z.object({
+    canAcknowledge: z.boolean(),
+    canSetPending: z.boolean(),
+    canResume: z.boolean(),
+    canResolve: z.boolean(),
+    canConfirm: z.boolean(),
+    canReopen: z.boolean(),
+    canCancel: z.boolean(),
+    canEscalate: z.boolean(),
+    resolutionCodes: list(z.object({ code: z.number(), label: z.string() })),
+  }),
+});
+
+// Workflow: each answers { message }. 400 (errors.<field>, or the wrong status), 403, 404, 409.
+
+export const acknowledgeTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/acknowledge",
+  response: messageSchema,
+});
+
+export const setTicketPending = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/pending",
+  body: z.object({ reason: z.number().int(), note: z.string() }),
+  response: messageSchema,
+});
+
+export const resumeTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/resume",
+  response: messageSchema,
+});
+
+export const resolveTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/resolve",
+  body: z.object({ code: z.number().int(), note: z.string() }),
+  response: messageSchema,
+});
+
+export const confirmTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/confirm",
+  response: messageSchema,
+});
+
+export const reopenTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/reopen",
+  body: z.object({ reason: z.string() }),
+  response: messageSchema,
+});
+
+export const cancelTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/cancel",
+  body: z.object({ reason: z.string() }),
+  response: messageSchema,
+});
+
+/** The assignee asks the unit's head for help. reason: 5 to 1000 characters, kept as an internal note. */
+export const escalateTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/escalate",
+  body: z.object({ reason: z.string() }),
+  response: messageSchema,
 });

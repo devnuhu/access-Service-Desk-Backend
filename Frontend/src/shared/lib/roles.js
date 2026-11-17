@@ -5,6 +5,7 @@ export const ROLES = Object.freeze({
   HeadOfUnit: "HeadOfUnit",
   HOD: "HOD",
   SuperAdmin: "SuperAdmin",
+  DepartmentAdmin: "DepartmentAdmin",
 });
 
 export const ROLE_ORDER = [
@@ -12,14 +13,21 @@ export const ROLE_ORDER = [
   ROLES.CaseWorker,
   ROLES.HeadOfUnit,
   ROLES.HOD,
+  ROLES.DepartmentAdmin,
   ROLES.SuperAdmin,
 ];
 
 /**
  * Structure roles follow the organisation (rule 15): a unit member is a Case Worker, a unit head or
- * deputy is a Head of Unit, a department's HOD is HOD. They are never given or taken by hand.
+ * deputy is a Head of Unit, a department's HOD is HOD, its Department Admin (named on the Units page)
+ * is Department Admin. They are never given or taken on the People page.
  */
-export const STRUCTURE_ROLES = [ROLES.CaseWorker, ROLES.HeadOfUnit, ROLES.HOD];
+export const STRUCTURE_ROLES = [
+  ROLES.CaseWorker,
+  ROLES.HeadOfUnit,
+  ROLES.HOD,
+  ROLES.DepartmentAdmin,
+];
 
 /** The only role the People page gives by hand. Requester is everyone's. */
 export const ASSIGNABLE_ROLES = [ROLES.SuperAdmin];
@@ -33,6 +41,7 @@ const LABELS = {
   CaseWorker: "Case Worker",
   HeadOfUnit: "Head of Unit",
   HOD: "Head of Department",
+  DepartmentAdmin: "Department Admin",
   SuperAdmin: "Super Admin",
 };
 

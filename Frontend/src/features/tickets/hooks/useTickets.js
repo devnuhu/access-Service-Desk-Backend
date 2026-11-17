@@ -1,28 +1,29 @@
-import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import {
+  acknowledgeTicket,
   addComment,
+  cancelTicket,
   checkDuplicates,
+  confirmTicket,
+  escalateTicket,
   createTicket,
   downloadAttachment,
   getReassignOptions,
   getTicket,
+  getTicketActions,
   getTicketByReference,
   listAssignments,
   listLocations,
   listTickets,
-  OPEN_STATUSES,
   reassignTicket,
+  reopenTicket,
+  resolveTicket,
+  resumeTicket,
+  setTicketPending,
 } from "../api/endpoints.js";
 
 export const PAGE_SIZE = 20;
-/** The server's largest page; the "Open" work queue reads this many per status. */
-export const OPEN_PAGE_SIZE = 100;
 
 export const ticketKeys = {
   /** Prefix of every ticket query (lists, counts, ticket pages): a pushed "Ticket" refetches them. */
@@ -36,6 +37,7 @@ export const ticketKeys = {
       ? ["tickets", "detail", reference]
       : ["tickets", "detail", "id", id],
   locations: (forUserId) => ["tickets", "locations", forUserId ?? "me"],
+  actions: (ticketId) => ["tickets", "actions", ticketId],
   /** Reassign options and history of one ticket (staff only); under "tickets", so a push refetches them. */
   assignment: (ticketId) => ["tickets", "assignment", ticketId],
   reassignOptions: (ticketId) => ["tickets", "assignment", ticketId, "options"],
@@ -57,41 +59,6 @@ export function useTicketList(query, { enabled = true } = {}) {
     queryFn: () => request(listTickets, { query }),
     enabled,
     placeholderData: (previous) => previous,
-  });
-}
-
-/**
- * The open tickets of a list: one call per open status (the API filters by one status at a time),
- * merged newest first. `truncated` is true when a status has more than OPEN_PAGE_SIZE tickets.
- */
-export function useOpenTickets(
-  query,
-  { enabled = true, pageSize = OPEN_PAGE_SIZE } = {},
-) {
-  return useQueries({
-    queries: OPEN_STATUSES.map((status) => {
-      const full = { ...query, status, page: 1, pageSize };
-      return {
-        queryKey: ticketKeys.list(full),
-        queryFn: () => request(listTickets, { query: full }),
-        enabled,
-      };
-    }),
-    combine: (results) => {
-      const isLoading = results.some((result) => result.isLoading);
-      const error = results.find((result) => result.error)?.error ?? null;
-      const items = results
-        .flatMap((result) => result.data?.items ?? [])
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const total = results.reduce(
-        (sum, result) => sum + (result.data?.total ?? 0),
-        0,
-      );
-      const truncated = results.some(
-        (result) => (result.data?.total ?? 0) > pageSize,
-      );
-      return { isLoading, error, items, total, truncated };
-    },
   });
 }
 
@@ -127,10 +94,8 @@ export function useAddComment(ticketId) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body) => request(addComment, { params: { ticketId }, body }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ticketKeys.tickets });
-      queryClient.invalidateQueries({ queryKey: ticketKeys.lists });
-    },
+    // A requester's reply can resume a Pending ticket, so the actions refetch too.
+    onSuccess: () => refreshTickets(queryClient),
   });
 }
 
@@ -172,20 +137,45 @@ export function useAssignmentHistory(ticketId, { enabled = true } = {}) {
   });
 }
 
-/** After a reassignment (or a 409), the ticket, its options and history and the lists refetch. */
-export function refreshAfterReassign(queryClient, ticketId) {
-  return Promise.all([
-    queryClient.invalidateQueries({ queryKey: ticketKeys.tickets }),
-    queryClient.invalidateQueries({
-      queryKey: ticketKeys.assignment(ticketId),
-    }),
-    queryClient.invalidateQueries({ queryKey: ticketKeys.lists }),
-  ]);
+/** After any change (or a 409): the ticket, its actions, options and history, and the lists. */
+export function refreshTickets(queryClient) {
+  return queryClient.invalidateQueries({ queryKey: ticketKeys.all });
 }
 
 export function useReassign(ticketId) {
   return useMutation({
     mutationFn: (body) =>
       request(reassignTicket, { params: { ticketId }, body }),
+  });
+}
+
+/** For everyone who can see the ticket: which workflow buttons to show. */
+export function useTicketActions(ticketId) {
+  return useQuery({
+    queryKey: ticketKeys.actions(ticketId),
+    queryFn: () => request(getTicketActions, { params: { ticketId } }),
+    enabled: Boolean(ticketId),
+  });
+}
+
+const WORKFLOW = {
+  acknowledge: acknowledgeTicket,
+  pending: setTicketPending,
+  resume: resumeTicket,
+  resolve: resolveTicket,
+  confirm: confirmTicket,
+  reopen: reopenTicket,
+  cancel: cancelTicket,
+  escalate: escalateTicket,
+};
+
+/** One workflow action: `mutateAsync({ action, body })`, action being a key of WORKFLOW. */
+export function useWorkflowAction(ticketId) {
+  return useMutation({
+    mutationFn: ({ action, body }) =>
+      request(WORKFLOW[action], {
+        params: { ticketId },
+        ...(body ? { body } : {}),
+      }),
   });
 }

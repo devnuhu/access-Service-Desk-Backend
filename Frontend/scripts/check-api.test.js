@@ -572,6 +572,19 @@ describe("check-api multipart forms and file downloads", () => {
         "holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department)",
       ),
     ).toBe("signedIn");
+    expect(inventoryAccess("the assignee")).toBe("signedIn");
+    expect(inventoryAccess("the requester (or who raised it)")).toBe(
+      "signedIn",
+    );
+    expect(inventoryAccess("anyone who can see the ticket")).toBe("signedIn");
+    expect(
+      inventoryAccess("requester (New/Assigned), Super Admin (any open)"),
+    ).toBe("signedIn");
+    expect(
+      parseInventory(
+        "| POST | `/api/tickets/{id}/acknowledge`, `/resume` | the assignee | Move |",
+      ).map((row) => row.path),
+    ).toEqual(["/api/tickets/{id}/acknowledge", "/api/tickets/{id}/resume"]);
     expect(inventoryAccess("Requester")).toEqual(["Requester"]);
     expect(rows.map((row) => inventoryAccess(row.access))).toEqual([
       "signedIn",

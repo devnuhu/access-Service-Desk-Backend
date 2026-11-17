@@ -37,6 +37,7 @@ const departmentSchema = z.object({
   name: z.string().nullable(),
   isActive: z.boolean(),
   hod: person,
+  admin: person,
   units: list(unitSchema),
 });
 
@@ -85,6 +86,14 @@ export const updateDepartment = defineEndpoint({
 export const setDepartmentHod = defineEndpoint({
   method: "PUT",
   path: "/api/admin/departments/{departmentId}/hod",
+  body: setPersonSchema,
+  response: messageSchema,
+});
+
+// The Department Admin must head or deputise an active unit of the department (400).
+export const setDepartmentAdmin = defineEndpoint({
+  method: "PUT",
+  path: "/api/admin/departments/{departmentId}/admin",
   body: setPersonSchema,
   response: messageSchema,
 });

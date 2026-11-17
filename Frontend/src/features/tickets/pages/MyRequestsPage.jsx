@@ -7,6 +7,8 @@ import RaiseTicketLink from "../components/RaiseTicketLink.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import { PAGE_SIZE, useTicketList } from "../hooks/useTickets.js";
 
+const OPEN = "open";
+
 const TABS = [
   ["mine", "Raised by me"],
   ["copied", "Copied to me"],
@@ -25,7 +27,8 @@ export default function MyRequestsPage() {
   const list = useTicketList({
     view,
     search,
-    status: status ? Number(status) : undefined,
+    open: status === OPEN ? true : undefined,
+    status: status && status !== OPEN ? Number(status) : undefined,
     page,
     pageSize: PAGE_SIZE,
   });
@@ -86,6 +89,7 @@ export default function MyRequestsPage() {
             className="h-10 rounded-[6px] border border-line bg-white px-3 text-sm text-ink"
           >
             <option value="">All statuses</option>
+            <option value={OPEN}>Open</option>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}

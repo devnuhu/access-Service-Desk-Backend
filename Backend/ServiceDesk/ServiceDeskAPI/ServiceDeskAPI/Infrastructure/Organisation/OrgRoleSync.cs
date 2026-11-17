@@ -18,13 +18,14 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
     /// </summary>
     public static class OrgRoleSync
     {
-        public static readonly IReadOnlyList<string> StructureRoles = new[] { AppRoles.CaseWorker, AppRoles.HeadOfUnit, AppRoles.HOD };
+        public static readonly IReadOnlyList<string> StructureRoles = new[] { AppRoles.CaseWorker, AppRoles.HeadOfUnit, AppRoles.HOD, AppRoles.DepartmentAdmin };
 
         private static readonly Dictionary<string, Guid> RoleIds = new()
         {
             [AppRoles.CaseWorker] = AppRoles.CaseWorkerId,
             [AppRoles.HeadOfUnit] = AppRoles.HeadOfUnitId,
-            [AppRoles.HOD] = AppRoles.HODId
+            [AppRoles.HOD] = AppRoles.HODId,
+            [AppRoles.DepartmentAdmin] = AppRoles.DepartmentAdminId
         };
 
         public static bool IsStructureRole(Guid roleId) => RoleIds.ContainsValue(roleId);
@@ -39,6 +40,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                 expected.Add(AppRoles.HeadOfUnit);
             if (await db.Departments.AnyAsync(d => d.IsActive && d.HodUserId == userId))
                 expected.Add(AppRoles.HOD);
+                if (await db.Departments.AnyAsync(d => d.IsActive && d.AdminUserId == userId))
+                    expected.Add(AppRoles.DepartmentAdmin);
             return expected;
         }
 
@@ -105,6 +108,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             AppRoles.CaseWorker => "Case Worker",
             AppRoles.HeadOfUnit => "Head of Unit",
             AppRoles.HOD => "Head of Department",
+            AppRoles.DepartmentAdmin => "Department Admin",
             AppRoles.SuperAdmin => "Super Admin",
             _ => role
         };

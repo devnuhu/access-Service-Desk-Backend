@@ -235,6 +235,9 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             ticket.Status = newStatus;
             ticket.AssignedAt = now;
             ticket.AcknowledgedAt = null;
+            ticket.EscalatedToHeadAt = null;
+            ticket.EscalatedToHeadByUserId = null;
+            ticket.EscalatedToHeadReason = null;
             ticket.QueueAlertedAt = null;
             ticket.AssigneeAwayFlaggedAt = null;
             ticket.UpdatedAt = now;
@@ -248,7 +251,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
 
         private static Scope ScopeOf(Ticket ticket, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            if (actorIsSuperAdmin || ticket.Department!.HodUserId == actorUserId) return Scope.Department;
+            if (actorIsSuperAdmin || ticket.Department!.HodUserId == actorUserId || ticket.Department!.AdminUserId == actorUserId) return Scope.Department;
             if ((ticket.Unit!.HeadUserId == actorUserId || ticket.Unit.DeputyHeadUserId == actorUserId) && ticket.Unit.IsActive) return Scope.Unit;
             if (ticket.AssigneeUserId == actorUserId) return Scope.Unit;
             return Scope.None;

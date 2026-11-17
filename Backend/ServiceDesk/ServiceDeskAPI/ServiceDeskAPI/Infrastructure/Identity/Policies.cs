@@ -20,8 +20,8 @@ namespace ServiceDeskAPI.Infrastructure.Identity
         {
             [SuperAdminOnly] = new[] { AppRoles.SuperAdmin },
             [UnitManagement] = new[] { AppRoles.HeadOfUnit, AppRoles.SuperAdmin },
-            [DepartmentOversight] = new[] { AppRoles.HOD, AppRoles.SuperAdmin },
-            [Oversight] = new[] { AppRoles.HeadOfUnit, AppRoles.HOD, AppRoles.SuperAdmin },
+            [DepartmentOversight] = new[] { AppRoles.HOD, AppRoles.DepartmentAdmin, AppRoles.SuperAdmin },
+            [Oversight] = new[] { AppRoles.HeadOfUnit, AppRoles.HOD, AppRoles.DepartmentAdmin, AppRoles.SuperAdmin },
             [CaseWork] = new[] { AppRoles.CaseWorker, AppRoles.HeadOfUnit, AppRoles.SuperAdmin }
         };
 

@@ -3,7 +3,9 @@ import {
   Building2,
   ClipboardList,
   FileText,
+  Hourglass,
   Inbox,
+  Play,
   ShieldCheck,
   TriangleAlert,
   UserCog,
@@ -13,12 +15,7 @@ import {
 import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
 import { describePlaces, useMyOrganisation } from "@/features/org";
-import {
-  RaiseTicketLink,
-  STATUS,
-  useOpenTickets,
-  useTicketList,
-} from "@/features/tickets";
+import { RaiseTicketLink, STATUS, useTicketList } from "@/features/tickets";
 import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
 import { Card, RoleChips } from "@/shared/ui";
 
@@ -39,6 +36,10 @@ const ROLE_CARDS = {
   [ROLES.HOD]: {
     icon: Building2,
     text: "Oversee your department's requests and performance, and handle escalations that reach you.",
+  },
+  [ROLES.DepartmentAdmin]: {
+    icon: Building2,
+    text: "See every ticket in your department and reassign anywhere in it, as the HOD does.",
   },
   [ROLES.SuperAdmin]: {
     icon: ShieldCheck,
@@ -70,13 +71,16 @@ function CountCard({ icon: Icon, title, count, to, linkText, testId }) {
   );
 }
 
+/** A count needs no rows: the smallest page, and read its total. */
+const ONE_ROW_OF = (query) => ({ ...query, page: 1, pageSize: 1 });
+
 function MyOpenRequests() {
-  const open = useOpenTickets({ view: "mine" }, { pageSize: 1 });
+  const open = useTicketList(ONE_ROW_OF({ view: "mine", open: true }));
   return (
     <CountCard
       icon={FileText}
       title="My open requests"
-      count={open.isLoading || open.error ? null : open.total}
+      count={open.data?.total ?? null}
       to="/tickets"
       linkText="My requests"
       testId="count-my-open"
@@ -84,18 +88,43 @@ function MyOpenRequests() {
   );
 }
 
-/** Open tickets assigned to me (view=assigned), for case workers. */
-function AssignedToMe({ to }) {
-  const open = useOpenTickets({ view: "assigned" }, { pageSize: 1 });
+/** A case worker's three cards (view=assigned); each opens the Work queue already filtered. */
+function MyWork({ departmentId }) {
+  const mine = { view: "assigned", departmentId };
+  const open = useTicketList(ONE_ROW_OF({ ...mine, open: true }));
+  const waiting = useTicketList(ONE_ROW_OF({ ...mine, waitingToStart: true }));
+  const pending = useTicketList(
+    ONE_ROW_OF({ ...mine, status: STATUS.Pending }),
+  );
+  const list = (filter) =>
+    `/departments/${departmentId}/tickets?tab=assigned&${filter}`;
   return (
-    <CountCard
-      icon={UserCheck}
-      title="Assigned to me"
-      count={open.isLoading || open.error ? null : open.total}
-      to={to}
-      linkText="Work queue"
-      testId="count-assigned"
-    />
+    <>
+      <CountCard
+        icon={UserCheck}
+        title="Assigned to me"
+        count={open.data?.total ?? null}
+        to={list("status=open")}
+        linkText="Work queue"
+        testId="count-assigned"
+      />
+      <CountCard
+        icon={Play}
+        title="Waiting to start"
+        count={waiting.data?.total ?? null}
+        to={list("status=open&waiting=1")}
+        linkText="Work queue"
+        testId="count-waiting"
+      />
+      <CountCard
+        icon={Hourglass}
+        title="Pending"
+        count={pending.data?.total ?? null}
+        to={list(`status=${STATUS.Pending}`)}
+        linkText="Work queue"
+        testId="count-pending"
+      />
+    </>
   );
 }
 
@@ -162,9 +191,7 @@ export default function HomePage() {
         </div>
         <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <MyOpenRequests />
-          {memberDepartment && (
-            <AssignedToMe to={`/departments/${memberDepartment.id}/tickets`} />
-          )}
+          {memberDepartment && <MyWork departmentId={memberDepartment.id} />}
           {(org?.departments ?? []).flatMap((department) =>
             department.units
               .filter((unit) => unit.isMember)

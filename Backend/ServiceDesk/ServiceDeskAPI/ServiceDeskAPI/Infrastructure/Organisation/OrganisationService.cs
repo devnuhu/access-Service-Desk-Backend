@@ -53,6 +53,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                     Name = d.Name,
                     IsActive = d.IsActive,
                     Hod = d.HodUser == null ? null : new PersonRefDto(d.HodUser.Id, d.HodUser.UserName!, d.HodUser.FullName, d.HodUser.CorporateEmail ?? d.HodUser.Email),
+                    Admin = d.AdminUser == null ? null : new PersonRefDto(d.AdminUser.Id, d.AdminUser.UserName!, d.AdminUser.FullName, d.AdminUser.CorporateEmail ?? d.AdminUser.Email),
                     Units = d.Units.OrderBy(u => u.Name).Select(u => new UnitDto
                     {
                         Id = u.Id,
@@ -114,7 +115,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             var departments = await _db.Departments.AsNoTracking()
                 .Where(d => d.IsActive && (d.HodUserId == userId || departmentIds.Contains(d.Id)))
                 .OrderBy(d => d.Name)
-                .Select(d => new MyDepartmentDto { Id = d.Id, Code = d.Code, Name = d.Name, IsHod = d.HodUserId == userId })
+                .Select(d => new MyDepartmentDto { Id = d.Id, Code = d.Code, Name = d.Name, IsHod = d.HodUserId == userId, IsAdmin = d.AdminUserId == userId })
                 .ToListAsync();
             foreach (var d in departments)
                 d.Units = units.Where(u => u.DepartmentId == d.Id).Select(u => u.Unit).OrderBy(u => u.Name).ToList();
@@ -200,6 +201,31 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
 
         // ---------------- units ----------------
 
+        public async Task<AdminResult> SetAdminAsync(Guid departmentId, Guid? userId, Guid? actorUserId)
+        {
+            var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId);
+            if (department == null) return AdminResult.NotFound("Department not found.");
+            if (department.AdminUserId == userId) return AdminResult.Ok("No change.");
+
+            string? newName = null;
+            if (userId.HasValue)
+            {
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+                if (user == null) return AdminResult.NotFound("Person not found.");
+                if (!user.IsActive) return AdminResult.Invalid(Name(user) + " is blocked and cannot be the Department Admin.");
+                var heads = await _db.Units.AnyAsync(u => u.DepartmentId == departmentId && u.IsActive && (u.HeadUserId == user.Id || u.DeputyHeadUserId == user.Id));
+                if (!heads) return AdminResult.Invalid(Name(user) + " must be the head or deputy of a unit in " + department.Name + " first.");
+                newName = user.UserName;
+            }
+
+            var previous = department.AdminUserId;
+            department.AdminUserId = userId;
+            department.UpdatedAt = DateTime.UtcNow;
+            department.UpdatedByUserId = actorUserId;
+            Stage(AuditAction.Updated, "Department", department.Id, department.Name, new { adminUserId = previous }, new { adminUserId = userId, admin = newName });
+            return await SaveAsync(new[] { previous, userId }, actorUserId,
+                userId.HasValue ? "Department Admin set." : "Department Admin cleared.", "The change could not be saved; try again.");
+        }
         public async Task<(AdminResult Result, UnitDto? Unit)> CreateUnitAsync(Guid departmentId, CreateUnitRequest request, Guid? actorUserId)
         {
             var department = await _db.Departments.FirstOrDefaultAsync(d => d.Id == departmentId);
@@ -252,6 +278,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             if (unit.HeadUserId == userId) return AdminResult.Ok("No change.");
             var previousHead = unit.HeadUserId;
             var previousDeputy = unit.DeputyHeadUserId;
+            if (previousHead.HasValue && previousHead != userId && previousHead == unit.Department!.AdminUserId)
+                return AdminResult.Invalid("The current head is the Department Admin of " + unit.Department.Name + ". Choose another Department Admin first.");
 
             if (userId.HasValue)
             {
@@ -310,6 +338,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             }
 
             var previous = unit.DeputyHeadUserId;
+            if (previous.HasValue && previous != userId && await _db.Departments.AnyAsync(d => d.Id == unit.DepartmentId && d.AdminUserId == previous))
+                return AdminResult.Invalid("The current deputy is the Department Admin. Choose another Department Admin first.");
             unit.DeputyHeadUserId = userId;
             unit.UpdatedAt = DateTime.UtcNow;
             unit.UpdatedByUserId = actorUserId;

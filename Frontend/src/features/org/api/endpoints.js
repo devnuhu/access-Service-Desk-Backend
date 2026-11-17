@@ -21,6 +21,8 @@ export const getMyOrganisation = defineEndpoint({
         code: z.string().nullable(),
         name: z.string().nullable(),
         isHod: z.boolean(),
+        /** The department's Admin: sees and reassigns across it, like the HOD. */
+        isAdmin: z.boolean(),
         units: list(
           z.object({
             id: z.string(),

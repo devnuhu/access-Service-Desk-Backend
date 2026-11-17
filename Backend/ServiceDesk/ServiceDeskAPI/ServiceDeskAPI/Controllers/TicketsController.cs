@@ -72,9 +72,9 @@ namespace ServiceDeskAPI.Controllers
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<TicketPageDto>> List([FromQuery] string? view, [FromQuery] Guid? departmentId, [FromQuery] Guid? unitId,
-            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? waitingToStart = null, [FromQuery] string? sort = null)
         {
-            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin());
+            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin(), waitingToStart, sort);
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 

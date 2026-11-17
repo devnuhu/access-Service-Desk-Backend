@@ -3,6 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryObserver } from "@tanstack/react-query";
 import { useSession } from "@/features/auth";
+import { MY_CATEGORIES_KEY } from "@/features/catalogue";
 import { useMyOrganisation } from "@/features/org";
 import { ticketKeys } from "@/features/tickets";
 import { installFakeApi } from "@/test/fakeApi";
@@ -355,5 +356,32 @@ describe("live ticket updates", () => {
     await waitFor(() => expect(queueLoads).toBe(2));
     expect(availabilityLoads).toBe(1);
     stops.forEach((stop) => stop());
+  });
+
+  it("a CategorySkills notification refetches What I handle", async () => {
+    const { queryClient } = renderBell();
+    let loads = 0;
+    const stop = new QueryObserver(queryClient, {
+      queryKey: MY_CATEGORIES_KEY,
+      queryFn: async () => {
+        loads += 1;
+        return [];
+      },
+      staleTime: Infinity,
+    }).subscribe(() => {});
+    await waitFor(() => expect(loads).toBe(1));
+    expect(hub.started).toBe(1);
+
+    act(() => {
+      hub.handlers.ReceiveNotification(
+        item({
+          id: "n-10",
+          title: "Your categories in Refund changed",
+          relatedEntityType: "CategorySkills",
+        }),
+      );
+    });
+    await waitFor(() => expect(loads).toBe(2));
+    stop();
   });
 });

@@ -113,5 +113,15 @@ namespace ServiceDeskAPI.Controllers
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status409Conflict)]
         public async Task<ActionResult<MessageDto>> Cancel(Guid ticketId, [FromBody] WorkflowReasonRequest request) =>
             Answer(await _workflow.CancelAsync(ticketId, request, Me(), IsSuperAdmin()));
+
+        /// <summary>The assignee asks the unit's head for help (this is above their capability). Separate from the SLA escalation levels. reason: 5 to 1000 characters, kept as an internal note.</summary>
+        [HttpPost("escalate")]
+        [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<MessageDto>> Escalate(Guid ticketId, [FromBody] WorkflowReasonRequest request) =>
+            Answer(await _workflow.EscalateAsync(ticketId, request, Me(), IsSuperAdmin()));
     }
 }

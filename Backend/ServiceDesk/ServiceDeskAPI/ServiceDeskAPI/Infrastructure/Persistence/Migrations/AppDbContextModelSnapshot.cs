@@ -604,6 +604,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AdminUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(10)
@@ -633,6 +636,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AdminUserId");
 
                     b.HasIndex("Code")
                         .IsUnique();
@@ -875,6 +880,15 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Id = new Guid("5d1a0001-0000-4000-8000-000000000006"),
+                            ConcurrencyStamp = "5d1a0001-0000-4000-8000-000000000006",
+                            CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "A unit head named by the Super Admin who also sees and administers the whole department: every unit, every ticket, reassignment across units.",
+                            Name = "DepartmentAdmin",
+                            NormalizedName = "DEPARTMENTADMIN"
+                        },
+                        new
+                        {
                             Id = new Guid("5d1a0001-0000-4000-8000-000000000005"),
                             ConcurrencyStamp = "5d1a0001-0000-4000-8000-000000000005",
                             CreatedAt = new DateTime(2026, 11, 2, 0, 0, 0, 0, DateTimeKind.Utc),
@@ -924,6 +938,19 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<string>("DescriptionText")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EscalatedToHeadAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("EscalatedToHeadByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EscalatedToHeadReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("FirstRespondedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
@@ -1146,6 +1173,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("IsInternal")
                         .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("TicketId")
                         .HasColumnType("uniqueidentifier");
@@ -1606,10 +1636,17 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Department", b =>
                 {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "AdminUser")
+                        .WithMany()
+                        .HasForeignKey("AdminUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ServiceDeskAPI.Domain.Entities.User", "HodUser")
                         .WithMany()
                         .HasForeignKey("HodUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AdminUser");
 
                     b.Navigation("HodUser");
                 });

@@ -6,6 +6,8 @@
  * Live run (one role per run, GET only, never changes data):
  *   probe        GET it as is (query optional)
  *   idFrom       fill the path parameter from the first row of another GET (no row: SKIP)
+ *   orgScope     "unit" or "department": fill the path parameter with a real id, the one this person
+ *                runs when there is one (a role that must be refused gets its 403 for a real id)
  *   queryFrom    fill a required query parameter the same way ({ listPath, field, param })
  *   skip         never called live; the text says why and what data it needs
  *   skipAlways   with skip: not probed for any role (the service decides by organisation, and
@@ -27,16 +29,24 @@ import {
   listCategories,
   listCoverWarnings,
 } from "../src/features/admin-catalogue/api/endpoints.js";
-import { listCatalogue } from "../src/features/catalogue/api/endpoints.js";
+import {
+  listCatalogue,
+  listMyCategories,
+} from "../src/features/catalogue/api/endpoints.js";
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
 import { searchPeople } from "../src/features/people/api/endpoints.js";
 import {
   getTicket,
+  getTicketActions,
   getTicketByReference,
   listLocations,
   listTickets,
 } from "../src/features/tickets/api/endpoints.js";
-import { getMyAvailability } from "../src/features/availability/api/endpoints.js";
+import {
+  getDepartmentAvailability,
+  getMyAvailability,
+  getUnitAvailability,
+} from "../src/features/availability/api/endpoints.js";
 import {
   getMyOrganisation,
   listOrgDepartments,
@@ -73,6 +83,15 @@ const write = (method, path, access, skip = WRITE) => ({
 });
 const from = (listPath, field = "id", listQuery = {}) => ({
   idFrom: { listPath, field, listQuery },
+});
+
+const refused = (action, body, why) => ({
+  ...write("POST", `/api/tickets/{ticketId}/${action}`, SIGNED_IN),
+  badRequestProbe: {
+    path: `/api/tickets/00000000-0000-0000-0000-000000000000/${action}`,
+    body,
+    why,
+  },
 });
 
 export const ACCESS_TABLE = [
@@ -141,6 +160,7 @@ export const ACCESS_TABLE = [
   write("POST", "/api/admin/departments", SUPER),
   write("PATCH", "/api/admin/departments/{departmentId}", SUPER),
   write("PUT", "/api/admin/departments/{departmentId}/hod", SUPER),
+  write("PUT", "/api/admin/departments/{departmentId}/admin", SUPER),
   write("POST", "/api/admin/departments/{departmentId}/units", SUPER),
   write("PATCH", "/api/admin/units/{unitId}", SUPER),
   write("PUT", "/api/admin/units/{unitId}/head", SUPER),
@@ -167,18 +187,22 @@ export const ACCESS_TABLE = [
   write("POST", "/api/availability/absences", SIGNED_IN),
   write("DELETE", "/api/availability/absences/{absenceId}", SIGNED_IN),
   get("/api/availability/units/{unitId}", TEAM_VIEW, {
-    skipAlways: true,
-    skip: "allowed by the organisation (head or deputy of that unit), not by role alone",
+    orgScope: "unit",
+    schema: getUnitAvailability.response,
   }),
   get("/api/availability/departments/{departmentId}", DEPARTMENT_VIEW, {
-    skipAlways: true,
-    skip: "allowed by the organisation (HOD of that department), not by role alone",
+    orgScope: "department",
+    schema: getDepartmentAvailability.response,
   }),
 
   // Catalogue: requesters read it; Super Admin manages categories and the skills matrix
   get("/api/catalogue/categories", SIGNED_IN, {
     probe: {},
     schema: listCatalogue.response,
+  }),
+  get("/api/catalogue/mine", SIGNED_IN, {
+    probe: {},
+    schema: listMyCategories.response,
   }),
   get("/api/admin/categories", SUPER, {
     probe: {},
@@ -252,6 +276,21 @@ export const ACCESS_TABLE = [
     probe: { query: "test" },
     schema: searchPeople.response,
   }),
+
+  // Workflow (Step 6): the service decides by the ticket and the person. The routes with a body
+  // check it before they look at the ticket, so a bad body is refused with 400 and writes nothing.
+  get("/api/tickets/{ticketId}/actions", SIGNED_IN, {
+    ...from("/api/tickets", "id", { view: "mine", page: 1, pageSize: 1 }),
+    schema: getTicketActions.response,
+  }),
+  write("POST", "/api/tickets/{ticketId}/acknowledge", SIGNED_IN),
+  refused("pending", { reason: 1, note: "" }, "an empty note"),
+  write("POST", "/api/tickets/{ticketId}/resume", SIGNED_IN),
+  refused("resolve", { code: 1, note: "" }, "an empty note"),
+  write("POST", "/api/tickets/{ticketId}/confirm", SIGNED_IN),
+  refused("reopen", { reason: "" }, "an empty reason"),
+  refused("cancel", { reason: "" }, "an empty reason"),
+  refused("escalate", { reason: "" }, "an empty reason"),
 
   // Health
   get("/api/health", ANONYMOUS),

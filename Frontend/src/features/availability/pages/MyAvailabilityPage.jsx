@@ -1,4 +1,5 @@
 import { CalendarCheck, CalendarX } from "lucide-react";
+import { WhatIHandle } from "@/features/catalogue";
 import { Card, CardHeader, Spinner } from "@/shared/ui";
 import { awayUntil } from "../absenceText.js";
 import AbsenceForm from "../components/AbsenceForm.jsx";
@@ -66,6 +67,7 @@ export default function MyAvailabilityPage() {
       ) : (
         <>
           <StatusBanner availability={availability} />
+          <WhatIHandle />
           <div className="grid gap-4 xl:grid-cols-2">
             <Card>
               <CardHeader

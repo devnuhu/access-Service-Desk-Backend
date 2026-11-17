@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SESSION_KEY } from "@/features/auth";
+import { MY_CATEGORIES_KEY } from "@/features/catalogue";
 import { ORG_ME_KEY } from "@/features/org";
 import { refreshSessionNow } from "@/shared/lib/http";
 import { useToast } from "@/shared/ui";
@@ -14,6 +15,8 @@ export const REFRESH_BY_ENTITY = {
   User: [SESSION_KEY, ORG_ME_KEY],
   // Someone's leave changed: the availability views refetch.
   Absence: [["availability"]],
+  // My categories changed: "What I handle" refetches.
+  CategorySkills: [MY_CATEGORIES_KEY],
   // A ticket was raised, copied, commented on, assigned or reassigned (category Assignment): its
   // page, its assignment panel, the lists, the work queue and the Home counts refetch (active ones only).
   Ticket: [["tickets"]],

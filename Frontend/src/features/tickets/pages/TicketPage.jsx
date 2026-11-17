@@ -1,14 +1,20 @@
 import { Link, useParams } from "react-router-dom";
 import { ChevronRight, SearchX } from "lucide-react";
+import { useSession } from "@/features/auth";
 import { PriorityChip } from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
 import { Card, MessageCard, RichTextView, Spinner } from "@/shared/ui";
+import { STATUS } from "../api/endpoints.js";
+import Ago from "../components/Ago.jsx";
 import AssignmentPanel from "../components/AssignmentPanel.jsx";
+import EscalatedBadge from "../components/EscalatedBadge.jsx";
 import AttachmentList from "../components/AttachmentList.jsx";
 import Conversation from "../components/Conversation.jsx";
 import ReplyBox from "../components/ReplyBox.jsx";
 import StatusChip from "../components/StatusChip.jsx";
-import { useTicket } from "../hooks/useTickets.js";
+import StatusCallout from "../components/StatusCallout.jsx";
+import { ActionsCard } from "../components/TicketActions.jsx";
+import { useTicket, useTicketActions } from "../hooks/useTickets.js";
 import { personName } from "../ticketText.js";
 
 function Detail({ label, children }) {
@@ -26,7 +32,9 @@ function Detail({ label, children }) {
  */
 export default function TicketPage() {
   const { reference, id } = useParams();
+  const { user } = useSession();
   const query = useTicket({ reference, id });
+  const actions = useTicketActions(query.data?.id);
 
   if (query.isLoading) {
     return (
@@ -55,6 +63,9 @@ export default function TicketPage() {
   const ticket = query.data;
   const raisedForSomeoneElse =
     ticket.raisedBy.userId !== ticket.requester.userId;
+  const isRequester =
+    user.id === ticket.requester.userId || user.id === ticket.raisedBy.userId;
+  const isAssignee = user.id === ticket.assignee?.userId;
 
   return (
     <div className="space-y-4">
@@ -82,6 +93,9 @@ export default function TicketPage() {
           </span>
           <StatusChip status={ticket.status} />
           <PriorityChip priority={ticket.priority} />
+          {ticket.escalatedToHeadAt && (
+            <EscalatedBadge at={ticket.escalatedToHeadAt} />
+          )}
         </div>
         <h1 className="text-2xl font-semibold break-words">{ticket.subject}</h1>
         <p className="text-sm text-body">
@@ -112,6 +126,30 @@ export default function TicketPage() {
         </p>
       </header>
 
+      <StatusCallout
+        ticket={ticket}
+        actions={actions.data}
+        isRequester={isRequester}
+        isAssignee={isAssignee}
+      />
+      {ticket.isStaffView && ticket.escalatedToHeadReason && (
+        <p
+          data-testid="escalation-reason"
+          className="rounded-card border border-brand-orange bg-brand-orange-light px-4 py-3 text-sm text-ink"
+        >
+          <strong className="font-semibold">Escalated to unit head</strong>{" "}
+          <Ago at={ticket.escalatedToHeadAt} />:{" "}
+          <span className="whitespace-pre-line">
+            {ticket.escalatedToHeadReason}
+          </span>
+        </p>
+      )}
+      {actions.isError && (
+        <p role="alert" className="text-sm text-danger">
+          {actions.error.message}
+        </p>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0 space-y-4">
           <Card className="p-5">
@@ -140,7 +178,9 @@ export default function TicketPage() {
             <ReplyBox key={ticket.id} ticket={ticket} />
           ) : (
             <p className="rounded-card border border-line bg-white px-4 py-3 text-sm text-muted">
-              This ticket is closed.
+              {ticket.status === STATUS.Cancelled
+                ? "This ticket is cancelled."
+                : "This ticket is closed."}
             </p>
           )}
         </div>
@@ -164,7 +204,11 @@ export default function TicketPage() {
                 {ticket.cc.length ? (
                   <ul>
                     {ticket.cc.map((person) => (
-                      <li key={person.userId}>{personName(person)}</li>
+                      <li key={person.userId}>
+                        {personName(person)}
+                        {person.userId === ticket.assignee?.userId &&
+                          ", copied · handling it"}
+                      </li>
                     ))}
                   </ul>
                 ) : (
@@ -177,18 +221,14 @@ export default function TicketPage() {
               </Detail>
             </dl>
           </Card>
-          {ticket.isStaffView && (
-            <>
-              <AssignmentPanel ticket={ticket} />
-              <Card className="p-5">
-                <h2 className="text-base font-semibold">Actions</h2>
-                <p className="mt-1 text-sm text-muted">
-                  Acknowledgement, pending and resolution arrive in the next
-                  release.
-                </p>
-              </Card>
-            </>
+          {actions.data && (
+            <ActionsCard
+              ticket={ticket}
+              actions={actions.data}
+              isRequester={isRequester}
+            />
           )}
+          {ticket.isStaffView && <AssignmentPanel ticket={ticket} />}
         </aside>
       </div>
     </div>

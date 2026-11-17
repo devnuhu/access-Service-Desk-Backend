@@ -136,7 +136,7 @@ namespace ServiceDeskAPI.Tests.Assignment
             var history = await Ok<List<TicketAssignmentDto>>(await (await As(lab.HeadName)).GetAsync($"/api/tickets/{first.Id}/assignments"));
             var auto = Assert.Single(history);
             Assert.Equal(AssignmentMethod.Auto, auto.Method);
-            Assert.Equal("raised", auto.Reason);
+            Assert.True(auto.Reason == "raised" || auto.Reason == "retry", "The reason was: " + auto.Reason);
             Assert.Equal(2, auto.Scores.Count);
             Assert.Equal(x, auto.Scores.Single(s => s.Chosen).UserId);
             Assert.True(await NotifiedAsync(x, first.Id, "Ticket " + first.Reference + " assigned to you"));

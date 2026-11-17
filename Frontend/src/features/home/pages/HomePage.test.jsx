@@ -24,17 +24,17 @@ function renderHome(roles, cover = COVER, org = { departments: [] }) {
   let coverCalls = 0;
   installFakeApi(queryClient, {
     "GET /api/org/me": () => [200, org],
-    // My open requests: 2 New + 1 Pending; the unit has 4 New.
+    // 3 open of mine; assigned to me: 5 open, 2 Assigned + 1 Reopened, 1 Pending; the unit has 4 New.
     "GET /api/tickets": ({ params }) => {
-      const totals =
-        params.view === "assigned"
-          ? { 2: 2, 3: 1 }
-          : params.view === "mine"
-            ? { 1: 2, 4: 1 }
-            : { 1: params.unitId ? 4 : 0 };
+      const key = params.open ? "open" : params.status;
+      const totals = {
+        mine: { open: 3 },
+        assigned: { open: 5, 2: 2, 6: 1, 4: 1 },
+        department: { 1: 4 },
+      }[params.view];
       return [
         200,
-        { items: [], total: totals[params.status] ?? 0, page: 1, pageSize: 1 },
+        { items: [], total: totals[key] ?? 0, page: 1, pageSize: 1 },
       ];
     },
     "GET /api/admin/categories/cover-warnings": () => {
@@ -100,10 +100,27 @@ describe("Home", () => {
     ).toHaveAttribute("href", "/tickets/new");
     expect(await screen.findByTestId("count-my-open")).toHaveTextContent("3");
     expect(await screen.findByTestId("count-new-u-rf")).toHaveTextContent("4");
-    expect(await screen.findByTestId("count-assigned")).toHaveTextContent("3");
+    expect(await screen.findByTestId("count-assigned")).toHaveTextContent("5");
+    expect(await screen.findByTestId("count-waiting")).toHaveTextContent("3");
+    expect(await screen.findByTestId("count-pending")).toHaveTextContent("1");
     expect(
       screen.getByRole("link", { name: "Work queue (Assigned to me)" }),
-    ).toHaveAttribute("href", "/departments/d-cp/tickets");
+    ).toHaveAttribute(
+      "href",
+      "/departments/d-cp/tickets?tab=assigned&status=open",
+    );
+    expect(
+      screen.getByRole("link", { name: "Work queue (Waiting to start)" }),
+    ).toHaveAttribute(
+      "href",
+      "/departments/d-cp/tickets?tab=assigned&status=start",
+    );
+    expect(
+      screen.getByRole("link", { name: "Work queue (Pending)" }),
+    ).toHaveAttribute(
+      "href",
+      "/departments/d-cp/tickets?tab=assigned&status=4",
+    );
     expect(
       screen.getByRole("link", { name: "Work queue (New in Refund)" }),
     ).toHaveAttribute("href", "/departments/d-cp/tickets");

@@ -1,8 +1,11 @@
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RichTextEditor from "./RichTextEditor.jsx";
+
+// The editor is a lazy chunk; a cold import of TipTap in a full parallel run can outlast findBy's wait.
+beforeAll(() => import("./RichTextEditorCore.jsx"), 60_000);
 
 function Editor({ onHtml = () => {} }) {
   const [html, setHtml] = useState("");

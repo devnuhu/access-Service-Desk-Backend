@@ -59,6 +59,14 @@ namespace ServiceDeskAPI.Controllers
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
         public async Task<ActionResult<MessageDto>> SetHod(Guid departmentId, [FromBody] SetPersonRequest request)
             => From(await _org.SetHodAsync(departmentId, request.UserId, Actor()));
+
+        /// <summary>Sets (or clears, with userId null) the Department Admin. The person must head or deputise a unit of the department.</summary>
+        [HttpPut("departments/{departmentId:guid}/admin")]
+        [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<MessageDto>> SetAdmin(Guid departmentId, [FromBody] SetPersonRequest request)
+            => From(await _org.SetAdminAsync(departmentId, request.UserId, Actor()));
 
         [HttpPost("departments/{departmentId:guid}/units")]
         [ProducesResponseType(typeof(UnitDto), StatusCodes.Status200OK)]
