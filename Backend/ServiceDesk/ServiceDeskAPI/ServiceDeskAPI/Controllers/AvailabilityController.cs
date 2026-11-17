@@ -9,7 +9,7 @@ namespace ServiceDeskAPI.Controllers
 {
     /// <summary>
     /// Leave and out of office (BRD 5.3). Any signed-in person can call these; who may act for whom is checked against the
-    /// organisation in the service (yourself; Head of Unit or deputy for their unit; HOD for their department; Super Admin for anyone).
+    /// organisation in the service (yourself; Head of Unit for their unit; HOD for their department; Super Admin for anyone).
     /// </summary>
     [ApiController]
     [Route("api/availability")]
@@ -72,7 +72,7 @@ namespace ServiceDeskAPI.Controllers
             return result.Success ? Ok(new MessageDto(result.Message)) : Error(result);
         }
 
-        /// <summary>A unit's people, who is available today and their leave in the next 90 days (unit head or deputy, HOD, Super Admin).</summary>
+        /// <summary>A unit's people, who is available today and their leave in the next 90 days (unit head, HOD, Department Admin, Super Admin).</summary>
         [HttpGet("units/{unitId:guid}")]
         [ProducesResponseType(typeof(UnitAvailabilityDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]

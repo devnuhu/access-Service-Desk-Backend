@@ -83,7 +83,9 @@ namespace ServiceDeskAPI.Application.DTOs
         /// <summary>Staff only: when the assignee asked the unit's head for help. Null in the requester's lists.</summary>
         public DateTime? EscalatedToHeadAt { get; set; }
         /// <summary>Staff only, and only while the ticket is open: 0 OnTrack, 1 Warning, 2 Overdue, 3 FarPast. Everyone else always gets 0.</summary>
-        public SlaLevel SlaLevel { get; set; }
+        public SlaLevel SlaLevel { get; set; }
+        /// <summary>Staff only, and only while the ticket is running (New, Assigned, In progress, Reopened): when the time allowed runs out (UTC). Null otherwise.</summary>
+        public DateTime? SlaDueAt { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }

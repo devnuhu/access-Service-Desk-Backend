@@ -14,7 +14,7 @@ namespace ServiceDeskAPI.Domain.Entities
         public string Name { get; set; } = string.Empty;
         public Guid? HodUserId { get; set; }
         public User? HodUser { get; set; }
-        /// <summary>The Department Admin: a head or deputy of a unit in this department, named by the Super Admin. Sees and administers the whole department.</summary>
+        /// <summary>The Department Admin: the head of a unit in this department, named by the Super Admin. Sees and administers the whole department.</summary>
         public Guid? AdminUserId { get; set; }
         public User? AdminUser { get; set; }
         public bool IsActive { get; set; } = true;
@@ -26,7 +26,7 @@ namespace ServiceDeskAPI.Domain.Entities
         public ICollection<Unit> Units { get; set; } = new List<Unit>();
     }
 
-    /// <summary>A unit of a department (for example Contribution Matching), with its Head of Unit and an optional deputy.</summary>
+    /// <summary>A unit of a department (for example Contribution Matching), with its Head of Unit.</summary>
     public class Unit
     {
         public Guid Id { get; set; }
@@ -37,8 +37,6 @@ namespace ServiceDeskAPI.Domain.Entities
         public Guid? HeadUserId { get; set; }
         public User? HeadUser { get; set; }
         /// <summary>Receives escalations when the Head of Unit is on leave (BRD Section 5). Must be a member of the unit.</summary>
-        public Guid? DeputyHeadUserId { get; set; }
-        public User? DeputyHeadUser { get; set; }
         public bool IsActive { get; set; } = true;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public Guid? CreatedByUserId { get; set; }

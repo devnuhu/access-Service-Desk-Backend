@@ -272,7 +272,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
         private static string StructureRoleMessage(string? role) => role switch
         {
             AppRoles.CaseWorker => "Case Worker follows unit membership: add or remove the person under Administration > Units.",
-            AppRoles.HeadOfUnit => "Head of Unit follows the unit set-up: set the head or deputy under Administration > Units.",
+            AppRoles.HeadOfUnit => "Head of Unit follows the unit set-up: set the head under Administration > Units.",
             AppRoles.HOD => "Head of Department follows the department set-up: set the HOD under Administration > Units.",
             _ => "This role follows the organisation set-up."
         };

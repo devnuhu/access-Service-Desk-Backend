@@ -206,13 +206,16 @@ namespace ServiceDeskAPI
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Sla.SlaOptions>().BindConfiguration("Sla");
             builder.Services.AddScoped<ISlaService, ServiceDeskAPI.Infrastructure.Sla.SlaService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.SlaWorker>();
+            builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Digest.DigestOptions>().BindConfiguration("Digest");
+            builder.Services.AddScoped<IDigestService, ServiceDeskAPI.Infrastructure.Digest.DigestService>();
+            builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Digest.DigestWorker>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 
             // ============ EMAIL (Step 1c): Infobip, Smtp or Off, chosen from EmailSettings:Provider ============
             builder.Services.AddHttpClient(InfobipEmailService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
             builder.Services.AddScoped<IEmailService>(EmailSetup.Create);
-            builder.Services.AddHostedService<NotificationMailWorker>();
+            builder.Services.AddHostedService<NotificationEmailWorker>();
 
             // ============ SIGNALR (live notifications) ============
             builder.Services.AddSignalR();

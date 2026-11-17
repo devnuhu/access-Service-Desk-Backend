@@ -2,7 +2,7 @@ using ServiceDeskAPI.Domain.Organisation;
 
 namespace ServiceDeskAPI.Application.DTOs
 {
-    /// <summary>A person shown next to a structure role (head, deputy, HOD).</summary>
+    /// <summary>A person shown next to a structure role (head, HOD).</summary>
     public record PersonRefDto(Guid UserId, string UserName, string? FullName, string? Email);
 
     public class UnitDto
@@ -13,7 +13,6 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Name { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public PersonRefDto? Head { get; set; }
-        public PersonRefDto? Deputy { get; set; }
         public int MemberCount { get; set; }
     }
 
@@ -37,7 +36,6 @@ namespace ServiceDeskAPI.Application.DTOs
         public string? StaffNo { get; set; }
         public StaffCategory StaffCategory { get; set; }
         public bool IsHead { get; set; }
-        public bool IsDeputy { get; set; }
         public bool AccountActive { get; set; }
         public DateTime JoinedAt { get; set; }
         public DateTime? LastAssignedAt { get; set; }
@@ -97,7 +95,6 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public bool IsHead { get; set; }
-        public bool IsDeputy { get; set; }
         public bool IsMember { get; set; }
     }
 

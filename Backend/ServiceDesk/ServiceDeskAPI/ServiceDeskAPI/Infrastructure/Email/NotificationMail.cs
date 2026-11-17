@@ -10,9 +10,9 @@ using ServiceDeskAPI.Infrastructure.Persistence;
 namespace ServiceDeskAPI.Infrastructure.Email
 {
     /// <summary>One in-app notification that should also reach the person's inbox (copied from People Hub).</summary>
-    public sealed record NotificationMail(Guid UserId, string Title, string Message, NotificationType Type, NotificationCategory Category, string? Link)
+    public sealed record NotificationMail(Guid UserId, string Title, string Message, NotificationType Type, NotificationCategory Category, string? Link, Guid? NotificationId = null)
     {
-        public static NotificationMail From(InAppNotification n) => new(n.RecipientUserId, n.Title, n.Message, n.Type, n.Category, n.DeepLinkUrl);
+        public static NotificationMail From(InAppNotification n) => new(n.RecipientUserId, n.Title, n.Message, n.Type, n.Category, n.DeepLinkUrl, n.Id);
     }
 
     /// <summary>Holds notifications waiting to be emailed. Best effort and in memory: the in-app copy is the record.</summary>
@@ -159,64 +159,6 @@ namespace ServiceDeskAPI.Infrastructure.Email
                 Automatic = true,
                 Blocks = blocks
             }, b);
-        }
-    }
-
-    /// <summary>Sends the queued notification emails one by one in the background. A failure is logged and never reaches the caller.</summary>
-    public sealed class NotificationMailWorker : BackgroundService
-    {
-        private readonly NotificationMailQueue _queue;
-        private readonly IServiceScopeFactory _scopes;
-        private readonly IConfiguration _config;
-        private readonly ILogger<NotificationMailWorker> _logger;
-
-        public NotificationMailWorker(NotificationMailQueue queue, IServiceScopeFactory scopes, IConfiguration config, ILogger<NotificationMailWorker> logger)
-        {
-            _queue = queue;
-            _scopes = scopes;
-            _config = config;
-            _logger = logger;
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            try
-            {
-                await foreach (var mail in _queue.ReadAllAsync(stoppingToken))
-                {
-                    try { await SendAsync(mail, stoppingToken); }
-                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
-                    catch (Exception ex) { _logger.LogWarning(ex, "A notification email could not be sent."); }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // The app is stopping.
-            }
-        }
-
-        private async Task SendAsync(NotificationMail mail, CancellationToken ct)
-        {
-            if (!NotificationMailPolicy.ShouldSend(_config, mail.Category)) return;
-
-            using var scope = _scopes.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var person = await db.Users.AsNoTracking()
-                .Where(u => u.Id == mail.UserId && u.IsActive)
-                .Select(u => new { u.FullName, u.UserName, u.CorporateEmail, u.Email })
-                .FirstOrDefaultAsync(ct);
-            if (person == null) return;
-
-            var to = (!string.IsNullOrWhiteSpace(person.CorporateEmail) ? person.CorporateEmail : person.Email)?.Trim();
-            if (string.IsNullOrWhiteSpace(to) || !to.Contains('@')) return;
-
-            var frontend = (_config["Frontend:Url"] ?? "http://localhost:5174").Split(',')[0].Trim();
-            var parts = NotificationEmail.Build(person.FullName ?? person.UserName ?? string.Empty, mail.Title, mail.Message, mail.Type, mail.Category, mail.Link, frontend);
-
-            var email = scope.ServiceProvider.GetRequiredService<IEmailService>();
-            var (ok, message) = await email.SendEmailAsync(to, parts.Subject, parts.Html);
-            if (!ok)
-                _logger.LogWarning("The notification email to user {UserId} was not sent: {Message}", mail.UserId, message);
         }
     }
 }

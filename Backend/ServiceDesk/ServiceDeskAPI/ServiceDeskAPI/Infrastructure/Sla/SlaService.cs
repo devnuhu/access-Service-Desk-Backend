@@ -13,7 +13,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
 {
     /// <summary>
     /// The SLA clock. Time used = business minutes since the ticket was raised, minus the time it spent Pending or Resolved (read from TicketStatusChanges).
-    /// Level 1 = warning, 2 = overdue (the unit's head and deputy), 3 = far past (the Head of Department and the Department Admin, who only watch).
+    /// Level 1 = warning, 2 = overdue (the unit's head), 3 = far past (the Head of Department and the Department Admin, who only watch).
     /// </summary>
     public sealed class SlaService : ISlaService
     {
@@ -80,7 +80,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             var department = await _db.Departments.AsNoTracking().FirstAsync(d => d.Id == ticket.DepartmentId, ct);
             var category = ticket.Category!.Name;
             var rounded = (int)Math.Round(percent);
-            var heads = new[] { unit.HeadUserId, unit.DeputyHeadUserId }.Where(h => h.HasValue).Select(h => h!.Value).Distinct().ToList();
+            var heads = await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, unit.Id, DateOnly.FromDateTime(now.AddHours(_options.UtcOffsetHours)), ct);
 
             if (level >= 1) ticket.SlaWarnedAt ??= now;
             if (level >= 2) ticket.SlaBreachedAt ??= now;
@@ -105,7 +105,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             }
             if (level >= 3)
             {
-                // The Head of Department and the Department Admin only watch. The unit's own head and deputy already know from level 2.
+                // The Head of Department and the Department Admin only watch. The unit's own head already knows from level 2.
                 var title = "Ticket " + ticket.Reference + " is far past its deadline";
                 var message = "This " + category + " request in " + unit.Name + " is well past the time allowed.";
                 var watchers = new[] { department.HodUserId, department.AdminUserId }.Where(w => w.HasValue).Select(w => w!.Value).Distinct().Where(w => !heads.Contains(w));

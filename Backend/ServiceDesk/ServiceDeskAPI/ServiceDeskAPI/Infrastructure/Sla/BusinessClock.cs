@@ -37,6 +37,26 @@ namespace ServiceDeskAPI.Infrastructure.Sla
 
         public bool IsWorkingDay(DateTime localDate) => _workDays.Contains(localDate.DayOfWeek) && !_holidays.Contains(DateOnly.FromDateTime(localDate));
 
+        /// <summary>The UTC moment that is the given number of business minutes after the start (the start itself when it is 0 and inside working hours).</summary>
+        public DateTime AddBusinessMinutes(DateTime fromUtc, double minutes)
+        {
+            var cursor = fromUtc.AddHours(_offsetHours);
+            var remaining = Math.Max(0, minutes);
+            var day = cursor.Date;
+            for (var n = 0; n < 4000; n++, day = day.AddDays(1))
+            {
+                if (!IsWorkingDay(day)) continue;
+                var open = day.AddHours(_startHour);
+                var close = day.AddHours(_endHour);
+                var begin = open > cursor ? open : cursor;
+                if (begin >= close) continue;
+                var room = (close - begin).TotalMinutes;
+                if (remaining <= room) return begin.AddMinutes(remaining).AddHours(-_offsetHours);
+                remaining -= room;
+            }
+            return fromUtc.AddMinutes(minutes);
+        }
+
         /// <summary>Business minutes between two UTC moments (0 when the end is not after the start).</summary>
         public double BusinessMinutes(DateTime fromUtc, DateTime toUtc)
         {

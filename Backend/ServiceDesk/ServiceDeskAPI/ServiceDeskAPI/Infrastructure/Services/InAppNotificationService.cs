@@ -27,7 +27,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
                 Category = category,
                 RelatedEntityType = relatedEntityType,
                 RelatedEntityId = relatedEntityId,
-                DeepLinkUrl = deepLinkUrl,
+                DeepLinkUrl = deepLinkUrl, EmailState = NotificationEmailState.Pending,
                 CreatedAt = DateTime.UtcNow
             });
         }

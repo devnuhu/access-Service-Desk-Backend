@@ -12,7 +12,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
 {
     /// <summary>
     /// Keeps the structure roles in step with the saved structure (rule: these roles are never given by hand):
-    /// CaseWorker = active member of an active unit; HeadOfUnit = head or deputy of an active unit; HOD = HOD of an active department.
+    /// CaseWorker = active member of an active unit; HeadOfUnit = head of an active unit; HOD = HOD of an active department.
     /// Stages role grants and removals, their audit entries and a notification per person; the caller saves.
     /// Run it after the structure change has been saved (inside the same transaction), so it reads the new structure.
     /// </summary>
@@ -36,7 +36,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             var expected = new HashSet<string>();
             if (await db.UnitMembers.AnyAsync(m => m.UserId == userId && m.IsActive && m.Unit!.IsActive && m.Unit.Department!.IsActive))
                 expected.Add(AppRoles.CaseWorker);
-            if (await db.Units.AnyAsync(u => u.IsActive && u.Department!.IsActive && (u.HeadUserId == userId || u.DeputyHeadUserId == userId)))
+            if (await db.Units.AnyAsync(u => u.IsActive && u.Department!.IsActive && u.HeadUserId == userId))
                 expected.Add(AppRoles.HeadOfUnit);
             if (await db.Departments.AnyAsync(d => d.IsActive && d.HodUserId == userId))
                 expected.Add(AppRoles.HOD);

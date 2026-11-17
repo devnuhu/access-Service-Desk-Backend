@@ -6,6 +6,7 @@ namespace ServiceDeskAPI.Domain.Entities
     /// A notification in a person's bell (copied from People Hub). Stored first, then pushed live over SignalR
     /// by NotificationPushInterceptor when the save succeeds.
     /// </summary>
+    [Microsoft.EntityFrameworkCore.Index(nameof(EmailState), nameof(CreatedAt))]
     public class InAppNotification
     {
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -21,6 +22,12 @@ namespace ServiceDeskAPI.Domain.Entities
         public bool IsRead { get; set; }
         public DateTime? ReadAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        /// <summary>The email copy (step 8a). Set to Pending when the notification is staged; the email worker moves it on.</summary>
+        public NotificationEmailState EmailState { get; set; }
+        public int EmailAttempts { get; set; }
+        public DateTime? EmailLastAttemptAt { get; set; }
+        public DateTime? EmailSentAt { get; set; }
+        public string? EmailLastError { get; set; }
 
         public User? RecipientUser { get; set; }
     }

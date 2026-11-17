@@ -16,7 +16,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
     /// Leave and out of office (BRD 5.3). Rules:
     /// - whole office days in Lagos time, start and end included; a period may start up to 30 days back and last at most 366 days;
     /// - one person's periods never overlap; a period that has ended cannot be added or changed;
-    /// - the person records their own (when they are in the structure); the Head of Unit or deputy for their unit's members;
+    /// - the person records their own (when they are in the structure); the Head of Unit for their unit's members;
     ///   the HOD for members of their department's units; a Super Admin for anyone;
     /// - recording or cancelling someone else's period tells them; the heads of the person's units are told either way.
     /// Authorisation is checked against the structure in the database, not the roles in the token, so it is right straight after a change.
@@ -74,8 +74,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         {
             var unit = await _db.Units.AsNoTracking().Include(u => u.Department).FirstOrDefaultAsync(u => u.Id == unitId);
             if (unit == null) return (AdminResult.NotFound("Unit not found."), null);
-            var allowed = actorIsSuperAdmin || unit.HeadUserId == actorUserId || unit.DeputyHeadUserId == actorUserId || unit.Department!.HodUserId == actorUserId || unit.Department.AdminUserId == actorUserId;
-            if (!allowed) return (Forbidden("Only the unit's head or deputy, the Head of Department or a Super Admin can see this unit's availability."), null);
+            var allowed = actorIsSuperAdmin || unit.HeadUserId == actorUserId || unit.Department!.HodUserId == actorUserId || unit.Department.AdminUserId == actorUserId;
+            if (!allowed) return (Forbidden("Only the unit's head, the Head of Department or a Super Admin can see this unit's availability."), null);
             return (AdminResult.Ok("OK"), await BuildUnitAsync(unit));
         }
 
@@ -222,19 +222,19 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         /// <summary>True when the actor heads or deputises one of the person's units, or is HOD of that unit's department.</summary>
         private async Task<bool> ManagesAsync(Guid actorUserId, Guid targetUserId) =>
             await _db.UnitMembers.AnyAsync(m => m.UserId == targetUserId && m.IsActive && m.Unit!.IsActive
-                && (m.Unit.HeadUserId == actorUserId || m.Unit.DeputyHeadUserId == actorUserId || m.Unit.Department!.HodUserId == actorUserId || m.Unit.Department.AdminUserId == actorUserId));
+                && (m.Unit.HeadUserId == actorUserId || m.Unit.Department!.HodUserId == actorUserId || m.Unit.Department.AdminUserId == actorUserId));
 
         /// <summary>Tells the heads and deputies of the person's units (not the person, not the one making the change).</summary>
         private async Task TellHeadsAsync(Guid targetUserId, Guid actorUserId, string message, Guid absenceId)
         {
             var units = await _db.UnitMembers.AsNoTracking()
                 .Where(m => m.UserId == targetUserId && m.IsActive && m.Unit!.IsActive)
-                .Select(m => new { m.Unit!.Name, m.Unit.HeadUserId, m.Unit.DeputyHeadUserId })
+                .Select(m => new { m.Unit!.Name, m.Unit.HeadUserId })
                 .ToListAsync();
             var told = new HashSet<Guid> { targetUserId, actorUserId };
             foreach (var unit in units)
             {
-                foreach (var head in new[] { unit.HeadUserId, unit.DeputyHeadUserId })
+                foreach (var head in new[] { unit.HeadUserId })
                 {
                     if (!head.HasValue || !told.Add(head.Value)) continue;
                     _notifications.Stage(head.Value, "Availability changed in " + unit.Name, message,
@@ -268,14 +268,13 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                     FullName = m.FullName,
                     StaffCategory = m.StaffCategory,
                     IsHead = unit.HeadUserId == m.UserId,
-                    IsDeputy = unit.DeputyHeadUserId == m.UserId,
                     AccountActive = m.AccountActive,
                     AvailableNow = m.AccountActive && current == null,
                     Current = current,
                     Upcoming = mine.Where(a => a.StartDate > today).ToList()
                 };
             })
-            .OrderByDescending(r => r.IsHead).ThenByDescending(r => r.IsDeputy).ThenBy(r => r.FullName ?? r.UserName)
+            .OrderByDescending(r => r.IsHead).ThenBy(r => r.FullName ?? r.UserName)
             .ToList();
 
             return new UnitAvailabilityDto

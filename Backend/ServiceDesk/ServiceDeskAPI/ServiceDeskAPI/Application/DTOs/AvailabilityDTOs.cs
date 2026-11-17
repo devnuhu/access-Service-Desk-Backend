@@ -46,7 +46,6 @@ namespace ServiceDeskAPI.Application.DTOs
         public string? FullName { get; set; }
         public StaffCategory StaffCategory { get; set; }
         public bool IsHead { get; set; }
-        public bool IsDeputy { get; set; }
         public bool AccountActive { get; set; }
         /// <summary>Active account and not away today: can be given new tickets.</summary>
         public bool AvailableNow { get; set; }
@@ -55,7 +54,7 @@ namespace ServiceDeskAPI.Application.DTOs
         public List<AbsenceDto> Upcoming { get; set; } = new();
     }
 
-    /// <summary>A unit's people and who is available today (Head of Unit, deputy, HOD of the department, Super Admin).</summary>
+    /// <summary>A unit's people and who is available today (Head of Unit, HOD of the department, Super Admin).</summary>
     public class UnitAvailabilityDto
     {
         public Guid UnitId { get; set; }

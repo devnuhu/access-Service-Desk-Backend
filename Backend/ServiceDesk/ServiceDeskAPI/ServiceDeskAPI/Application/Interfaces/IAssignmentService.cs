@@ -6,7 +6,7 @@ namespace ServiceDeskAPI.Application.Interfaces
     /// Automatic assignment and reassignment (BRD M3).
     /// Eligible: active members of the ticket's unit, with an active account, available today (not on leave), mapped to the category.
     /// The HOD is never a member of a unit in their department, so never eligible. Lowest weighted workload wins; ties go to the
-    /// least recently assigned. Nobody eligible: the ticket stays New, the unit's head and deputy are told once, and the queue is
+    /// least recently assigned. Nobody eligible: the ticket stays New, the unit's head is told once, and the queue is
     /// tried again every few minutes and whenever availability, skills or membership change.
     /// </summary>
     public interface IAssignmentService

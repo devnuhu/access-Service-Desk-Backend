@@ -97,14 +97,6 @@ namespace ServiceDeskAPI.Controllers
         public async Task<ActionResult<MessageDto>> SetHead(Guid unitId, [FromBody] SetPersonRequest request)
             => From(await _org.SetUnitHeadAsync(unitId, request.UserId, Actor()));
 
-        /// <summary>Sets (or clears) the deputy Head of Unit, who must be a member of the unit.</summary>
-        [HttpPut("units/{unitId:guid}/deputy")]
-        [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<MessageDto>> SetDeputy(Guid unitId, [FromBody] SetPersonRequest request)
-            => From(await _org.SetUnitDeputyAsync(unitId, request.UserId, Actor()));
-
         [HttpGet("units/{unitId:guid}/members")]
         [ProducesResponseType(typeof(List<UnitMemberDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
@@ -126,7 +118,7 @@ namespace ServiceDeskAPI.Controllers
             return From(await _org.AddMemberAsync(unitId, request.UserId, request.StaffNo, Actor()));
         }
 
-        /// <summary>Removes a member (history kept). Not the head or the deputy: change those first.</summary>
+        /// <summary>Removes a member (history kept). Not the head: change that first.</summary>
         [HttpDelete("units/{unitId:guid}/members/{userId:guid}")]
         [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]

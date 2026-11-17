@@ -676,6 +676,21 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("EmailAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EmailLastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailLastError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EmailSentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EmailState")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
@@ -706,6 +721,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("EmailState", "CreatedAt");
 
                     b.HasIndex("RecipientUserId", "IsRead", "CreatedAt")
                         .HasDatabaseName("IX_InAppNotifications_Recipient_IsRead_CreatedAt");
@@ -1294,9 +1311,6 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("DepartmentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("DeputyHeadUserId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<Guid?>("HeadUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1315,8 +1329,6 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DeputyHeadUserId");
 
                     b.HasIndex("HeadUserId");
 
@@ -1854,19 +1866,12 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", "DeputyHeadUser")
-                        .WithMany()
-                        .HasForeignKey("DeputyHeadUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("ServiceDeskAPI.Domain.Entities.User", "HeadUser")
                         .WithMany()
                         .HasForeignKey("HeadUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Department");
-
-                    b.Navigation("DeputyHeadUser");
 
                     b.Navigation("HeadUser");
                 });

@@ -6,7 +6,7 @@ namespace ServiceDeskAPI.Domain.Enums
         OnTrack = 0,
         /// <summary>Half the time is used.</summary>
         Warning = 1,
-        /// <summary>The time has run out; the unit's head and deputy were told.</summary>
+        /// <summary>The time has run out; the unit's head was told.</summary>
         Overdue = 2,
         /// <summary>Far past the time; the Head of Department and the Department Admin were told.</summary>
         FarPast = 3

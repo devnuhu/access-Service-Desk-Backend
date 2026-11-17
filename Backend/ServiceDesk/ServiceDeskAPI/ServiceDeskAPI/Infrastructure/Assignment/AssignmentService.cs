@@ -16,7 +16,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
     /// The assignment engine and reassignment (BRD M3, FR-3.1 to FR-3.11). One assignment at a time per API instance (a gate), so
     /// two tickets raised together are not both counted against the same empty workload.
     /// Who may reassign (FR-3.7, FR-3.8):
-    /// - the person holding the ticket, and the unit's head or deputy: to an available member of the same unit who handles the category;
+    /// - the person holding the ticket, and the unit's head: to an available member of the same unit who handles the category;
     /// - the HOD of the department and a Super Admin: to any available member of any unit of the department (the ticket moves unit).
     /// A reason is always required. Every assignment is recorded with how, why, by whom and the workloads considered (FR-3.10).
     /// </summary>
@@ -253,7 +253,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
         private static Scope ScopeOf(Ticket ticket, Guid actorUserId, bool actorIsSuperAdmin)
         {
             if (actorIsSuperAdmin || ticket.Department!.HodUserId == actorUserId || ticket.Department!.AdminUserId == actorUserId) return Scope.Department;
-            if ((ticket.Unit!.HeadUserId == actorUserId || ticket.Unit.DeputyHeadUserId == actorUserId) && ticket.Unit.IsActive) return Scope.Unit;
+            if (ticket.Unit!.HeadUserId == actorUserId && ticket.Unit.IsActive) return Scope.Unit;
             if (ticket.AssigneeUserId == actorUserId) return Scope.Unit;
             return Scope.None;
         }
@@ -419,7 +419,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
 
         private void TellHeads(Unit unit, Guid? except, string title, string message, NotificationType type, Ticket ticket)
         {
-            foreach (var head in new[] { unit.HeadUserId, unit.DeputyHeadUserId }.Where(h => h.HasValue && h != except).Distinct())
+            foreach (var head in ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.For(_db, unit.Id, _availability.Today()).Select(h => (Guid?)h).Where(h => h.HasValue && h != except).Distinct())
                 _notifications.Stage(head!.Value, title, message, type, NotificationCategory.Assignment, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
         }
 

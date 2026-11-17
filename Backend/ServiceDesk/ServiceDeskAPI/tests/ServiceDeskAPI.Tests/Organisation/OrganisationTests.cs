@@ -166,24 +166,6 @@ namespace ServiceDeskAPI.Tests.Organisation
         }
 
         [Fact]
-        public async Task The_deputy_must_be_a_member_and_gets_Head_of_Unit()
-        {
-            var admin = await As("test.superadmin");
-            var outsider = await NewPersonAsync("outsider");
-            var worker = await IdOf("test.caseworker1");
-
-            var refused = await admin.PutAsJsonAsync($"/api/admin/units/{OrgSeed.ContributionMatchingUnitId}/deputy", new { userId = outsider });
-            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
-
-            Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/admin/units/{OrgSeed.ContributionMatchingUnitId}/deputy", new { userId = worker })).StatusCode);
-            Assert.Contains(AppRoles.HeadOfUnit, await RolesOf(worker));
-
-            Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/admin/units/{OrgSeed.ContributionMatchingUnitId}/deputy", new { userId = (Guid?)null })).StatusCode);
-            Assert.DoesNotContain(AppRoles.HeadOfUnit, await RolesOf(worker));
-            Assert.Contains(AppRoles.CaseWorker, await RolesOf(worker));
-        }
-
-        [Fact]
         public async Task Departments_and_units_have_unique_codes_and_switch_off_only_when_empty()
         {
             var admin = await As("test.superadmin");

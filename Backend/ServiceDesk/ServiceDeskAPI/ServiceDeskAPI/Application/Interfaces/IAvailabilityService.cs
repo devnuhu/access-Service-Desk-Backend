@@ -4,7 +4,7 @@ namespace ServiceDeskAPI.Application.Interfaces
 {
     /// <summary>
     /// Leave and out of office (BRD 5.3). A person is available when their account is active and they are not away today (Lagos office date).
-    /// Who may record or cancel: the person themselves (when they are in the structure); the Head of Unit or deputy for members of their unit;
+    /// Who may record or cancel: the person themselves (when they are in the structure); the Head of Unit for members of their unit;
     /// the HOD for anyone in their department's units; a Super Admin for anyone. Moving tickets off someone going on leave comes with
     /// the assignment engine (Step 4), which uses AvailableMemberIdsAsync.
     /// </summary>

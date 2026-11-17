@@ -5,7 +5,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 {
     /// <summary>
     /// The one rule for which staff may see and work which tickets (decided 17 Nov 2026):
-    /// a case worker, head or deputy sees only their own unit's tickets; the Head of Department and the Department Admin see the whole
+    /// a case worker or head sees only their own unit's tickets; the Head of Department and the Department Admin see the whole
     /// department. Super Admin is handled by the callers. Requesters, raisers and copied people are handled by the callers too.
     /// </summary>
     public static class TicketAccess

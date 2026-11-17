@@ -32,9 +32,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         private readonly ILogger<TicketService> _logger;
         private readonly IAssignmentService _assignment;
 
+        private readonly ServiceDeskAPI.Infrastructure.Sla.SlaOptions _slaOptions;
+
         public TicketService(AppDbContext db, IAuditService audit, IInAppNotificationService notifications, IHttpContextAccessor http,
-            TimeProvider time, ILogger<TicketService> logger, IAssignmentService assignment)
-        {
+            TimeProvider time, ILogger<TicketService> logger, IAssignmentService assignment, Microsoft.Extensions.Options.IOptions<ServiceDeskAPI.Infrastructure.Sla.SlaOptions> slaOptions)
+        {
+            _slaOptions = slaOptions.Value;
             _assignment = assignment;
             _db = db;
             _audit = audit;
@@ -231,10 +234,32 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var viewKey = (view ?? "mine").Trim().ToLowerInvariant();
             if (!staffView && viewKey != "assigned")
                 foreach (var item in items) { item.EscalatedToHeadAt = null; item.SlaLevel = SlaLevel.OnTrack; }
-            foreach (var item in items) if (!OpenStatuses.Contains(item.Status)) item.SlaLevel = SlaLevel.OnTrack;
+            foreach (var item in items) if (!OpenStatuses.Contains(item.Status)) item.SlaLevel = SlaLevel.OnTrack;
+            await FillSlaDueAsync(items, staffView || viewKey == "assigned");
             return (null, new TicketPageDto { Items = items, Total = total, Page = page, PageSize = pageSize });
         }
 
+        private async Task FillSlaDueAsync(IEnumerable<TicketListItemDto> items, bool show)
+        {
+            if (!show) return;
+            var running = new[] { ServiceDeskAPI.Domain.Enums.TicketStatus.New, ServiceDeskAPI.Domain.Enums.TicketStatus.Assigned, ServiceDeskAPI.Domain.Enums.TicketStatus.InProgress, ServiceDeskAPI.Domain.Enums.TicketStatus.Reopened };
+            var open = items.Where(i => running.Contains(i.Status)).ToList();
+            if (open.Count == 0) return;
+            var ids = open.Select(i => i.Id).ToList();
+            var hours = await _db.Tickets.AsNoTracking().Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, Hours = t.Category!.TimelineHours }).ToDictionaryAsync(x => x.Id, x => x.Hours);
+            var changes = (await _db.TicketStatusChanges.AsNoTracking().Where(c => ids.Contains(c.TicketId)).OrderBy(c => c.At)
+                .Select(c => new { c.TicketId, c.ToStatus, c.At }).ToListAsync()).ToLookup(c => c.TicketId);
+            var clock = ServiceDeskAPI.Infrastructure.Sla.BusinessClock.From(_slaOptions);
+            var tracked = System.DateTime.TryParse(_slaOptions.TrackFrom, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var trackFrom);
+            foreach (var item in open)
+            {
+                if (tracked && item.CreatedAt < trackFrom) continue;
+                if (hours.TryGetValue(item.Id, out var h) && h > 0)
+                    item.SlaDueAt = ServiceDeskAPI.Infrastructure.Sla.SlaDue.Compute(clock, item.CreatedAt, h, changes[item.Id].Select(c => (c.ToStatus, c.At)));
+            }
+        }
+
         public async Task<Guid?> FindIdByReferenceAsync(string reference)
         {
             var value = (reference ?? string.Empty).Trim().ToUpperInvariant();
@@ -305,7 +330,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 detail.SlaL2At = ticket.SlaL2At;
             }
             else detail.SlaLevel = SlaLevel.OnTrack;
-            if (!OpenStatuses.Contains(ticket.Status)) detail.SlaLevel = SlaLevel.OnTrack;
+            if (!OpenStatuses.Contains(ticket.Status)) detail.SlaLevel = SlaLevel.OnTrack;
+            if (isStaff) await FillSlaDueAsync(new List<TicketListItemDto> { detail }, true);
             if (isStaff && ticket.EscalatedToHeadAt.HasValue)
             {
                 detail.EscalatedToHeadAt = ticket.EscalatedToHeadAt;
@@ -392,7 +418,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             }
             if (ticket.AssigneeUserId.HasValue) recipients.Add(ticket.AssigneeUserId.Value);
             if (request.IsInternal || !ticket.AssigneeUserId.HasValue)
-                foreach (var head in new[] { ticket.Unit!.HeadUserId, ticket.Unit.DeputyHeadUserId }.Where(h => h.HasValue)) recipients.Add(head!.Value);
+                foreach (var head in await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, ticket.UnitId)) recipients.Add(head);
             recipients.Remove(actorUserId);
             var who = author.FullName ?? author.UserName;
             if (resumed && ticket.AssigneeUserId.HasValue && ticket.AssigneeUserId != actorUserId)

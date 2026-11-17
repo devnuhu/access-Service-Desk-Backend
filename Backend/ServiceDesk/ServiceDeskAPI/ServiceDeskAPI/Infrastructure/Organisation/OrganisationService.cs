@@ -14,7 +14,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
     /// <summary>
     /// Departments, units, heads and members (BRD Section 5). Rules:
     /// - one active unit per person per department; the Head of Unit is a member of their unit (staff category HeadOfUnit);
-    /// - the deputy must be a member of the unit and is not its head;
     /// - the HOD oversees and does not work tickets, so is never a member of a unit in their own department;
     /// - a unit is switched off only when it has no members; a department only when its units are switched off.
     /// Each change is saved with its audit entries; then the structure roles are brought in step (OrgRoleSync) in the same transaction.
@@ -62,7 +61,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                         Name = u.Name,
                         IsActive = u.IsActive,
                         Head = u.HeadUser == null ? null : new PersonRefDto(u.HeadUser.Id, u.HeadUser.UserName!, u.HeadUser.FullName, u.HeadUser.CorporateEmail ?? u.HeadUser.Email),
-                        Deputy = u.DeputyHeadUser == null ? null : new PersonRefDto(u.DeputyHeadUser.Id, u.DeputyHeadUser.UserName!, u.DeputyHeadUser.FullName, u.DeputyHeadUser.CorporateEmail ?? u.DeputyHeadUser.Email),
                         MemberCount = u.Members.Count(m => m.IsActive)
                     }).ToList()
                 })
@@ -84,7 +82,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                     StaffNo = m.StaffNo,
                     StaffCategory = m.StaffCategory,
                     IsHead = unit.HeadUserId == m.UserId,
-                    IsDeputy = unit.DeputyHeadUserId == m.UserId,
                     AccountActive = m.User.IsActive,
                     JoinedAt = m.JoinedAt,
                     LastAssignedAt = m.LastAssignedAt
@@ -96,7 +93,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
         {
             var units = await _db.Units.AsNoTracking()
                 .Where(u => u.IsActive && u.Department!.IsActive
-                    && (u.HeadUserId == userId || u.DeputyHeadUserId == userId || u.Members.Any(m => m.UserId == userId && m.IsActive)))
+                    && (u.HeadUserId == userId || u.Members.Any(m => m.UserId == userId && m.IsActive)))
                 .Select(u => new
                 {
                     u.DepartmentId,
@@ -106,7 +103,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                         Code = u.Code,
                         Name = u.Name,
                         IsHead = u.HeadUserId == userId,
-                        IsDeputy = u.DeputyHeadUserId == userId,
                         IsMember = u.Members.Any(m => m.UserId == userId && m.IsActive)
                     }
                 })
@@ -213,8 +209,8 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
                 if (user == null) return AdminResult.NotFound("Person not found.");
                 if (!user.IsActive) return AdminResult.Invalid(Name(user) + " is blocked and cannot be the Department Admin.");
-                var heads = await _db.Units.AnyAsync(u => u.DepartmentId == departmentId && u.IsActive && (u.HeadUserId == user.Id || u.DeputyHeadUserId == user.Id));
-                if (!heads) return AdminResult.Invalid(Name(user) + " must be the head or deputy of a unit in " + department.Name + " first.");
+                var heads = await _db.Units.AnyAsync(u => u.DepartmentId == departmentId && u.IsActive && u.HeadUserId == user.Id);
+                if (!heads) return AdminResult.Invalid(Name(user) + " must be the head of a unit in " + department.Name + " first.");
                 newName = user.UserName;
             }
 
@@ -268,7 +264,7 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             unit.UpdatedAt = DateTime.UtcNow;
             unit.UpdatedByUserId = actorUserId;
             Stage(AuditAction.Updated, "Unit", unit.Id, unit.Name, before, new { unit.Name, unit.IsActive });
-            return await SaveAsync(new[] { unit.HeadUserId, unit.DeputyHeadUserId }, actorUserId, "Unit " + unit.Name + " updated.", "A unit with that name already exists.");
+            return await SaveAsync(new[] { unit.HeadUserId }, actorUserId, "Unit " + unit.Name + " updated.", "A unit with that name already exists.");
         }
 
         public async Task<AdminResult> SetUnitHeadAsync(Guid unitId, Guid? userId, Guid? actorUserId)
@@ -277,7 +273,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             if (unit == null) return AdminResult.NotFound("Unit not found.");
             if (unit.HeadUserId == userId) return AdminResult.Ok("No change.");
             var previousHead = unit.HeadUserId;
-            var previousDeputy = unit.DeputyHeadUserId;
             if (previousHead.HasValue && previousHead != userId && previousHead == unit.Department!.AdminUserId)
                 return AdminResult.Invalid("The current head is the Department Admin of " + unit.Department.Name + ". Choose another Department Admin first.");
 
@@ -306,7 +301,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
                 }
                 else membership.StaffCategory = StaffCategory.HeadOfUnit;
 
-                if (unit.DeputyHeadUserId == user.Id) unit.DeputyHeadUserId = null;
             }
 
             // The previous head stays in the unit as an ordinary member
@@ -319,33 +313,10 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             unit.HeadUserId = userId;
             unit.UpdatedAt = DateTime.UtcNow;
             unit.UpdatedByUserId = actorUserId;
-            Stage(AuditAction.Updated, "Unit", unit.Id, unit.Name, new { headUserId = previousHead, deputyHeadUserId = previousDeputy },
-                new { headUserId = userId, unit.DeputyHeadUserId });
-            return await SaveAsync(new[] { previousHead, userId, previousDeputy }, actorUserId,
+            Stage(AuditAction.Updated, "Unit", unit.Id, unit.Name, new { headUserId = previousHead },
+                new { headUserId = userId });
+            return await SaveAsync(new[] { previousHead, userId }, actorUserId,
                 userId.HasValue ? "Head of " + unit.Name + " set." : "Head of " + unit.Name + " cleared.", "The change could not be saved; try again.");
-        }
-
-        public async Task<AdminResult> SetUnitDeputyAsync(Guid unitId, Guid? userId, Guid? actorUserId)
-        {
-            var unit = await _db.Units.FirstOrDefaultAsync(u => u.Id == unitId);
-            if (unit == null) return AdminResult.NotFound("Unit not found.");
-            if (unit.DeputyHeadUserId == userId) return AdminResult.Ok("No change.");
-            if (userId.HasValue)
-            {
-                if (userId == unit.HeadUserId) return AdminResult.Invalid("The Head of Unit cannot also be the deputy.");
-                var isMember = await _db.UnitMembers.AnyAsync(m => m.UnitId == unitId && m.UserId == userId.Value && m.IsActive && m.User!.IsActive);
-                if (!isMember) return AdminResult.Invalid("The deputy must be an active member of " + unit.Name + ". Add them to the unit first.");
-            }
-
-            var previous = unit.DeputyHeadUserId;
-            if (previous.HasValue && previous != userId && await _db.Departments.AnyAsync(d => d.Id == unit.DepartmentId && d.AdminUserId == previous))
-                return AdminResult.Invalid("The current deputy is the Department Admin. Choose another Department Admin first.");
-            unit.DeputyHeadUserId = userId;
-            unit.UpdatedAt = DateTime.UtcNow;
-            unit.UpdatedByUserId = actorUserId;
-            Stage(AuditAction.Updated, "Unit", unit.Id, unit.Name, new { deputyHeadUserId = previous }, new { deputyHeadUserId = userId });
-            return await SaveAsync(new[] { previous, userId }, actorUserId,
-                userId.HasValue ? "Deputy of " + unit.Name + " set." : "Deputy of " + unit.Name + " cleared.", "The change could not be saved; try again.");
         }
 
         // ---------------- members ----------------
@@ -387,7 +358,6 @@ namespace ServiceDeskAPI.Infrastructure.Organisation
             var member = await _db.UnitMembers.Include(m => m.User).FirstOrDefaultAsync(m => m.UnitId == unitId && m.UserId == userId && m.IsActive);
             if (member?.User == null) return AdminResult.NotFound("This person is not a member of " + unit.Name + ".");
             if (unit.HeadUserId == userId) return AdminResult.Invalid(Name(member.User) + " heads " + unit.Name + ". Choose another head (or clear the head) first.");
-            if (unit.DeputyHeadUserId == userId) return AdminResult.Invalid(Name(member.User) + " is the deputy of " + unit.Name + ". Clear the deputy first.");
 
             member.IsActive = false;
             member.LeftAt = DateTime.UtcNow;

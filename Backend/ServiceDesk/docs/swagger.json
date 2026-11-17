@@ -1373,107 +1373,6 @@
         }
       }
     },
-    "/api/admin/units/{unitId}/deputy": {
-      "put": {
-        "tags": [
-          "AdminOrganisation"
-        ],
-        "parameters": [
-          {
-            "name": "unitId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/SetPersonRequest"
-                  }
-                ]
-              }
-            },
-            "text/json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/SetPersonRequest"
-                  }
-                ]
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "allOf": [
-                  {
-                    "$ref": "#/components/schemas/SetPersonRequest"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MessageDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/units/{unitId}/members": {
       "get": {
         "tags": [
@@ -4067,6 +3966,20 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "slaBreached",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "escalated",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -4172,6 +4085,63 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets/sla-summary": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "parameters": [
+          {
+            "name": "departmentId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "unitId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSummaryDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -6204,9 +6174,6 @@
           "isHead": {
             "type": "boolean"
           },
-          "isDeputy": {
-            "type": "boolean"
-          },
           "accountActive": {
             "type": "boolean"
           },
@@ -6361,9 +6328,6 @@
             "type": "string"
           },
           "isHead": {
-            "type": "boolean"
-          },
-          "isDeputy": {
             "type": "boolean"
           },
           "isMember": {
@@ -6817,6 +6781,42 @@
         },
         "additionalProperties": false
       },
+      "SlaLevel": {
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "SlaSummaryDto": {
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "warning": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overdue": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "farPast": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "unassigned": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "SmtpStatusDto": {
         "type": "object",
         "properties": {
@@ -7109,6 +7109,18 @@
             "format": "date-time",
             "nullable": true
           },
+          "slaLevel": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SlaLevel"
+              }
+            ]
+          },
+          "slaDueAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -7230,6 +7242,21 @@
           "escalatedToHeadReason": {
             "type": "string",
             "nullable": true
+          },
+          "slaWarnedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slaBreachedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slaL2At": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -7299,6 +7326,18 @@
             "nullable": true
           },
           "escalatedToHeadAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "slaLevel": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SlaLevel"
+              }
+            ]
+          },
+          "slaDueAt": {
             "type": "string",
             "format": "date-time",
             "nullable": true
@@ -7429,14 +7468,6 @@
             ],
             "nullable": true
           },
-          "deputy": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PersonRefDto"
-              }
-            ],
-            "nullable": true
-          },
           "memberCount": {
             "type": "integer",
             "format": "int32"
@@ -7474,9 +7505,6 @@
             ]
           },
           "isHead": {
-            "type": "boolean"
-          },
-          "isDeputy": {
             "type": "boolean"
           },
           "accountActive": {

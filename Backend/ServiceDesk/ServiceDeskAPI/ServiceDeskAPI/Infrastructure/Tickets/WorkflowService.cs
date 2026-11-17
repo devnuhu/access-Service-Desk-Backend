@@ -262,7 +262,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             });
             Stage(AuditAction.Escalated, ticket, new { to = "HeadOfUnit" });
             var assignee = await NameOfAsync(actorUserId);
-            foreach (var head in new[] { unit.HeadUserId, unit.DeputyHeadUserId }.Where(h => h.HasValue).Select(h => h!.Value).Distinct())
+            foreach (var head in (await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, unit.Id)).Distinct())
                 if (head != actorUserId)
                     _notifications.Stage(head, "Ticket " + ticket.Reference + " escalated to you", assignee + " needs your help with a " + ticket.Category!.Name + " request.",
                         NotificationType.ActionRequired, NotificationCategory.Escalation, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
@@ -295,7 +295,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- helpers ----------------
 
         private async Task<bool> IsUnitHeadAsync(Ticket ticket, Guid userId) =>
-            await _db.Units.AnyAsync(u => u.Id == ticket.UnitId && (u.HeadUserId == userId || u.DeputyHeadUserId == userId));
+            await _db.Units.AnyAsync(u => u.Id == ticket.UnitId && u.HeadUserId == userId);
 
         private async Task<(TicketProblem? Problem, Ticket? Ticket, Who? Who)> LoadAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin, bool track = true)
         {
