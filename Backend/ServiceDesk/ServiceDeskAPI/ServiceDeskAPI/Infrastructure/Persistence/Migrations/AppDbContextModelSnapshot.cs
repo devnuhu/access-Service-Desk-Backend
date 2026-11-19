@@ -824,6 +824,82 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokenStores", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.ReportSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DayOfMonth")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Format")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("Frequency")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("LastPeriodKey")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("LastSentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PendingAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PendingPeriodKey")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("SavedReportId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("SendHour")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartsAfterUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WeekDay")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SavedReportId");
+
+                    b.HasIndex("OwnerUserId", "SavedReportId")
+                        .IsUnique();
+
+                    b.ToTable("ReportSchedules");
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
@@ -913,6 +989,55 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                             Name = "SuperAdmin",
                             NormalizedName = "SUPERADMIN"
                         });
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.SavedReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DefinitionJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Share")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ShareDepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ShareRoles")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("ShareUnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("SavedReports");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Ticket", b =>
@@ -1692,6 +1817,17 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.ReportSchedule", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.SavedReport", "SavedReport")
+                        .WithMany()
+                        .HasForeignKey("SavedReportId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SavedReport");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Ticket", b =>

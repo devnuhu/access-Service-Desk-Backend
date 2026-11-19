@@ -73,3 +73,14 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
 | GET | `/api/admin/email/status` | Super Admin | Email provider status (never a key) |
 | POST | `/api/admin/email/test` | Super Admin | Send a test email |
+| GET | `/api/tickets/sla-summary?departmentId=&unitId=` | staff of that department (a unit's staff: their own unit), Super Admin | Open tickets by SLA level: open, warning, overdue, farPast, unassigned |
+| GET | `/api/reports/catalogue` | unit heads, HOD, Department Admin, Super Admin | Ready-made reports (R1 to R9) and the option lists |
+| POST | `/api/reports/run` | same | Run a report definition in your own scope |
+| POST | `/api/reports/export?format=xlsx\|csv` | same | Download a definition as Excel or CSV (up to 50,000 rows) |
+| GET, POST | `/api/reports/saved` | same | My saved reports and ones shared with me; save a report (private, unit, department or roles) |
+| PUT, DELETE | `/api/reports/saved/{id}` | the owner | Change or delete a saved report (deleting also removes its schedules) |
+| POST | `/api/reports/saved/{id}/run` | same people as above | Run a saved report in your own scope |
+| POST | `/api/reports/saved/{id}/export?format=xlsx\|csv` | same | Download a saved report |
+| GET, POST | `/api/reports/schedules` | same | My scheduled report emails; schedule a saved report (daily on working days, weekly, monthly; Lagos hour; emailed to me only) |
+| PUT, DELETE | `/api/reports/schedules/{id}` | the owner | Change, switch on or off, or delete a schedule. There is no "send now" |
+| GET | `/api/dashboard/summary` | signed in | Home counts: mine (open, waiting, warning, overdue, raised, to confirm) and, for those who oversee units, per-unit counts with a total |

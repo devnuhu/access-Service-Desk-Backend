@@ -7,7 +7,7 @@ namespace ServiceDeskAPI.Tests.Infrastructure
     /// <summary>Stands in for the email provider in API tests: keeps every message and reports it as sent.</summary>
     public class RecordingEmailService : IEmailService
     {
-        public sealed record SentEmail(string To, string Subject, string Html);
+        public sealed record SentEmail(string To, string Subject, string Html, IReadOnlyList<EmailAttachment>? Attachments = null);
 
         private readonly ConcurrentQueue<SentEmail> _sent = new();
 
@@ -20,7 +20,10 @@ namespace ServiceDeskAPI.Tests.Infrastructure
         }
 
         public Task<(bool Success, string Message)> SendEmailWithAttachmentsAsync(string to, string subject, string htmlBody, IReadOnlyList<EmailAttachment> attachments)
-            => SendEmailAsync(to, subject, htmlBody);
+            {
+            _sent.Enqueue(new SentEmail(to, subject, htmlBody, attachments));
+            return Task.FromResult((true, "Recorded"));
+        }
 
         /// <summary>Waits (up to the timeout) for an email that matches; null if none arrives.</summary>
         public async Task<SentEmail?> WaitForAsync(Func<SentEmail, bool> match, TimeSpan timeout)

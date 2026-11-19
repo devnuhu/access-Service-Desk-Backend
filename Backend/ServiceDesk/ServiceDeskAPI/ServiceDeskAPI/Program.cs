@@ -207,8 +207,14 @@ namespace ServiceDeskAPI
             builder.Services.AddScoped<ISlaService, ServiceDeskAPI.Infrastructure.Sla.SlaService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.SlaWorker>();
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Digest.DigestOptions>().BindConfiguration("Digest");
-            builder.Services.AddScoped<IDigestService, ServiceDeskAPI.Infrastructure.Digest.DigestService>();
+            builder.Services.AddScoped<IDigestService, ServiceDeskAPI.Infrastructure.Digest.DigestService>();
+            builder.Services.AddScoped<IReportService, ServiceDeskAPI.Infrastructure.Reports.ReportService>();
+            builder.Services.AddScoped<ISavedReportService, ServiceDeskAPI.Infrastructure.Reports.SavedReportService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Digest.DigestWorker>();
+            builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Reports.ReportScheduleOptions>().BindConfiguration("ReportSchedules");
+            builder.Services.AddScoped<IReportScheduleService, ServiceDeskAPI.Infrastructure.Reports.ReportScheduleService>();
+            builder.Services.AddScoped<IDashboardService, ServiceDeskAPI.Infrastructure.Dashboard.DashboardService>();
+            builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Reports.ReportScheduleWorker>();
             builder.Services.AddSingleton(TimeProvider.System);
             builder.Services.AddScoped<IDirectoryService>(DirectorySetup.Create);
 

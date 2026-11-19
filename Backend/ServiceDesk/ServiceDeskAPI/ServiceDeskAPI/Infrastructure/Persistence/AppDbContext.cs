@@ -19,7 +19,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
         public DbSet<RefreshTokenStore> RefreshTokenStores => Set<RefreshTokenStore>();
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-        public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
+        public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
+        public DbSet<SavedReport> SavedReports { get; set; } = null!;
+        public DbSet<ReportSchedule> ReportSchedules { get; set; } = null!;
         public DbSet<Department> Departments => Set<Department>();
         public DbSet<Unit> Units => Set<Unit>();
         public DbSet<UnitMember> UnitMembers => Set<UnitMember>();
