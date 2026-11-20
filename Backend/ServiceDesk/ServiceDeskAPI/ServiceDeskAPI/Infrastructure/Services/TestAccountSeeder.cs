@@ -38,6 +38,17 @@ namespace ServiceDeskAPI.Infrastructure.Services
             new("test.superadmin", "Test Super Admin", "Information Technology", new[] { AppRoles.Requester, AppRoles.SuperAdmin })
         };
 
+        /// <summary>
+        /// Development extras for trying the unit pool by hand (not created by the test suite): case workers 5 and 6 each handle only the
+        /// first category of their unit, so a ticket in another category of that unit is not theirs to pick; plus a second requester.
+        /// </summary>
+        public static readonly IReadOnlyList<TestAccountSpec> ExtraAccounts = new List<TestAccountSpec>
+        {
+            new("test.requester2", "Test Requester Two", "Finance", new[] { AppRoles.Requester }),
+            new("test.caseworker5", "Test Case Worker Five", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.caseworker6", "Test Case Worker Six", "Contribution Processing", new[] { AppRoles.Requester })
+        };
+
         private static readonly Regex NameRule = new(@"^test\.[a-z0-9._-]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>True for names shaped like test.something.</summary>
@@ -86,7 +97,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
             {
                 try
                 {
-                    await SeedAsync(_services, password, _logger);
+                    await SeedAsync(_services, password, _logger, includeExtras: true);
                     return;
                 }
                 catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -99,14 +110,14 @@ namespace ServiceDeskAPI.Infrastructure.Services
         }
 
         /// <summary>Creates or refreshes the test accounts. Public so tests can run it directly.</summary>
-        public static async Task SeedAsync(IServiceProvider services, string password, ILogger logger)
+        public static async Task SeedAsync(IServiceProvider services, string password, ILogger logger, bool includeExtras = false)
         {
             using var scope = services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var users = scope.ServiceProvider.GetRequiredService<UserManager<User>>();
             var created = 0;
 
-            foreach (var spec in Accounts)
+            foreach (var spec in includeExtras ? Accounts.Concat(ExtraAccounts).ToList() : Accounts.ToList())
             {
                 var user = await users.FindByNameAsync(spec.UserName);
                 if (user == null)
@@ -147,12 +158,12 @@ namespace ServiceDeskAPI.Infrastructure.Services
                     await RoleAssignments.EnsureRoleAsync(db, user.Id, role, null);
             }
 
-            await PlaceInOrganisationAsync(scope.ServiceProvider, users, logger);
+            await PlaceInOrganisationAsync(scope.ServiceProvider, users, logger, includeExtras);
             logger.LogInformation("Test accounts ready ({Created} created): {Names}.", created, string.Join(", ", Accounts.Select(a => a.UserName)));
         }
 
         /// <summary>Puts the test accounts into Contribution Processing. Each call is a no-op when already done.</summary>
-        private static async Task PlaceInOrganisationAsync(IServiceProvider services, UserManager<User> users, ILogger logger)
+        private static async Task PlaceInOrganisationAsync(IServiceProvider services, UserManager<User> users, ILogger logger, bool includeExtras = false)
         {
             var org = services.GetRequiredService<IOrganisationService>();
             async Task<Guid?> Id(string name) => (await users.FindByNameAsync(name)) is { PasswordHash: not null } u ? u.Id : null;
@@ -173,6 +184,8 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (cw4.HasValue) Log(logger, "test.caseworker4 in Refund", await org.AddMemberAsync(OrgSeed.RefundUnitId, cw4.Value, null, null));
             if (hou2.HasValue) Log(logger, "Head of Refund", await org.SetUnitHeadAsync(OrgSeed.RefundUnitId, hou2, null));
 
+            if (includeExtras) await PlaceExtrasAsync(services, users, logger);
+
             // Step 3: each test case worker (heads included) handles every active category of their unit, so each category has
             // three eligible people. Only for people with no mapping yet, so changes made on the skills page survive a restart.
             var db = services.GetRequiredService<AppDbContext>();
@@ -190,6 +203,29 @@ namespace ServiceDeskAPI.Infrastructure.Services
                     if (!person.HasValue || await db.CategorySkills.AnyAsync(s => s.UserId == person.Value && s.IsActive)) continue;
                     Log(logger, "Categories for a test case worker", await catalogue.SetSkillsAsync(unitId, person.Value, categoryIds, null));
                 }
+            }
+        }
+
+        /// <summary>Case workers 5 and 6: members of Contribution Matching and Refund, each mapped to the first category of their unit only (only while they have no mapping, so the skills page wins).</summary>
+        private static async Task PlaceExtrasAsync(IServiceProvider services, UserManager<User> users, ILogger logger)
+        {
+            var org = services.GetRequiredService<IOrganisationService>();
+            var db = services.GetRequiredService<AppDbContext>();
+            var catalogue = services.GetRequiredService<ICatalogueService>();
+            var placements = new (string UserName, Guid UnitId)[]
+            {
+                ("test.caseworker5", OrgSeed.ContributionMatchingUnitId),
+                ("test.caseworker6", OrgSeed.RefundUnitId)
+            };
+            foreach (var (userName, unitId) in placements)
+            {
+                var user = await users.FindByNameAsync(userName);
+                if (user == null || user.PasswordHash == null) continue;
+                Log(logger, userName + " in their unit", await org.AddMemberAsync(unitId, user.Id, null, null));
+                if (await db.CategorySkills.AnyAsync(s => s.UserId == user.Id && s.IsActive)) continue;
+                var first = await db.Categories.Where(c => c.UnitId == unitId && c.IsActive).OrderBy(c => c.SortOrder).Select(c => c.Id).FirstOrDefaultAsync();
+                if (first != Guid.Empty)
+                    Log(logger, userName + " first category", await catalogue.SetSkillsAsync(unitId, user.Id, new[] { first }, null));
             }
         }
 
