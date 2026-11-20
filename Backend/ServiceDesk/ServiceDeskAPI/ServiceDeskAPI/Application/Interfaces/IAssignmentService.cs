@@ -21,6 +21,11 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(TicketProblem? Problem, string? Message)> ReassignAsync(Guid ticketId, ReassignRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, List<TicketAssignmentDto>? History)> GetHistoryAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
 
+        /// <summary>New tickets waiting in the units the person works in: members see their mapped categories, a head sees every category of the unit.</summary>
+        Task<List<PoolTicketDto>> ListPoolAsync(Guid actorUserId);
+
+        /// <summary>Claims a New ticket from the unit pool. Members: only categories they handle. Head: any category of the unit.</summary>
+        Task<(TicketProblem? Problem, string? Message)> PickAsync(Guid ticketId, Guid actorUserId);
         /// <summary>The person searching is left out of their own results.</summary>
         Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query, Guid actorUserId);
     }

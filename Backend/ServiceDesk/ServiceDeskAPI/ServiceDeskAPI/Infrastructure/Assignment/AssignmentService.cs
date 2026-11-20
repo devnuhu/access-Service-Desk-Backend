@@ -399,6 +399,77 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             }).ToList());
         }
 
+        // ---------------- picking from the unit pool ----------------
+
+        public async Task<List<PoolTicketDto>> ListPoolAsync(Guid actorUserId)
+        {
+            var memberUnits = await _db.UnitMembers.AsNoTracking()
+                .Where(m => m.UserId == actorUserId && m.IsActive && m.Unit!.IsActive)
+                .Select(m => m.UnitId).ToListAsync();
+            if (memberUnits.Count == 0) return new List<PoolTicketDto>();
+            var headOf = await _db.Units.AsNoTracking().Where(u => u.HeadUserId == actorUserId).Select(u => u.Id).ToListAsync();
+            var mySkills = await _db.CategorySkills.AsNoTracking().Where(s => s.UserId == actorUserId && s.IsActive).Select(s => s.CategoryId).ToListAsync();
+
+            var rows = await _db.Tickets.AsNoTracking()
+                .Where(t => t.Status == TicketStatus.New && t.AssigneeUserId == null && memberUnits.Contains(t.UnitId))
+                .Where(t => headOf.Contains(t.UnitId) || mySkills.Contains(t.CategoryId))
+                .OrderBy(t => t.CreatedAt).Take(200)
+                .Select(t => new PoolTicketDto
+                {
+                    Id = t.Id, Reference = t.Reference, UnitId = t.UnitId, UnitName = t.Unit!.Name, CategoryId = t.CategoryId,
+                    CategoryName = t.Category!.Name, Priority = t.Priority, CreatedAt = t.CreatedAt
+                }).ToListAsync();
+            return rows;
+        }
+
+        public async Task<(TicketProblem? Problem, string? Message)> PickAsync(Guid ticketId, Guid actorUserId)
+        {
+            await Gate.WaitAsync();
+            try
+            {
+                var (problem, ticket, _) = await LoadForStaffAsync(ticketId, actorUserId, false);
+                if (problem != null) return (problem, null);
+                if (ticket!.Status != TicketStatus.New || ticket.AssigneeUserId.HasValue)
+                    return (new TicketProblem(409, "This ticket is no longer waiting in the pool."), null);
+                if (!await _db.UnitMembers.AnyAsync(m => m.UserId == actorUserId && m.UnitId == ticket.UnitId && m.IsActive))
+                    return (new TicketProblem(403, "Only members of " + ticket.Unit!.Name + " can pick from its pool."), null);
+                var isHead = ticket.Unit!.HeadUserId == actorUserId;
+                if (!isHead && !(await _catalogue.EligibleCaseWorkerIdsAsync(ticket.CategoryId)).Contains(actorUserId))
+                    return (new TicketProblem(403, "You are not mapped to " + ticket.Category!.Name + ". Ask the head of " + ticket.Unit.Name + " to assign it."), null);
+                if (!await _availability.IsAvailableAsync(actorUserId))
+                    return (new TicketProblem(400, "You are marked unavailable today."), null);
+
+                var now = DateTime.UtcNow;
+                const string why = "Picked from the unit pool";
+                await ApplyAsync(ticket, actorUserId, ticket.UnitId, now, actorUserId, why);
+                _db.TicketAssignments.Add(new TicketAssignment
+                {
+                    Id = Guid.NewGuid(), TicketId = ticket.Id, FromUserId = null, ToUserId = actorUserId, Method = AssignmentMethod.Picked,
+                    Reason = why, ByUserId = actorUserId, FromUnitId = ticket.UnitId, ToUnitId = ticket.UnitId, At = now
+                });
+                Stage(AuditAction.Assigned, ticket, null, actorUserId, why, null);
+
+                var name = await NameOfAsync(actorUserId);
+                var link = "/tickets/" + ticket.Reference;
+                _notifications.Stage(ticket.RequesterUserId, "Ticket " + ticket.Reference + " picked up",
+                    name + " in " + ticket.Unit.Name + " is handling your " + ticket.Category!.Name + " request.",
+                    NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
+                TellHeads(ticket.Unit, actorUserId, "Ticket " + ticket.Reference + " picked",
+                    name + " picked it from the pool.", NotificationType.Info, ticket);
+
+                try { await _db.SaveChangesAsync(); }
+                catch (DbUpdateConcurrencyException)
+                {
+                    return (new TicketProblem(409, "Someone else took this ticket at the same moment."), null);
+                }
+                return (null, "Ticket " + ticket.Reference + " is now yours. Acknowledge it to start work.");
+            }
+            finally
+            {
+                _db.ChangeTracker.Clear();
+                Gate.Release();
+            }
+        }
         // ---------------- people search (for copying colleagues) ----------------
 
         public async Task<(TicketProblem? Problem, List<PersonSearchResultDto>? People)> SearchPeopleAsync(string? query, Guid actorUserId)

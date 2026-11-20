@@ -59,6 +59,18 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Reason { get; set; } = string.Empty;
     }
 
+    /// <summary>A New ticket waiting in a unit's pool that the signed-in person may pick.</summary>
+    public class PoolTicketDto
+    {
+        public Guid Id { get; set; }
+        public string Reference { get; set; } = string.Empty;
+        public Guid UnitId { get; set; }
+        public string UnitName { get; set; } = string.Empty;
+        public Guid CategoryId { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
+        public ServiceDeskAPI.Domain.Enums.TicketPriority Priority { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
     /// <summary>Anyone signed in can look people up to copy them on a ticket: name, login name and department only.</summary>
     public record PersonSearchResultDto(Guid UserId, string UserName, string? FullName, string? Department);
 }

@@ -6,7 +6,9 @@ namespace ServiceDeskAPI.Domain.Entities
         /// <summary>The engine chose (lowest weighted workload, then least recently assigned).</summary>
         Auto = 1,
         /// <summary>A person moved it (the holder, the Head of Unit, the HOD or a Super Admin), with a reason.</summary>
-        Reassigned = 2
+        Reassigned = 2,
+        /// <summary>A member or the head took it from the unit pool.</summary>
+        Picked = 3
     }
 
     /// <summary>

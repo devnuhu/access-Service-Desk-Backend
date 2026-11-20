@@ -53,6 +53,18 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && message != null ? Ok(new MessageDto(message)) : Fail(problem!);
         }
 
+        /// <summary>Claims a New ticket from the unit pool (a member of the unit mapped to the category, or the unit's head).</summary>
+        [HttpPost("pick")]
+        [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status409Conflict)]
+        public async Task<ActionResult<MessageDto>> Pick(Guid ticketId)
+        {
+            var (problem, message) = await _assignment.PickAsync(ticketId, Me());
+            return problem == null && message != null ? Ok(new MessageDto(message)) : Fail(problem!);
+        }
         /// <summary>Every assignment of the ticket, oldest first, with the workloads the engine compared.</summary>
         [HttpGet("assignments")]
         [ProducesResponseType(typeof(List<TicketAssignmentDto>), StatusCodes.Status200OK)]
@@ -65,6 +77,23 @@ namespace ServiceDeskAPI.Controllers
         }
     }
 
+    /// <summary>The unit pool: New tickets waiting for someone in the units the signed-in person works in.</summary>
+    [ApiController]
+    [Route("api/pool")]
+    [Authorize]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public class PoolController : ControllerBase
+    {
+        private readonly IAssignmentService _assignment;
+
+        public PoolController(IAssignmentService assignment) => _assignment = assignment;
+
+        [HttpGet]
+        [ProducesResponseType(typeof(List<PoolTicketDto>), StatusCodes.Status200OK)]
+        public async Task<ActionResult<List<PoolTicketDto>>> List() =>
+            Ok(await _assignment.ListPoolAsync(Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value)));
+    }
     /// <summary>Looking people up to copy them on a ticket (any signed-in person): name, login name and department only.</summary>
     [ApiController]
     [Route("api/people")]
