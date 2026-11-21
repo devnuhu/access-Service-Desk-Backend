@@ -102,7 +102,7 @@ namespace ServiceDeskAPI.Infrastructure.Catalogue
                 .Select(m => new SkillMemberDto
                 {
                     UserId = m.UserId, UserName = m.User!.UserName ?? string.Empty, FullName = m.User.FullName,
-                    StaffCategory = m.StaffCategory, AccountActive = m.User.IsActive
+                    StaffCategory = m.StaffCategory, AccountActive = m.User.IsActive, IsHead = unit.HeadUserId == m.UserId
                 })
                 .ToListAsync();
             var memberIds = members.Select(m => m.UserId).ToList();
@@ -332,7 +332,7 @@ namespace ServiceDeskAPI.Infrastructure.Catalogue
         /// <summary>Mapped, still a member of the owning unit, account active, unit active.</summary>
         private IQueryable<CategorySkill> EligibleSkills() =>
             _db.CategorySkills.AsNoTracking().Where(s => s.IsActive && s.User!.IsActive && s.Category!.Unit!.IsActive
-                && _db.UnitMembers.Any(m => m.UserId == s.UserId && m.UnitId == s.Category.UnitId && m.IsActive));
+                && s.Category.Unit!.HeadUserId != s.UserId && _db.UnitMembers.Any(m => m.UserId == s.UserId && m.UnitId == s.Category.UnitId && m.IsActive));
 
         private async Task<Dictionary<Guid, int>> EligibleCountsAsync(List<Guid> categoryIds)
         {

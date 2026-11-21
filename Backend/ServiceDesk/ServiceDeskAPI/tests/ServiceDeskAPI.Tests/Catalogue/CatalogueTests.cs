@@ -76,8 +76,8 @@ namespace ServiceDeskAPI.Tests.Catalogue
             Assert.All(seeded, c => Assert.Equal(24, c.TimelineHours));
             Assert.All(seeded, c => Assert.Equal(TicketPriority.Medium, c.DefaultPriority));
             Assert.Equal("Refund", seeded.Single(c => c.Name == "Transaction History Request").UnitName);
-            // Development: three test people handle every category of their unit
-            Assert.All(seeded, c => Assert.Equal(3, c.EligibleCount));
+            // Development: two test case workers handle every category of their unit (the head is ticked too, but heads are not counted)
+            Assert.All(seeded, c => Assert.Equal(2, c.EligibleCount));
             Assert.DoesNotContain(seeded, c => c.NeedsCover);
         }
 

@@ -277,14 +277,14 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
         private async Task<List<ReassignCandidateDto>> CandidatesAsync(Ticket ticket, Scope scope)
         {
             var units = scope == Scope.Department
-                ? await _db.Units.AsNoTracking().Where(u => u.DepartmentId == ticket.DepartmentId && u.IsActive).Select(u => new { u.Id, u.Name }).ToListAsync()
-                : new[] { new { Id = ticket.UnitId, Name = ticket.Unit!.Name } }.ToList();
+                ? await _db.Units.AsNoTracking().Where(u => u.DepartmentId == ticket.DepartmentId && u.IsActive).Select(u => new { u.Id, u.Name, u.HeadUserId }).ToListAsync()
+                : new[] { new { Id = ticket.UnitId, Name = ticket.Unit!.Name, HeadUserId = ticket.Unit.HeadUserId } }.ToList();
             var mapped = (await _catalogue.EligibleCaseWorkerIdsAsync(ticket.CategoryId)).ToHashSet();
             var result = new List<ReassignCandidateDto>();
             foreach (var unit in units)
             {
                 var available = await _availability.AvailableMemberIdsAsync(unit.Id);
-                if (scope == Scope.Unit) available = available.Where(mapped.Contains).ToList();
+                if (scope == Scope.Unit) available = available.Where(id => mapped.Contains(id) || id == unit.HeadUserId).ToList();
                 if (available.Count == 0) continue;
                 var people = await _db.Users.AsNoTracking().Where(u => available.Contains(u.Id))
                     .Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync();

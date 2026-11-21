@@ -83,6 +83,9 @@ namespace ServiceDeskAPI.Application.DTOs
 
     public class SkillMemberDto
     {
+        /// <summary>True for the head of the unit: heads are not assigned automatically, so their ticks do not count.</summary>
+        public bool IsHead { get; set; }
+
         public Guid UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
         public string? FullName { get; set; }
