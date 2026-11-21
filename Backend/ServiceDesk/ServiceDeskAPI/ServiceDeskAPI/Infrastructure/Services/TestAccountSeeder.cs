@@ -46,7 +46,10 @@ namespace ServiceDeskAPI.Infrastructure.Services
         {
             new("test.requester2", "Test Requester Two", "Finance", new[] { AppRoles.Requester }),
             new("test.caseworker5", "Test Case Worker Five", "Contribution Processing", new[] { AppRoles.Requester }),
-            new("test.caseworker6", "Test Case Worker Six", "Contribution Processing", new[] { AppRoles.Requester })
+            new("test.caseworker6", "Test Case Worker Six", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.fundhead", "Test Head of Fund Unit", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.fundcw1", "Test Fund Case Worker One", "Contribution Processing", new[] { AppRoles.Requester }),
+            new("test.fundcw2", "Test Fund Case Worker Two", "Contribution Processing", new[] { AppRoles.Requester })
         };
 
         private static readonly Regex NameRule = new(@"^test\.[a-z0-9._-]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -185,6 +188,7 @@ namespace ServiceDeskAPI.Infrastructure.Services
             if (hou2.HasValue) Log(logger, "Head of Refund", await org.SetUnitHeadAsync(OrgSeed.RefundUnitId, hou2, null));
 
             if (includeExtras) await PlaceExtrasAsync(services, users, logger);
+            if (includeExtras) await PlaceFundUnitAsync(services, users, logger);
 
             // Step 3: each test case worker (heads included) handles every active category of their unit, so each category has
             // three eligible people. Only for people with no mapping yet, so changes made on the skills page survive a restart.
@@ -226,6 +230,51 @@ namespace ServiceDeskAPI.Infrastructure.Services
                 var first = await db.Categories.Where(c => c.UnitId == unitId && c.IsActive).OrderBy(c => c.SortOrder).Select(c => c.Id).FirstOrDefaultAsync();
                 if (first != Guid.Empty)
                     Log(logger, userName + " first category", await catalogue.SetSkillsAsync(unitId, user.Id, new[] { first }, null));
+            }
+        }
+
+        /// <summary>
+        /// Development: a Fund Unit (code FU) in Contribution Processing, created through the organisation service when it is missing, with test.fundhead as
+        /// head, test.fundcw1 and test.fundcw2 as case workers, and three placeholder categories (rename or move them on the Super Admin pages). Everyone handles
+        /// every category, and only while they have no mapping, so changes made on the skills page survive a restart. Safe to run on every start.
+        /// </summary>
+        private static async Task PlaceFundUnitAsync(IServiceProvider services, UserManager<User> users, ILogger logger)
+        {
+            var org = services.GetRequiredService<IOrganisationService>();
+            var db = services.GetRequiredService<AppDbContext>();
+            var catalogue = services.GetRequiredService<ICatalogueService>();
+
+            var head = await users.FindByNameAsync("test.fundhead");
+            var cw1 = await users.FindByNameAsync("test.fundcw1");
+            var cw2 = await users.FindByNameAsync("test.fundcw2");
+            if (head?.PasswordHash == null || cw1?.PasswordHash == null || cw2?.PasswordHash == null) return;
+
+            var unitId = await db.Units.Where(u => u.DepartmentId == OrgSeed.ContributionProcessingId && u.Code == "FU").Select(u => u.Id).FirstOrDefaultAsync();
+            if (unitId == Guid.Empty)
+            {
+                var (created, unit) = await org.CreateUnitAsync(OrgSeed.ContributionProcessingId, new CreateUnitRequest { Code = "FU", Name = "Fund Unit" }, null);
+                if (!created.Success || unit == null) { Log(logger, "Fund Unit", created); return; }
+                unitId = unit.Id;
+            }
+
+            Log(logger, "Head of Fund Unit", await org.SetUnitHeadAsync(unitId, head.Id, null));
+            Log(logger, "test.fundcw1 in Fund Unit", await org.AddMemberAsync(unitId, cw1.Id, null, null));
+            Log(logger, "test.fundcw2 in Fund Unit", await org.AddMemberAsync(unitId, cw2.Id, null, null));
+
+            if (!await db.Categories.AnyAsync(c => c.UnitId == unitId))
+            {
+                foreach (var name in new[] { "Fund Transfer Query", "Fund Statement Request", "Fund Valuation Query" })
+                {
+                    var (made, _) = await catalogue.CreateAsync(new CreateCategoryRequest { UnitId = unitId, Name = name, TimelineHours = 24 }, null);
+                    Log(logger, "Fund Unit category " + name, made);
+                }
+            }
+
+            var categoryIds = await db.Categories.Where(c => c.UnitId == unitId && c.IsActive).Select(c => c.Id).ToListAsync();
+            foreach (var person in new[] { head, cw1, cw2 })
+            {
+                if (await db.CategorySkills.AnyAsync(s => s.UserId == person.Id && s.IsActive)) continue;
+                Log(logger, "Fund Unit categories for " + person.UserName, await catalogue.SetSkillsAsync(unitId, person.Id, categoryIds, null));
             }
         }
 
