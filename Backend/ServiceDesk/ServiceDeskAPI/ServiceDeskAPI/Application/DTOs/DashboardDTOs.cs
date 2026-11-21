@@ -16,6 +16,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public int FarPast { get; set; }
         /// <summary>Escalated to the unit head.</summary>
         public int Escalated { get; set; }
+        /// <summary>Open, the case worker ran out of the first-response time and has still not answered.</summary>
+        public int ResponseOverdue { get; set; }
     }
 
     public class DashboardUnitDto : DashboardCountsDto
@@ -45,6 +47,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public int RaisedOpen { get; set; }
         /// <summary>Tickets the person raised that are Resolved and wait for them to confirm or reopen.</summary>
         public int ToConfirm { get; set; }
+        /// <summary>My open tickets that I have not answered in time.</summary>
+        public int ResponseOverdue { get; set; }
     }
 
     /// <summary>New tickets nobody holds yet, in one category of the unit (the unit pool).</summary>
@@ -70,6 +74,12 @@ namespace ServiceDeskAPI.Application.DTOs
         public int FarPast { get; set; }
         public bool OnLeave { get; set; }
         public DateOnly? LeaveUntil { get; set; }
+        /// <summary>Open tickets they hold that missed the first-response time and are still unanswered.</summary>
+        public int ResponseOverdue { get; set; }
+        /// <summary>Tickets assigned in the last 30 days where they missed the first-response time.</summary>
+        public int ResponseMissed { get; set; }
+        /// <summary>Last 30 days: answered in time / (answered in time + missed), in percent. Null when there is nothing to measure yet.</summary>
+        public double? ResponseMetPercent { get; set; }
     }
 
     /// <summary>One category of the unit: how many people can take it and how many open tickets it has.</summary>

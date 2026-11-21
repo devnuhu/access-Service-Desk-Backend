@@ -40,7 +40,7 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                 {
                     t.Id, t.Reference, t.CategoryId, CategoryName = t.Category!.Name, t.AssigneeUserId,
                     AssigneeName = t.AssigneeUser == null ? null : (t.AssigneeUser.FullName ?? t.AssigneeUser.UserName),
-                    t.Status, t.CreatedAt, t.SlaWarnedAt, t.SlaBreachedAt, t.SlaL2At, t.EscalatedToHeadAt, t.EscalatedToHeadReason
+                    t.Status, t.CreatedAt, t.SlaWarnedAt, t.SlaBreachedAt, t.SlaL2At, t.EscalatedToHeadAt, t.EscalatedToHeadReason, t.FirstRespondedAt, t.FirstResponseMissedAt
                 }).ToListAsync();
 
             var result = new UnitDashboardDto
@@ -54,7 +54,8 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                     Warning = tickets.Count(t => t.SlaWarnedAt != null && t.SlaBreachedAt == null),
                     Overdue = tickets.Count(t => t.SlaBreachedAt != null && t.SlaL2At == null),
                     FarPast = tickets.Count(t => t.SlaL2At != null),
-                    Escalated = tickets.Count(t => t.EscalatedToHeadAt != null)
+                    Escalated = tickets.Count(t => t.EscalatedToHeadAt != null),
+                    ResponseOverdue = tickets.Count(t => t.FirstResponseMissedAt != null && t.FirstRespondedAt == null)
                 }
             };
 
@@ -69,10 +70,15 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                 .Where(a => !a.IsCancelled && a.StartDate <= today && a.EndDate >= today
                     && _db.UnitMembers.Any(m => m.UnitId == unitId && m.IsActive && m.UserId == a.UserId))
                 .Select(a => new { a.UserId, a.EndDate }).ToListAsync();
-            result.Team = members.Select(m =>
+                        var since = DateTime.UtcNow.AddDays(-30);
+            var recent = await _db.Tickets.AsNoTracking()
+                .Where(t => t.UnitId == unitId && t.AssignedAt >= since && t.Status != TicketStatus.Cancelled)
+                .Select(t => new { t.AssigneeUserId, t.AssignedAt, t.FirstRespondedAt, t.FirstResponseMissedAt, t.FirstResponseMissedByUserId }).ToListAsync();result.Team = members.Select(m =>
             {
                 var mine = tickets.Where(t => t.AssigneeUserId == m.UserId).ToList();
                 var leave = away.FirstOrDefault(x => x.UserId == m.UserId);
+                var rMissed = recent.Count(t => t.FirstResponseMissedAt != null && t.FirstResponseMissedByUserId == m.UserId);
+                var rMet = recent.Count(t => t.AssigneeUserId == m.UserId && t.FirstRespondedAt != null && t.AssignedAt != null && t.FirstRespondedAt >= t.AssignedAt && t.FirstResponseMissedAt == null);
                 return new DashboardMemberDto
                 {
                     UserId = m.UserId, UserName = m.UserName ?? string.Empty, FullName = m.FullName, IsHead = unit.HeadUserId == m.UserId,
@@ -81,6 +87,9 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                     Warning = mine.Count(t => t.SlaWarnedAt != null && t.SlaBreachedAt == null),
                     Overdue = mine.Count(t => t.SlaBreachedAt != null && t.SlaL2At == null),
                     FarPast = mine.Count(t => t.SlaL2At != null),
+                    ResponseOverdue = mine.Count(t => t.FirstResponseMissedAt != null && t.FirstRespondedAt == null),
+                    ResponseMissed = rMissed,
+                    ResponseMetPercent = rMissed + rMet == 0 ? (double?)null : Math.Round(rMet * 100.0 / (rMissed + rMet), 1),
                     OnLeave = leave != null,
                     LeaveUntil = leave == null ? (DateOnly?)null : leave.EndDate
                 };
@@ -126,6 +135,7 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                     FarPast = g.Count(t => t.SlaL2At != null)
                 }).FirstOrDefaultAsync();
             if (mine != null) result.Mine = mine;
+            result.Mine.ResponseOverdue = await _db.Tickets.AsNoTracking().CountAsync(t => t.AssigneeUserId == userId && Open.Contains(t.Status) && t.FirstResponseMissedAt != null && t.FirstRespondedAt == null);
             result.Mine.RaisedOpen = await _db.Tickets.AsNoTracking().CountAsync(t => t.RequesterUserId == userId && Open.Contains(t.Status));
             result.Mine.ToConfirm = await _db.Tickets.AsNoTracking().CountAsync(t => t.RequesterUserId == userId && t.Status == TicketStatus.Resolved);
 
@@ -151,7 +161,8 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                     Warning = g.Count(t => t.SlaWarnedAt != null && t.SlaBreachedAt == null),
                     Overdue = g.Count(t => t.SlaBreachedAt != null && t.SlaL2At == null),
                     FarPast = g.Count(t => t.SlaL2At != null),
-                    Escalated = g.Count(t => t.EscalatedToHeadAt != null)
+                    Escalated = g.Count(t => t.EscalatedToHeadAt != null),
+                    ResponseOverdue = g.Count(t => t.FirstResponseMissedAt != null && t.FirstRespondedAt == null)
                 }).ToListAsync()).ToDictionary(c => c.UnitId);
 
             var overview = new DashboardOverviewDto();
@@ -161,11 +172,11 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
                 if (counts.TryGetValue(u.Id, out var c))
                 {
                     row.Open = c.Open; row.WaitingToStart = c.WaitingToStart; row.Unassigned = c.Unassigned; row.Warning = c.Warning;
-                    row.Overdue = c.Overdue; row.FarPast = c.FarPast; row.Escalated = c.Escalated;
+                    row.Overdue = c.Overdue; row.FarPast = c.FarPast; row.Escalated = c.Escalated; row.ResponseOverdue = c.ResponseOverdue;
                 }
                 overview.Units.Add(row);
                 overview.Total.Open += row.Open; overview.Total.WaitingToStart += row.WaitingToStart; overview.Total.Unassigned += row.Unassigned;
-                overview.Total.Warning += row.Warning; overview.Total.Overdue += row.Overdue; overview.Total.FarPast += row.FarPast; overview.Total.Escalated += row.Escalated;
+                overview.Total.Warning += row.Warning; overview.Total.Overdue += row.Overdue; overview.Total.FarPast += row.FarPast; overview.Total.Escalated += row.Escalated; overview.Total.ResponseOverdue += row.ResponseOverdue;
             }
             result.Overview = overview;
             return result;

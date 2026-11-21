@@ -17,6 +17,8 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         /// <summary>Public holidays as yyyy-MM-dd. The clock does not run on these days.</summary>
         public List<string> Holidays { get; set; } = new();
         public int WarnPercent { get; set; } = 50;
+        /// <summary>Business hours a case worker has to acknowledge or answer a ticket after it is assigned to them. 0 switches the check off.</summary>
+        public int FirstResponseHours { get; set; } = 4;
         public int L1Percent { get; set; } = 100;
         public int L2Percent { get; set; } = 150;
         /// <summary>Only tickets raised on or after this date (UTC, yyyy-MM-dd) are tracked. Empty tracks all. Set it on go-live so old tickets do not trigger alerts.</summary>

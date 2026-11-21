@@ -1202,6 +1202,12 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("FirstRespondedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("FirstResponseMissedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("FirstResponseMissedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
 

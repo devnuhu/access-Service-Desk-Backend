@@ -37,6 +37,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         public async Task<int> CheckAsync(DateTime nowUtc, CancellationToken cancellationToken = default)
         {
             var clock = BusinessClock.From(_options);
+            await CheckFirstResponseAsync(clock, nowUtc, cancellationToken);
             var query = _db.Tickets.AsNoTracking().Where(t => Running.Contains(t.Status) && t.SlaL2At == null);
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);
@@ -72,7 +73,42 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             return moved;
         }
 
-        private async Task<bool> ApplyAsync(Guid ticketId, int stored, int level, double percent, DateTime now, CancellationToken ct)
+                /// <summary>
+        /// A ticket whose case worker has not acknowledged or answered it within FirstResponseHours (business hours from when it was assigned to them):
+        /// the miss is recorded once against that person, they get a reminder and the unit's head is told. Replies by someone else do not count (see TicketService).
+        /// </summary>
+        private async Task CheckFirstResponseAsync(BusinessClock clock, DateTime nowUtc, CancellationToken ct)
+        {
+            var hours = _options.FirstResponseHours;
+            if (hours <= 0) return;
+            var query = _db.Tickets.Where(t => t.AssigneeUserId != null && t.AssignedAt != null && t.FirstRespondedAt == null && t.FirstResponseMissedAt == null
+                && (t.Status == TicketStatus.Assigned || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.Reopened));
+            if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
+                query = query.Where(t => t.CreatedAt >= trackFrom);
+            var candidates = await query.OrderBy(t => t.AssignedAt).Take(200).ToListAsync(ct);
+
+            var changed = false;
+            foreach (var ticket in candidates)
+            {
+                var due = clock.AddBusinessMinutes(ticket.AssignedAt!.Value, hours * 60.0);
+                if (nowUtc <= due) continue;
+                ticket.FirstResponseMissedAt = nowUtc;
+                ticket.FirstResponseMissedByUserId = ticket.AssigneeUserId;
+                var heads = await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, ticket.UnitId, DateOnly.FromDateTime(nowUtc.AddHours(_options.UtcOffsetHours)), ct);
+                Tell(ticket.AssigneeUserId!.Value, "Ticket " + ticket.Reference + " needs a first response",
+                    "It was assigned to you more than " + hours + " working hours ago and has not been acknowledged or answered. Please do it now.",
+                    NotificationType.ActionRequired, NotificationCategory.Escalation, ticket);
+                foreach (var head in heads.Where(h => h != ticket.AssigneeUserId).Distinct())
+                    Tell(head, "Ticket " + ticket.Reference + ": no first response",
+                        "The case worker has not responded within " + hours + " working hours.", NotificationType.Warning, NotificationCategory.Escalation, ticket);
+                changed = true;
+            }
+            if (!changed) return;
+            try { await _db.SaveChangesAsync(ct); }
+            catch (DbUpdateConcurrencyException) { _logger.LogInformation("First-response check: a ticket changed at the same moment; it will be looked at again in the next pass"); }
+            finally { _db.ChangeTracker.Clear(); }
+        }
+private async Task<bool> ApplyAsync(Guid ticketId, int stored, int level, double percent, DateTime now, CancellationToken ct)
         {
             var ticket = await _db.Tickets.Include(t => t.Category).FirstOrDefaultAsync(t => t.Id == ticketId, ct);
             if (ticket == null || !Running.Contains(ticket.Status)) return false;

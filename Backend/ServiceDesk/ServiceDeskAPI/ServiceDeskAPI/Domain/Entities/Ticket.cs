@@ -62,6 +62,10 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? AcknowledgedAt { get; set; }
         /// <summary>The first time anyone answered the requester: the earlier of the assignee's first acknowledgement and first public comment. Set once; kept when the ticket is reassigned.</summary>
         public DateTime? FirstRespondedAt { get; set; }
+        /// <summary>When the assigned case worker ran out of FirstResponseHours without acknowledging or answering. Set once.</summary>
+        public DateTime? FirstResponseMissedAt { get; set; }
+        /// <summary>The case worker who held it when the time ran out. Kept if the ticket is reassigned later.</summary>
+        public Guid? FirstResponseMissedByUserId { get; set; }
         /// <summary>SLA (step 7): when the warning (half the time used) was sent. Each level is sent once.</summary>
         public DateTime? SlaWarnedAt { get; set; }
         /// <summary>SLA level 1: when the ticket passed its deadline and the unit's head was told.</summary>
