@@ -202,6 +202,7 @@ namespace ServiceDeskAPI
             builder.Services.AddSingleton<IAssignmentSignal, ServiceDeskAPI.Infrastructure.Assignment.AssignmentSignal>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.IHolidayService, ServiceDeskAPI.Infrastructure.Sla.HolidayService>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.ICannedReplyService, ServiceDeskAPI.Infrastructure.Tickets.CannedReplyService>();
+builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.ICategoryTemplateService, ServiceDeskAPI.Infrastructure.Tickets.CategoryTemplateService>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.IUnitToolsService, ServiceDeskAPI.Infrastructure.Organisation.UnitToolsService>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.ISavedViewService, ServiceDeskAPI.Infrastructure.Tickets.SavedViewService>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.IBulkTicketService, ServiceDeskAPI.Infrastructure.Tickets.BulkTicketService>();

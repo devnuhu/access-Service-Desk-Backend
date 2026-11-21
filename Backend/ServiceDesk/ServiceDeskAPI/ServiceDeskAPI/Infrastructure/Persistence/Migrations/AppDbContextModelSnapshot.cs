@@ -309,6 +309,12 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
+                    b.Property<string>("TemplateDescriptionHtml")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TemplateSubject")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("TimelineHours")
                         .HasColumnType("int");
 

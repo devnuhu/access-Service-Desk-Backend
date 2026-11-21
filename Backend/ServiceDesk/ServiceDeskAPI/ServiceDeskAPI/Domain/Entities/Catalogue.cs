@@ -27,6 +27,11 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? UpdatedAt { get; set; }
         public Guid? UpdatedByUserId { get; set; }
 
+        /// <summary>Optional template: the subject the raise form suggests. May hold placeholders such as {{requester.name}}.</summary>
+        public string? TemplateSubject { get; set; }
+        /// <summary>Optional template: the description (rich text) the raise form suggests.</summary>
+        public string? TemplateDescriptionHtml { get; set; }
+
         public ICollection<CategorySkill> Skills { get; set; } = new List<CategorySkill>();
     }
 
