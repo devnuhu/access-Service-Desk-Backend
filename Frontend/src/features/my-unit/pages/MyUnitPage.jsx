@@ -129,7 +129,7 @@ export default function MyUnitPage() {
         ))}
       </div>
 
-      <div role="tabpanel" aria-label={label}>
+      <div key={tab} role="tabpanel" aria-label={label}>
         {tab === "overview" && (
           <UnitDashboard unitId={unitId} own={isHead} embedded />
         )}

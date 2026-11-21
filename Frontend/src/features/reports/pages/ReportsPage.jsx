@@ -213,29 +213,31 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {tab === "saved" ? (
-          <>
-            <ReadyMadeReports
-              catalogue={catalogue}
-              onRun={runBuiltIn}
-              onSaveAndEmail={saveAndEmail}
+        <div key={tab} className="tab-in">
+          {tab === "saved" ? (
+            <>
+              <ReadyMadeReports
+                catalogue={catalogue}
+                onRun={runBuiltIn}
+                onSaveAndEmail={saveAndEmail}
+              />
+              <SavedReportsTab
+                savedReports={savedReports}
+                schedules={scheduleList}
+                onEmailMe={emailMe}
+                onRun={runSaved}
+                onEdit={(report) => setSaving({ report })}
+              />
+            </>
+          ) : (
+            <SchedulesTab
+              schedules={schedules}
+              canAdd={Boolean(savedReports.data?.length)}
+              onAdd={() => setDialog({ savedReportId: "" })}
+              onEdit={(schedule) => setDialog({ schedule })}
             />
-            <SavedReportsTab
-              savedReports={savedReports}
-              schedules={scheduleList}
-              onEmailMe={emailMe}
-              onRun={runSaved}
-              onEdit={(report) => setSaving({ report })}
-            />
-          </>
-        ) : (
-          <SchedulesTab
-            schedules={schedules}
-            canAdd={Boolean(savedReports.data?.length)}
-            onAdd={() => setDialog({ savedReportId: "" })}
-            onEdit={(schedule) => setDialog({ schedule })}
-          />
-        )}
+          )}
+        </div>
       </Card>
 
       {running && (

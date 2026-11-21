@@ -56,7 +56,7 @@ describe("Sidebar from org/me", () => {
       await screen.findByRole("link", { name: "My unit" }),
     ).toHaveAttribute("href", "/units/u-cm");
     expect(linkNames()).toEqual([
-      "Unit dashboard",
+      "Dashboard",
       "Work queue",
       "Team availability",
       "My unit",

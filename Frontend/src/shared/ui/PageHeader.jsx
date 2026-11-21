@@ -45,11 +45,11 @@ export default function PageHeader({
             {kicker}
           </p>
         )}
-        <h1 className="mt-2 text-3xl font-normal tracking-tight text-brand-navy sm:text-[2.5rem] sm:leading-tight">
+        <h1 className="mt-2 text-2xl font-normal tracking-tight text-brand-navy sm:text-[2rem] sm:leading-tight">
           {title}
         </h1>
         {description && (
-          <p className="mt-2 max-w-3xl text-[15px] text-muted">{description}</p>
+          <p className="mt-1.5 max-w-3xl text-sm text-muted">{description}</p>
         )}
         {children}
       </div>

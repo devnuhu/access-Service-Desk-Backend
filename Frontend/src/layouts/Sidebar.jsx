@@ -11,9 +11,9 @@ function Item({ item, onNavigate }) {
     return (
       <span
         aria-disabled="true"
-        className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-muted"
+        className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted"
       >
-        <Icon aria-hidden="true" size={19} strokeWidth={1.75} />
+        <Icon aria-hidden="true" size={17} strokeWidth={1.75} />
         <span className="flex-1">{item.label}</span>
         <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
           Coming soon
@@ -28,7 +28,7 @@ function Item({ item, onNavigate }) {
       end={EXACT.has(item.to)}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `group flex items-start gap-3 rounded-lg px-3 py-2.5 text-[15px] leading-snug transition-colors ${
+        `group flex items-start gap-2.5 rounded-lg px-3 py-2 text-sm leading-snug transition-colors ${
           isActive
             ? "bg-white font-semibold text-brand-navy shadow-[inset_3px_0_0_var(--color-brand-orange),0_1px_2px_rgba(11,31,58,0.06)]"
             : "text-ink hover:bg-white/70 hover:text-brand-navy"
@@ -37,7 +37,7 @@ function Item({ item, onNavigate }) {
     >
       <Icon
         aria-hidden="true"
-        size={19}
+        size={17}
         strokeWidth={1.75}
         className="mt-px shrink-0 text-muted group-hover:text-brand-navy group-aria-[current=page]:text-brand-orange"
       />
@@ -75,7 +75,7 @@ function Section({ section, onNavigate }) {
           {section.subtitle}
         </p>
       )}
-      <ul id={listId} hidden={!open} className="mt-1 space-y-1">
+      <ul id={listId} hidden={!open} className="mt-1 space-y-0.5">
         {section.items.map((item) => (
           <li key={item.label}>
             <Item item={item} onNavigate={onNavigate} />
@@ -93,7 +93,7 @@ function Section({ section, onNavigate }) {
 export default function Sidebar({ user, onNavigate }) {
   const sections = useNavigationSections(user);
   return (
-    <nav aria-label="Main" className="flex flex-col gap-6 px-4 py-5">
+    <nav aria-label="Main" className="flex flex-col gap-5 px-3 py-4">
       {sections.map((section) => (
         <Section key={section.id} section={section} onNavigate={onNavigate} />
       ))}

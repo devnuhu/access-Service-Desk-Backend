@@ -478,7 +478,7 @@ export default function UnitDashboard({
             />
           )
         }
-        description={`Unit dashboard · Updated ${formatWatClock(dashboard.generatedAt)}`}
+        description={`Dashboard · Updated ${formatWatClock(dashboard.generatedAt)}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link to={`/units/${dashboard.unitId}`} className={quietLink}>

@@ -60,11 +60,11 @@ export default function UserMenu({ user }) {
       >
         <span
           aria-hidden="true"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-navy text-sm font-bold text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-navy text-xs font-bold text-white"
         >
           {initials(name)}
         </span>
-        <span className="hidden max-w-44 truncate text-[15px] font-medium sm:block">
+        <span className="hidden max-w-44 truncate text-sm font-medium sm:block">
           {name}
         </span>
         <span className="sr-only sm:hidden">Account menu for {name}</span>

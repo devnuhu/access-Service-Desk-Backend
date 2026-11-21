@@ -116,6 +116,8 @@ export const getUnitSkills = defineEndpoint({
         userName: z.string(),
         fullName: z.string().nullable(),
         staffCategory: z.number().int(),
+        /** The unit's head: their ticks are kept but never used for automatic assignment or cover. */
+        isHead: z.boolean().default(false),
         accountActive: z.boolean(),
         categoryIds: list(z.string()),
       }),

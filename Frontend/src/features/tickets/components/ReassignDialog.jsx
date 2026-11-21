@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { TriangleAlert } from "lucide-react";
+import { useSession } from "@/features/auth";
 import { fieldError } from "@/shared/lib/http";
 import { Button, Chip, Dialog, useToast } from "@/shared/ui";
 import { refreshTickets, useReassign } from "../hooks/useTickets.js";
@@ -14,7 +15,9 @@ import {
 /**
  * Choose who should handle the ticket, and why. Candidates come from reassign-options (grouped by
  * unit when there are several); the current assignee is shown but cannot be chosen. Choosing
- * someone in another unit warns that the ticket moves there.
+ * someone in another unit warns that the ticket moves there. Nobody is chosen at first, and
+ * Reassign stays disabled until someone is. Other people come first, lowest workload first; the
+ * signed-in person's own row is last and reads "You (take it myself)".
  */
 export default function ReassignDialog({ ticket, candidates, onClose }) {
   const toast = useToast();
@@ -24,9 +27,15 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
   const [reason, setReason] = useState("");
   const [errors, setErrors] = useState({});
   const [failure, setFailure] = useState(null);
+  const { user } = useSession();
+  const isMe = (person) => person.userId === user?.id;
 
+  // Others by workload (lowest first, the server's order on a tie); my own row last.
+  const ordered = [...candidates].sort(
+    (a, b) => Number(isMe(a)) - Number(isMe(b)) || a.workload - b.workload,
+  );
   const units = [];
-  for (const candidate of candidates) {
+  for (const candidate of ordered) {
     let unit = units.find((u) => u.unitId === candidate.unitId);
     if (!unit) {
       unit = {
@@ -86,7 +95,12 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form="reassign-form" busy={reassign.isPending}>
+          <Button
+            type="submit"
+            form="reassign-form"
+            busy={reassign.isPending}
+            disabled={!toUserId}
+          >
             Reassign
           </Button>
         </>
@@ -141,12 +155,20 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
                           htmlFor={id}
                           className={`min-w-0 flex-1 ${person.isCurrentAssignee ? "text-muted" : "cursor-pointer text-ink"}`}
                         >
-                          <span className="font-semibold">
-                            {personName(person)}
-                          </span>
-                          <span className="ml-1 text-xs text-muted">
-                            {person.userName}
-                          </span>
+                          {isMe(person) ? (
+                            <span className="font-semibold">
+                              You (take it myself)
+                            </span>
+                          ) : (
+                            <>
+                              <span className="font-semibold">
+                                {personName(person)}
+                              </span>
+                              <span className="ml-1 text-xs text-muted">
+                                {person.userName}
+                              </span>
+                            </>
+                          )}
                         </label>
                         <Chip tone="navy">Workload {person.workload}</Chip>
                         {person.handlesCategory ? (

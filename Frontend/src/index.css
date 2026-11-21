@@ -73,6 +73,18 @@
     background: var(--color-page);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    /* The scrollbar's room is kept on short pages too: content never shifts sideways. */
+    scrollbar-gutter: stable;
+  }
+
+  /* Links, buttons and tabs change colour smoothly instead of snapping. */
+  a,
+  button,
+  [role="tab"],
+  [role="menuitem"] {
+    transition-property: color, background-color, border-color, box-shadow;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
   }
 
   body {
@@ -232,6 +244,23 @@
   .rich-text .tableWrapper {
     overflow-x: auto;
   }
+}
+
+/* A page (or a tab's content) appears with a short fade and a 4px rise. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-in,
+[role="tabpanel"],
+.tab-in {
+  animation: page-in 180ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {

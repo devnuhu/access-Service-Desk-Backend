@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { ChevronRight, Menu, X } from "lucide-react";
 import { NotificationBell } from "@/features/notifications";
 import { useSession } from "@/features/auth";
@@ -14,12 +14,12 @@ import {
   useNavigationSections,
 } from "./useNavigation.js";
 
-const BAR = "h-[72px]";
+const BAR = "h-16";
 
 function Breadcrumbs({ crumbs }) {
   return (
     <nav aria-label="Breadcrumb" className="hidden min-w-0 md:block">
-      <ol className="flex items-center gap-2 text-[15px]">
+      <ol className="flex items-center gap-2 text-sm">
         {crumbs.map((crumb, i) => {
           const last = i === crumbs.length - 1;
           return (
@@ -122,19 +122,14 @@ export default function AppLayout() {
         <div className="flex-1 overflow-y-auto">
           <Sidebar user={user} onNavigate={() => setMenuOpen(false)} />
         </div>
-        <div className="shrink-0 space-y-0.5 border-t border-line px-5 py-4 text-xs text-muted">
-          <p>
-            {BRAND.name} · {BRAND.descriptor}
-          </p>
-          <p>
-            © {new Date().getFullYear()} {BRAND.company}. All rights reserved.
-          </p>
-        </div>
+        <p className="shrink-0 border-t border-line px-5 py-4 text-xs text-muted">
+          © {new Date().getFullYear()} {BRAND.company}. All rights reserved.
+        </p>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header
-          className={`sticky top-0 z-20 flex ${BAR} shrink-0 items-center gap-3 border-b border-line bg-white px-4 sm:px-8`}
+          className={`sticky top-0 z-20 flex ${BAR} shrink-0 items-center gap-3 border-b border-line/70 bg-page/80 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-page/70 sm:px-8 lg:px-12`}
         >
           <button
             type="button"
@@ -168,8 +163,11 @@ export default function AppLayout() {
           className="mx-auto w-full max-w-[1440px] min-w-0 flex-1 px-4 py-8 sm:px-8 lg:px-12"
         >
           <PageContext.Provider value={page}>
-            <Outlet />
+            <div key={pathname} className="page-in">
+              <Outlet />
+            </div>
           </PageContext.Provider>
+          <ScrollRestoration />
         </main>
       </div>
     </div>

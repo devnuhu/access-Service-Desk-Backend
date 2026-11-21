@@ -168,9 +168,7 @@ describe("Unit dashboard (Head of Unit)", () => {
       "Categories",
       "Past deadline",
     ]);
-    expect(
-      screen.getByText("Unit dashboard · Updated 10:05"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Dashboard · Updated 10:05")).toBeInTheDocument();
     // The line above the title: the unit, then its department.
     expect(screen.getByTestId("unit-eyebrow")).toHaveTextContent(
       "Contribution Matching · Contribution Processing",

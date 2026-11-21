@@ -73,6 +73,7 @@ const skills = (chidi = ["c-2"]) => ({
       userName: "test.hou",
       fullName: "Hope Head",
       staffCategory: 2,
+      isHead: true,
       accountActive: true,
       categoryIds: ["c-1", "c-2"],
     },
@@ -268,6 +269,16 @@ describe("My unit (head)", () => {
     expect(
       await screen.findByText("On leave until 24 Nov"),
     ).toBeInTheDocument();
+    // The head's row: greyed with the note, ticks shown but not changeable.
+    expect(screen.getByTestId("row-p-1")).toHaveAttribute("data-head", "true");
+    expect(
+      within(screen.getByTestId("row-p-1")).getByTestId("head-note"),
+    ).toHaveTextContent("Heads are not assigned automatically");
+    const headCell = screen.getByRole("checkbox", {
+      name: "Unmatched contribution for Hope Head",
+    });
+    expect(headCell).toBeChecked();
+    expect(headCell).toBeDisabled();
     const cell = screen.getByRole("checkbox", {
       name: "Unmatched contribution for Chidi One",
     });

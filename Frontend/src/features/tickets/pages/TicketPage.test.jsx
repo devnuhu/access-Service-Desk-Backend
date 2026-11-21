@@ -491,6 +491,16 @@ describe("Assignment panel", () => {
       name: "Reassign CP-2026-000001",
     });
 
+    // Nobody is chosen at first, so Reassign cannot be pressed yet.
+    expect(
+      within(dialog)
+        .getAllByRole("radio")
+        .some((radio) => radio.checked),
+    ).toBe(false);
+    expect(
+      within(dialog).getByRole("button", { name: "Reassign" }),
+    ).toBeDisabled();
+
     // Grouped by unit; the current assignee is shown but disabled.
     expect(within(dialog).getByText("Refund")).toBeInTheDocument();
     const current = within(dialog).getByTestId("candidate-chidi.one");
@@ -501,6 +511,9 @@ describe("Assignment panel", () => {
     const other = within(dialog).getByTestId("candidate-cole.two");
     expect(within(other).getByText("Not mapped")).toBeInTheDocument();
     await user.click(within(other).getByRole("radio"));
+    expect(
+      within(dialog).getByRole("button", { name: "Reassign" }),
+    ).toBeEnabled();
     expect(within(dialog).getByRole("status")).toHaveTextContent(
       "This moves the ticket to Refund.",
     );
@@ -533,6 +546,55 @@ describe("Assignment panel", () => {
         screen.queryByRole("dialog", { name: "Reassign CP-2026-000001" }),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it("lists others by workload (lowest first) and the signed-in person last, as You (take it myself)", async () => {
+    const user = userEvent.setup();
+    const ME = person("u-viewer", "Vera Viewer");
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, staffTicket()],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        {
+          canReassign: true,
+          reason: null,
+          candidates: [
+            candidate(ME, { workload: 0 }),
+            candidate(CW1, { isCurrentAssignee: true, workload: 4 }),
+            candidate(CW3, { workload: 2 }),
+            candidate(CW2, { workload: 1, handlesCategory: false }),
+          ],
+        },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    await user.click(await screen.findByRole("button", { name: "Reassign" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Reassign CP-2026-000001",
+    });
+    const rows = within(dialog).getAllByTestId(/^candidate-/);
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "candidate-cole.two",
+      "candidate-cara.three",
+      "candidate-chidi.one",
+      "candidate-vera.viewer",
+    ]);
+    const mine = rows[3];
+    expect(within(mine).getByText("You (take it myself)")).toBeInTheDocument();
+    expect(within(mine).queryByText("Vera Viewer")).toBeNull();
+    expect(within(mine).queryByText("vera.viewer")).toBeNull();
+    // The badges stay on every row.
+    expect(within(mine).getByText("Workload 0")).toBeInTheDocument();
+    expect(within(mine).getByText("Handles this category")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Not mapped")).toBeInTheDocument();
+    expect(within(rows[2]).getByText("Current")).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("button", { name: "Reassign" }),
+    ).toBeDisabled();
+    await user.click(within(mine).getByRole("radio"));
+    expect(
+      within(dialog).getByRole("button", { name: "Reassign" }),
+    ).toBeEnabled();
   });
 
   it("a 409 says the ticket changed and reloads", async () => {

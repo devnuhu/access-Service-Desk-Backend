@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.1",
   "info": {
-    "title": "Access Desk API",
+    "title": "Servio API",
     "version": "v1"
   },
   "paths": {
@@ -11180,6 +11180,9 @@
       "SkillMemberDto": {
         "type": "object",
         "properties": {
+          "isHead": {
+            "type": "boolean"
+          },
           "userId": {
             "type": "string",
             "format": "uuid"

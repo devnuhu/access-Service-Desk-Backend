@@ -367,7 +367,6 @@ const MATRIX = {
       userId: "p-hou2",
       userName: "test.hou2",
       fullName: "Test HOU2",
-      staffCategory: 2,
       categoryIds: ["c-a"],
     }),
     member({
@@ -381,6 +380,15 @@ const MATRIX = {
       userName: "test.caseworker4",
       fullName: "Test Caseworker4",
       accountActive: false,
+    }),
+    // The unit's head: ticks kept, never used for automatic assignment or cover.
+    member({
+      userId: "p-head",
+      userName: "test.hou",
+      fullName: "Test Head",
+      staffCategory: 2,
+      isHead: true,
+      categoryIds: ["c-a"],
     }),
   ],
   warnings: [
@@ -424,8 +432,22 @@ describe("Skills matrix", () => {
     expect(
       await screen.findByRole("heading", { name: "Refund: skills matrix" }),
     ).toBeInTheDocument();
-    const hou = screen.getByTestId("row-p-hou2");
-    expect(within(hou).getByText("Head of Unit")).toBeInTheDocument();
+    // The head: greyed, a Head badge and the note, ticks shown but boxes disabled, no All/None.
+    const head = screen.getByTestId("row-p-head");
+    expect(head).toHaveAttribute("data-head", "true");
+    expect(within(head).getByText("Head")).toBeInTheDocument();
+    expect(within(head).getByTestId("head-note")).toHaveTextContent(
+      "Heads are not assigned automatically",
+    );
+    expect(cell("Excess refund", "Test Head")).toBeChecked();
+    expect(cell("Excess refund", "Test Head")).toBeDisabled();
+    expect(cell("Test Category", "Test Head")).toBeDisabled();
+    expect(
+      within(head).queryByRole("button", { name: /every category/ }),
+    ).toBeNull();
+    // Other rows stay as they were.
+    expect(screen.getByTestId("row-p-hou2")).not.toHaveAttribute("data-head");
+    expect(cell("Test Category", "Test HOU2")).toBeEnabled();
     expect(
       within(screen.getByTestId("row-p-cw4")).getByText("Blocked"),
     ).toBeInTheDocument();

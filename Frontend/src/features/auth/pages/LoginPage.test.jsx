@@ -97,9 +97,8 @@ describe("LoginPage", () => {
     expect(
       screen.getByText("Every request, to the right team, on time."),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Updates by email\s*and in the app/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Updates by email")).toBeInTheDocument();
+    expect(screen.getByText("and in the app")).toBeInTheDocument();
     expect(container.querySelector("circle[r='250']")).toBeNull();
   });
 

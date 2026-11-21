@@ -362,110 +362,116 @@ function WorkQueue({
             onDone={clearSelection}
           />
         )}
-        {pooled ? (
-          <PoolTable
-            pool={poolHere}
-            showUnit={new Set(poolHere.data?.map((t) => t.unitId)).size > 1}
-            selected={selectedIds}
-            onSelect={(ticket, on) => select([ticket], on)}
-            onSelectAll={(on) => select(poolHere.data ?? [], on)}
-          />
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-3 px-5 pt-3">
-              <div className="relative min-w-56 flex-1">
-                <Search
-                  aria-hidden="true"
-                  size={16}
-                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-                />
-                <input
-                  type="search"
-                  aria-label="Search by reference, subject or description"
-                  placeholder="Reference, subject or description"
-                  value={text}
-                  onChange={(event) => setText(event.target.value)}
-                  className="h-10 w-full rounded-lg border border-line pr-3 pl-9 text-sm text-ink"
-                />
-              </div>
-              {wide && (
+        <div key={tab ?? "all"} className="tab-in">
+          {pooled ? (
+            <PoolTable
+              pool={poolHere}
+              showUnit={new Set(poolHere.data?.map((t) => t.unitId)).size > 1}
+              selected={selectedIds}
+              onSelect={(ticket, on) => select([ticket], on)}
+              onSelectAll={(on) => select(poolHere.data ?? [], on)}
+            />
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-3 px-5 pt-3">
+                <div className="relative min-w-56 flex-1">
+                  <Search
+                    aria-hidden="true"
+                    size={16}
+                    className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+                  />
+                  <input
+                    type="search"
+                    aria-label="Search by reference, subject or description"
+                    placeholder="Reference, subject or description"
+                    value={text}
+                    onChange={(event) => setText(event.target.value)}
+                    className="h-10 w-full rounded-lg border border-line pr-3 pl-9 text-sm text-ink"
+                  />
+                </div>
+                {wide && (
+                  <select
+                    aria-label="Unit"
+                    value={unitId}
+                    onChange={(event) => setUnitId(event.target.value)}
+                    className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+                  >
+                    <option value="">All units</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
-                  aria-label="Unit"
-                  value={unitId}
-                  onChange={(event) => setUnitId(event.target.value)}
+                  aria-label="Status"
+                  value={status}
+                  onChange={(event) => setStatus(event.target.value)}
                   className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
                 >
-                  <option value="">All units</option>
-                  {units.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
+                  <option value={OPEN}>Open</option>
+                  <option value={ALL}>All statuses</option>
+                  {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
                     </option>
                   ))}
                 </select>
-              )}
-              <select
-                aria-label="Status"
-                value={status}
-                onChange={(event) => setStatus(event.target.value)}
-                className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
-              >
-                <option value={OPEN}>Open</option>
-                <option value={ALL}>All statuses</option>
-                {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Sort"
-                value={sort}
-                onChange={(event) => setSortChoice(event.target.value)}
-                className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
-              >
-                {SORTS.map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
-              {chip(waiting, () => setWaiting((on) => !on), "Waiting to start")}
-              {chip(breached, () => setBreached((on) => !on), "Overdue")}
-              {chip(escalated, () => setEscalated((on) => !on), "Escalated")}
-              {sort === DUE_SOONEST && (
-                <span className="text-xs text-muted">
-                  Due soonest orders the tickets of this page.
-                </span>
-              )}
-            </div>
+                <select
+                  aria-label="Sort"
+                  value={sort}
+                  onChange={(event) => setSortChoice(event.target.value)}
+                  className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+                >
+                  {SORTS.map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
+                {chip(
+                  waiting,
+                  () => setWaiting((on) => !on),
+                  "Waiting to start",
+                )}
+                {chip(breached, () => setBreached((on) => !on), "Overdue")}
+                {chip(escalated, () => setEscalated((on) => !on), "Escalated")}
+                {sort === DUE_SOONEST && (
+                  <span className="text-xs text-muted">
+                    Due soonest orders the tickets of this page.
+                  </span>
+                )}
+              </div>
 
-            <TicketTable
-              queue
-              items={items}
-              isLoading={list.isLoading}
-              error={list.error}
-              dimmed={list.isPlaceholderData}
-              total={total}
-              page={page}
-              pages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
-              onPage={setPage}
-              selected={selectable ? selectedIds : undefined}
-              onSelect={(ticket, on) => select([ticket], on)}
-              onSelectAll={(on) => select(items, on)}
-              empty={
-                <p className="px-5 py-10 text-center text-sm text-muted">
-                  {filtered
-                    ? "No tickets match these filters."
-                    : assigned
-                      ? "Nothing assigned to you is open."
-                      : "No open tickets. New requests show here as they arrive."}
-                </p>
-              }
-            />
-          </>
-        )}
+              <TicketTable
+                queue
+                items={items}
+                isLoading={list.isLoading}
+                error={list.error}
+                dimmed={list.isPlaceholderData}
+                total={total}
+                page={page}
+                pages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
+                onPage={setPage}
+                selected={selectable ? selectedIds : undefined}
+                onSelect={(ticket, on) => select([ticket], on)}
+                onSelectAll={(on) => select(items, on)}
+                empty={
+                  <p className="px-5 py-10 text-center text-sm text-muted">
+                    {filtered
+                      ? "No tickets match these filters."
+                      : assigned
+                        ? "Nothing assigned to you is open."
+                        : "No open tickets. New requests show here as they arrive."}
+                  </p>
+                }
+              />
+            </>
+          )}
+        </div>
       </Card>
     </div>
   );

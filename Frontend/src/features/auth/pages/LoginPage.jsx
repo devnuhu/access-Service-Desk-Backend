@@ -76,19 +76,17 @@ export default function LoginPage() {
   const year = new Date().getFullYear();
 
   return (
-    <div className="flex min-h-screen flex-col bg-white lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div className="flex min-h-screen flex-col bg-white lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
       <LoginBrandPanel />
 
       {/* The white form panel lies on top of the brand panel: over its right edge on desktop,
           over its bottom edge on phones. */}
       <main className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[20px] bg-white px-6 pt-10 pb-6 shadow-login-panel-up sm:px-10 lg:mt-0 lg:-ml-8 lg:rounded-t-none lg:rounded-l-[32px] lg:px-16 lg:pb-8 lg:shadow-login-panel">
-        {/* The form sits a little above the middle; the © line is pinned to the bottom. */}
-        <div className="flex flex-1 flex-col justify-start lg:justify-center lg:pb-16">
-          <div className="mx-auto w-full max-w-sm">
+        {/* The form sits a little above the middle (tablets up); the © line is pinned to the bottom. */}
+        <div className="flex flex-1 flex-col justify-start sm:justify-center sm:pb-10 lg:pb-16">
+          <div className="mx-auto w-full max-w-sm xl:max-w-md">
             <h1 className="text-3xl font-semibold">Welcome back</h1>
-            <p className="mt-2 text-sm text-body">
-              Sign in with your Access Pensions network account.
-            </p>
+            <p className="mt-2 text-sm text-body">Sign in to continue.</p>
 
             <form
               className="mt-8 space-y-5"
@@ -132,15 +130,13 @@ export default function LoginPage() {
                     spellCheck={false}
                     required
                     aria-invalid={errors.username ? "true" : undefined}
-                    aria-describedby={`username-hint${errors.username ? " username-error" : ""}`}
+                    aria-describedby={
+                      errors.username ? "username-error" : undefined
+                    }
                     className={`${inputClass} ${errors.username ? "border-danger" : "border-line"}`}
                     {...register("username")}
                   />
                 </div>
-                <p id="username-hint" className="mt-1.5 text-xs text-muted">
-                  The name you use to sign in to your computer, for example
-                  Adeyemi.Salisu
-                </p>
                 {errors.username && (
                   <p
                     id="username-error"
@@ -213,13 +209,13 @@ export default function LoginPage() {
                   size={14}
                   className="text-brand-green-ink"
                 />
-                Secured with your company network account
+                Secure sign-in
               </p>
             </form>
           </div>
         </div>
 
-        <footer className="mx-auto mt-10 w-full max-w-sm border-t border-line pt-5 text-xs text-muted">
+        <footer className="mx-auto mt-10 w-full max-w-sm border-t lg:hidden xl:max-w-md border-line pt-5 text-xs text-muted">
           <p>© {year} Access ARM Pensions Plc</p>
         </footer>
       </main>

@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { Chip } from "@/shared/ui";
-import { STAFF_CATEGORY } from "../skills.js";
 
 const KEY_STEPS = {
   ArrowRight: [0, 1],
@@ -68,6 +67,7 @@ export default function SkillsGrid({
   };
 
   const toggle = (member, categoryId) => {
+    if (member.isHead) return;
     const next = new Set(valueFor(member));
     if (next.has(categoryId)) next.delete(categoryId);
     else if (canTick(member, categoryId)) next.add(categoryId);
@@ -128,28 +128,43 @@ export default function SkillsGrid({
             const value = valueFor(member);
             const isChanged = changed.has(member.userId);
             const isFailed = failedId === member.userId;
+            const head = Boolean(member.isHead);
             const rowTone = isFailed
               ? "bg-danger-light"
               : isChanged
                 ? "bg-brand-orange-light"
-                : "bg-white";
+                : head
+                  ? "bg-page"
+                  : "bg-white";
             return (
-              <tr key={member.userId} data-testid={`row-${member.userId}`}>
+              <tr
+                key={member.userId}
+                data-testid={`row-${member.userId}`}
+                data-head={head ? "true" : undefined}
+              >
                 <th
                   scope="row"
                   className={`sticky left-0 z-10 border-r border-b border-line px-4 py-2 text-left font-normal ${rowTone} ${isChanged ? "shadow-[inset_3px_0_0] shadow-brand-orange" : ""}`}
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <span className="block truncate font-semibold text-ink">
+                      <span
+                        className={`flex items-center gap-1.5 truncate font-semibold ${head ? "text-muted" : "text-ink"}`}
+                      >
                         {personName(member)}
+                        {head && <Chip tone="navy">Head</Chip>}
                       </span>
                       <span className="block truncate text-xs text-muted">
                         {member.userName}
                       </span>
                       <span className="mt-1 flex flex-wrap gap-1">
-                        {member.staffCategory === STAFF_CATEGORY.HeadOfUnit && (
-                          <Chip tone="navy">Head of Unit</Chip>
+                        {head && (
+                          <span
+                            data-testid="head-note"
+                            className="text-xs text-muted italic"
+                          >
+                            Heads are not assigned automatically
+                          </span>
                         )}
                         {!member.accountActive && (
                           <Chip tone="red">Blocked</Chip>
@@ -162,7 +177,7 @@ export default function SkillsGrid({
                         )}
                       </span>
                     </span>
-                    {!readOnly && (
+                    {!readOnly && !head && (
                       <span className="flex shrink-0 gap-1">
                         <button
                           type="button"
@@ -191,7 +206,7 @@ export default function SkillsGrid({
                   return (
                     <td
                       key={category.id}
-                      className={`border-b border-line px-2 py-2 text-center ${rowTone} ${category.isActive ? "" : "opacity-60"}`}
+                      className={`border-b border-line px-2 py-2 text-center ${rowTone} ${category.isActive && !head ? "" : "opacity-60"}`}
                     >
                       <input
                         type="checkbox"
@@ -202,15 +217,17 @@ export default function SkillsGrid({
                         }}
                         tabIndex={isActiveCell ? 0 : -1}
                         checked={checked}
-                        disabled={readOnly}
+                        disabled={readOnly || head}
                         aria-disabled={locked ? "true" : undefined}
                         aria-label={`${category.name} for ${personName(member)}`}
                         title={
-                          locked
-                            ? category.isActive
-                              ? `${personName(member)} is blocked`
-                              : `${category.name} is switched off`
-                            : undefined
+                          head
+                            ? "Heads are not assigned automatically"
+                            : locked
+                              ? category.isActive
+                                ? `${personName(member)} is blocked`
+                                : `${category.name} is switched off`
+                              : undefined
                         }
                         onChange={() => toggle(member, category.id)}
                         onFocus={() => setActive({ row, col })}

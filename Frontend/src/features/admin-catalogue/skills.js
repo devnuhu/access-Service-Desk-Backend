@@ -40,14 +40,18 @@ export function skillsModel(matrix, edits) {
   const valueFor = (member) =>
     edits[member.userId] ?? original.get(member.userId) ?? new Set();
 
+  // The head is not assigned automatically: their row is shown, never changed here.
   const canTick = (member, categoryId) =>
-    original.get(member.userId)?.has(categoryId) ||
-    (Boolean(categoryById.get(categoryId)?.isActive) && member.accountActive);
+    !member.isHead &&
+    (original.get(member.userId)?.has(categoryId) ||
+      (Boolean(categoryById.get(categoryId)?.isActive) &&
+        member.accountActive));
 
   const countFor = (categoryId) => {
     let count = categoryById.get(categoryId)?.eligibleCount ?? 0;
+    // eligibleCount counts real case workers only (never the head), as the API does.
     for (const member of changed) {
-      if (!member.accountActive) continue;
+      if (!member.accountActive || member.isHead) continue;
       count +=
         Number(edits[member.userId].has(categoryId)) -
         Number(original.get(member.userId).has(categoryId));
