@@ -348,7 +348,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
 
             public bool IsOpen => OpenStatuses.Contains(Status);
             public bool IsDone => Status is TicketStatus.Resolved or TicketStatus.Closed;
-            public bool IsCounted => Status != TicketStatus.Cancelled && Hours > 0;
+            public bool IsCounted => Status != TicketStatus.Cancelled && Hours > 0 && !(Resolution is 3 or 4 or 6); // Referred elsewhere, Duplicate and Raised in error are not judged against the time allowed
         }
 
         private sealed class Group

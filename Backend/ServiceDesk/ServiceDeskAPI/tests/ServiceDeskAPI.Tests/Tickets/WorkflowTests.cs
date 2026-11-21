@@ -92,7 +92,7 @@ namespace ServiceDeskAPI.Tests.Tickets
             var actions = await Ok<TicketActionsDto>(await assignee.GetAsync(Url(ticket.Id, "actions")));
             Assert.True(actions.CanAcknowledge);
             Assert.False(actions.CanResolve);
-            Assert.Equal(5, actions.ResolutionCodes.Count);
+            Assert.Equal(6, actions.ResolutionCodes.Count);
             Assert.True((await Ok<TicketActionsDto>(await requester.GetAsync(Url(ticket.Id, "actions")))).CanCancel);
 
             await Ok<MessageDto>(await assignee.PostAsync(Url(ticket.Id, "acknowledge"), null));

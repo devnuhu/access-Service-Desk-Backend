@@ -26,7 +26,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             [ResolutionCode.InformationProvided] = "Information provided",
             [ResolutionCode.ReferredElsewhere] = "Referred elsewhere",
             [ResolutionCode.Duplicate] = "Duplicate",
-            [ResolutionCode.NoActionRequired] = "No action required"
+            [ResolutionCode.NoActionRequired] = "No action required",
+            [ResolutionCode.RaisedInError] = "Raised in error"
         };
 
         private readonly AppDbContext _db;

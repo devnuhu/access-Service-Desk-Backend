@@ -18,7 +18,9 @@ namespace ServiceDeskAPI.Domain.Entities
         InformationProvided = 2,
         ReferredElsewhere = 3,
         Duplicate = 4,
-        NoActionRequired = 5
+        NoActionRequired = 5,
+        /// <summary>The request should not have been raised (a mistake). Not judged against the time allowed.</summary>
+        RaisedInError = 6
     }
 
     /// <summary>
