@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarCheck2, CalendarX2, Hand } from "lucide-react";
+import { CalendarCheck2, CalendarX2, CircleAlert, Hand } from "lucide-react";
 import { firstNameOf, useSession } from "@/features/auth";
 import { ABSENCE_KIND, useMyAvailability } from "@/features/availability";
 import { RaiseTicketLink, usePool, useTicketList } from "@/features/tickets";
@@ -195,6 +195,19 @@ export default function MemberHome({ units }) {
           </div>
         )}
       </PageHeader>
+
+      {mine?.responseOverdue > 0 && (
+        <Link
+          to={assigned()}
+          data-testid="response-overdue-notice"
+          className="flex items-center gap-2.5 rounded-card border border-danger/30 bg-danger-light px-4 py-3 text-sm font-semibold text-danger hover:border-danger"
+        >
+          <CircleAlert aria-hidden="true" size={18} className="shrink-0" />
+          {mine.responseOverdue}{" "}
+          {mine.responseOverdue === 1 ? "ticket" : "tickets"} waiting for your
+          first response. Acknowledge or reply.
+        </Link>
+      )}
 
       <section aria-labelledby="home-my-work" className="space-y-3">
         <div className="flex items-baseline gap-3">

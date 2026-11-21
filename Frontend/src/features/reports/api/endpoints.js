@@ -38,7 +38,7 @@ export const definitionSchema = z.looseObject({
 
 const optionSchema = z.object({ key: z.string(), label: z.string() });
 
-/** The date presets and the ready-made reports (R1 to R9) with their definitions. */
+/** The date presets and the ready-made reports (R1 to R11, whatever the server lists) with their definitions. */
 export const getReportCatalogue = defineEndpoint({
   method: "GET",
   path: "/api/reports/catalogue",

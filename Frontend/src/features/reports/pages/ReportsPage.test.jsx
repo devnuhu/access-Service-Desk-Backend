@@ -953,3 +953,65 @@ describe("Reports: run view, charts and saved-report changes", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("Reports: performance", () => {
+  it("lists a new ready-made report from the catalogue; percent cells read 87% and - when empty", async () => {
+    const user = userEvent.setup();
+    const team = {
+      code: "R10",
+      name: "Team performance",
+      description: "Each case worker's work and response.",
+      definition: { title: "Team performance", groupBy: "person" },
+    };
+    renderReports({
+      saved: [],
+      schedules: [],
+      routes: {
+        "GET /api/reports/catalogue": () => [
+          200,
+          { ...CATALOGUE, builtIn: [...CATALOGUE.builtIn, team] },
+        ],
+        "POST /api/reports/run": () => [
+          200,
+          {
+            ...RESULT,
+            title: "Team performance",
+            columns: [
+              { key: "group", label: "Person", type: "text" },
+              { key: "count", label: "Tickets", type: "number" },
+              {
+                key: "firstResponseMetPercent",
+                label: "Responded in time %",
+                type: "percent",
+              },
+              {
+                key: "firstResponseMissed",
+                label: "No response in time",
+                type: "number",
+              },
+              { key: "reopenedPercent", label: "Reopened %", type: "percent" },
+            ],
+            rows: [
+              ["Chidi One", 12, 87, 1, null],
+              ["Cara Three", 0, null, 0, null],
+            ],
+            totals: null,
+          },
+        ],
+      },
+    });
+    const card = await screen.findByTestId("builtin-R10");
+    expect(card).toHaveTextContent("Team performance");
+    await user.click(
+      within(card).getByRole("button", { name: "Run Team performance" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Team performance",
+    });
+    const chidi = (await within(dialog).findByText("Chidi One")).closest("tr");
+    expect(within(chidi).getByText("87%")).toBeInTheDocument();
+    expect(within(chidi).getByText("-")).toBeInTheDocument();
+    const cara = within(dialog).getByText("Cara Three").closest("tr");
+    expect(within(cara).getAllByText("-")).toHaveLength(2);
+  });
+});

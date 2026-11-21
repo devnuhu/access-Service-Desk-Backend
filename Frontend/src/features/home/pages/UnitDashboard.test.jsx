@@ -25,6 +25,7 @@ const dashboard = (overrides = {}) => ({
     overdue: 2,
     farPast: 1,
     escalated: 1,
+    responseOverdue: 2,
   },
   pool: [
     {
@@ -58,6 +59,9 @@ const dashboard = (overrides = {}) => ({
       warning: 0,
       overdue: 1,
       farPast: 1,
+      responseOverdue: 1,
+      responseMissed: 3,
+      responseMetPercent: 72.4,
       onLeave: true,
       leaveUntil: "2026-11-24",
     },
@@ -183,6 +187,11 @@ describe("Unit dashboard (Head of Unit)", () => {
     expect(href("escalated")).toBe(`${queue}&escalated=1`);
     expect(href("overdue")).toBe(`${queue}&overdue=1`);
     expect(screen.getByTestId("attention-farPast")).toHaveClass("text-danger");
+    // Response overdue: a figure (no link), red above 0.
+    const response = screen.getByTestId("attention-responseOverdue");
+    expect(response).toHaveTextContent("2");
+    expect(response).toHaveClass("text-danger");
+    expect(response.closest("a")).toBeNull();
 
     // Pool: Pick opens the Unit pool tab.
     expect(screen.getByRole("link", { name: "Pick" })).toHaveAttribute(
@@ -209,6 +218,28 @@ describe("Unit dashboard (Head of Unit)", () => {
       within(chidi).getByText("On leave until 24 Nov 2026"),
     ).toBeInTheDocument();
     expect(within(chidi).getAllByRole("cell")[2]).toHaveTextContent("2");
+    // First response: now, missed in 30 days, met share (red under 75%).
+    expect(within(chidi).getByTestId("response-overdue")).toHaveTextContent(
+      "1",
+    );
+    expect(within(chidi).getByTestId("response-missed")).toHaveTextContent("3");
+    const met = within(chidi).getByTestId("response-met");
+    expect(met).toHaveTextContent("72%");
+    expect(met).toHaveClass("text-danger");
+    // The head's own row: dashes.
+    expect(
+      within(rows[1])
+        .getAllByRole("cell")
+        .slice(3)
+        .map((cell) => cell.textContent),
+    ).toEqual(["-", "-", "-"]);
+    // The columns explain how it is counted.
+    const header = screen.getByRole("columnheader", {
+      name: "Responded in time",
+    });
+    expect(header).toHaveAccessibleDescription(
+      /Counted from when the ticket was assigned to them/,
+    );
 
     // Categories: a red Needs cover chip only where needsCover.
     const thin = screen.getByTestId("category-Balance does not agree");

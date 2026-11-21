@@ -5,6 +5,8 @@ describe("report cells", () => {
   it("formats each column type", () => {
     expect(formatCell(1200, "number")).toBe("1,200");
     expect(formatCell(83.5, "percent")).toBe("83.5%");
+    expect(formatCell(87, "percent")).toBe("87%");
+    expect(formatCell(null, "percent")).toBe("-");
     expect(formatCell(4, "hours")).toBe("4.0 h");
     expect(formatCell(2.25, "hours")).toBe("2.3 h");
     expect(formatCell("2026-11-19", "date")).toBe("19 Nov 2026");

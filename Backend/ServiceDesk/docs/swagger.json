@@ -9319,6 +9319,10 @@
           "escalated": {
             "type": "integer",
             "format": "int32"
+          },
+          "responseOverdue": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -9367,6 +9371,19 @@
             "type": "string",
             "format": "date",
             "nullable": true
+          },
+          "responseOverdue": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "responseMissed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "responseMetPercent": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9399,6 +9416,10 @@
             "format": "int32"
           },
           "toConfirm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "responseOverdue": {
             "type": "integer",
             "format": "int32"
           }
@@ -9529,6 +9550,10 @@
             "format": "int32"
           },
           "escalated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "responseOverdue": {
             "type": "integer",
             "format": "int32"
           },

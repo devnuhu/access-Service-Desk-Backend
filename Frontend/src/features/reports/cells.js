@@ -21,15 +21,20 @@ function formatDate(value) {
   return `${Number(match[3])} ${MONTHS[Number(match[2]) - 1]} ${match[1]}`;
 }
 
-/** One cell as text, by the column's type. Datetimes are UTC and shown in Lagos time (WAT). */
+/**
+ * One cell as text, by the column's type. Datetimes are UTC and shown in Lagos time (WAT). A
+ * percent has a decimal only when it needs one ("87%", "87.5%"), and an empty one reads "-"
+ * (nothing to measure yet, for example responded in time with no tickets).
+ */
 export function formatCell(value, type) {
-  if (value === null || value === undefined || value === "") return "";
+  if (value === null || value === undefined || value === "")
+    return type === "percent" ? "-" : "";
   const isNumber = typeof value === "number";
   switch (type) {
     case "number":
       return isNumber ? number.format(value) : String(value);
     case "percent":
-      return isNumber ? `${oneDecimal.format(value)}%` : String(value);
+      return isNumber ? `${number.format(value)}%` : String(value);
     case "hours":
       return isNumber ? `${oneDecimal.format(value)} h` : String(value);
     case "date":

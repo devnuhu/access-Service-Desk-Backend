@@ -11,6 +11,7 @@ const COLUMNS = [
   ["waitingToStart", "Waiting to start"],
   ["overdue", "Overdue"],
   ["farPast", "Far past"],
+  ["responseOverdue", "Response overdue"],
   ["escalated", "Escalated"],
 ];
 
@@ -18,6 +19,7 @@ const COLUMNS = [
 const TONES = {
   overdue: "text-danger",
   farPast: "text-danger",
+  responseOverdue: "text-danger",
   unassigned: "text-brand-orange-ink",
   escalated: "text-brand-orange-ink",
 };

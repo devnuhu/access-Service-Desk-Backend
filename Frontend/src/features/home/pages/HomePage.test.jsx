@@ -202,11 +202,28 @@ describe("Home", () => {
     expect(await screen.findByTestId("my-availability")).toHaveTextContent(
       "On leave until 24 Nov 2026",
     );
+    expect(screen.queryByTestId("response-overdue-notice")).toBeNull();
     // No team workload, no head controls.
     expect(screen.queryByText("Team")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("link", { name: "Unit reports" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("tells a case worker how many tickets wait for their first response", async () => {
+    renderHome(["Requester", "CaseWorker"], [], CASE_WORKER_ORG, {
+      generatedAt: "2026-11-19T13:05:00Z",
+      mine: { ...MINE, responseOverdue: 2 },
+      overview: null,
+    });
+    const notice = await screen.findByTestId("response-overdue-notice");
+    expect(notice).toHaveTextContent(
+      "2 tickets waiting for your first response. Acknowledge or reply.",
+    );
+    expect(notice).toHaveAttribute(
+      "href",
+      "/departments/d-cp/tickets?tab=assigned&status=open",
+    );
   });
 
   it("Warning and Far past are plain numbers; with no unit the assigned tiles are not links", async () => {
@@ -259,6 +276,7 @@ describe("Home", () => {
             warning: 3,
             overdue: 2,
             farPast: 1,
+            responseOverdue: 3,
             escalated: 1,
           },
           units: [
@@ -266,6 +284,7 @@ describe("Home", () => {
               open: 7,
               overdue: 1,
               unassigned: 2,
+              responseOverdue: 3,
             }),
             unitRow("u-rf", "Refund", "d-tech", "Technology", { open: 5 }),
           ],
@@ -285,6 +304,7 @@ describe("Home", () => {
       "Waiting to start",
       "Overdue",
       "Far past",
+      "Response overdue",
       "Escalated",
       "Dashboard",
     ]);
@@ -304,6 +324,10 @@ describe("Home", () => {
     const total = screen.getByTestId("overview-total");
     expect(within(total).getByText("Total")).toBeInTheDocument();
     expect(within(total).getAllByRole("cell")[0]).toHaveTextContent("12");
+    // Response overdue: the unit's figure in red, and the total.
+    expect(cells[5]).toHaveTextContent("3");
+    expect(cells[5]).toHaveClass("text-danger");
+    expect(within(total).getAllByRole("cell")[5]).toHaveTextContent("3");
     // No My work and no "Tickets I raised" block; requesting stays on the button.
     expect(
       screen.queryByRole("heading", { name: "My work" }),

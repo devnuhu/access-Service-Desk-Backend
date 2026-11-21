@@ -8,6 +8,8 @@ const levels = {
   warning: z.number().int(),
   overdue: z.number().int(),
   farPast: z.number().int(),
+  /** Open tickets whose first-response time (4 working hours from assignment) ran out unanswered. */
+  responseOverdue: z.number().int().default(0),
 };
 
 const overviewCounts = {
@@ -96,6 +98,10 @@ export const getUnitDashboard = defineEndpoint({
         warning: z.number().int(),
         overdue: z.number().int(),
         farPast: z.number().int(),
+        /** First response: unanswered past the target now; missed and met share over 30 days. */
+        responseOverdue: z.number().int().default(0),
+        responseMissed: z.number().int().default(0),
+        responseMetPercent: z.number().nullable().default(null),
         onLeave: z.boolean(),
         leaveUntil: z.string().nullable(),
       }),

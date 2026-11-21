@@ -56,6 +56,8 @@ function Section({ id, title, description, actions, empty, children }) {
 const ATTENTION = [
   { key: "unassigned", label: "Unassigned", filter: "&status=1" },
   { key: "escalated", label: "Escalated", filter: "&escalated=1" },
+  // No list filter for it: a figure, not a link.
+  { key: "responseOverdue", label: "Response overdue", tone: "red" },
   { key: "overdue", label: "Overdue", filter: "&overdue=1", tone: "red" },
   // There is no far-past list filter: it opens the overdue list (far past is past the deadline too).
   { key: "farPast", label: "Far past", filter: "&overdue=1", tone: "red" },
@@ -74,14 +76,23 @@ function NeedsAttention({ dashboard }) {
           {counts.warning} near the deadline
         </p>
       </div>
-      <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {ATTENTION.map(({ key, label, filter, tone }) => {
           const count = counts[key];
+          const box =
+            "flex h-full flex-col justify-between gap-2 rounded-card border border-line bg-white px-4 py-3.5 shadow-card";
+          const Tag = filter === undefined ? "div" : Link;
+          const link =
+            filter === undefined ? {} : { to: unitQueue(dashboard, filter) };
           return (
             <li key={key}>
-              <Link
-                to={unitQueue(dashboard, filter)}
-                className="flex h-full flex-col justify-between gap-2 rounded-card border border-line bg-white px-4 py-3.5 shadow-card hover:border-brand-navy hover:bg-brand-navy-light/40"
+              <Tag
+                {...link}
+                className={
+                  filter === undefined
+                    ? box
+                    : `${box} hover:border-brand-navy hover:bg-brand-navy-light/40`
+                }
               >
                 <span className="flex items-center gap-2 text-sm text-muted">
                   <span
@@ -96,7 +107,7 @@ function NeedsAttention({ dashboard }) {
                 >
                   {count}
                 </span>
-              </Link>
+              </Tag>
             </li>
           );
         })}
@@ -223,6 +234,24 @@ function Escalated({ dashboard, own }) {
   );
 }
 
+const RESPONSE_COLUMNS = [
+  "No response (now)",
+  "Missed (30 days)",
+  "Responded in time",
+];
+const RESPONSE_HELP =
+  "Counted from when the ticket was assigned to them, in working hours (8 to 5, Monday to Friday, holidays excluded). Acknowledging or replying publicly to the requester counts as a response.";
+
+/** Responded in time: amber under 90%, red under 75%. */
+const metTone = (percent) =>
+  percent === null
+    ? "text-muted"
+    : percent < 75
+      ? "font-semibold text-danger"
+      : percent < 90
+        ? "font-semibold text-brand-orange-ink"
+        : "text-ink";
+
 function Team({ dashboard }) {
   return (
     <Section
@@ -246,11 +275,23 @@ function Team({ dashboard }) {
             <th scope="col" className={`${th} text-right`}>
               Overdue
             </th>
+            {RESPONSE_COLUMNS.map((label) => (
+              <th
+                key={label}
+                scope="col"
+                title={RESPONSE_HELP}
+                aria-describedby="response-help"
+                className={`${th} text-right`}
+              >
+                {label}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
           {dashboard.team.map((person) => {
             const overdue = person.overdue + person.farPast;
+            const percent = person.responseMetPercent;
             return (
               <tr key={person.userId} data-testid={`member-${person.userName}`}>
                 <th scope="row" className={`${td} text-left font-medium`}>
@@ -277,11 +318,45 @@ function Team({ dashboard }) {
                 >
                   {overdue}
                 </td>
+                {person.isHead ? (
+                  RESPONSE_COLUMNS.map((label) => (
+                    <td key={label} className={`${td} text-right text-muted`}>
+                      -
+                    </td>
+                  ))
+                ) : (
+                  <>
+                    <td
+                      data-testid="response-overdue"
+                      className={`${td} text-right tabular-nums ${person.responseOverdue > 0 ? "font-semibold text-danger" : "text-muted"}`}
+                    >
+                      {person.responseOverdue}
+                    </td>
+                    <td
+                      data-testid="response-missed"
+                      className={`${td} text-right tabular-nums ${person.responseMissed > 0 ? "text-ink" : "text-muted"}`}
+                    >
+                      {person.responseMissed}
+                    </td>
+                    <td
+                      data-testid="response-met"
+                      className={`${td} text-right tabular-nums ${metTone(percent)}`}
+                    >
+                      {percent === null ? "-" : `${Math.round(percent)}%`}
+                    </td>
+                  </>
+                )}
               </tr>
             );
           })}
         </tbody>
       </table>
+      <p
+        id="response-help"
+        className="border-t border-line px-4 py-2.5 text-xs text-muted"
+      >
+        First response: {RESPONSE_HELP}
+      </p>
     </Section>
   );
 }
