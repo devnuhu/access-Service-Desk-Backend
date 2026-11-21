@@ -27,3 +27,6 @@ secrets.json
 Thumbs.db
 .DS_Store
 .idea/
+servicedesk-*-check.txt
+collect-*.txt
+*.bak
