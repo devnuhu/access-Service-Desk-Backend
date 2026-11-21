@@ -31,5 +31,19 @@ namespace ServiceDeskAPI.Controllers
         [HttpGet("summary")]
         [ProducesResponseType(typeof(DashboardSummaryDto), StatusCodes.Status200OK)]
         public async Task<ActionResult<DashboardSummaryDto>> Summary() => Ok(await _dashboard.SummaryAsync(Me(), IsSuperAdmin()));
+
+        /// <summary>
+        /// One unit's dashboard: its pool by category, team workload and leave, categories and cover, escalations to the head, and tickets past their deadline.
+        /// The head of the unit, the Head of Department or Department Admin of its department, or a Super Admin. 403 anyone else, 404 unknown unit.
+        /// </summary>
+        [HttpGet("unit/{unitId:guid}")]
+        [ProducesResponseType(typeof(UnitDashboardDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<UnitDashboardDto>> Unit(Guid unitId)
+        {
+            var (problem, dashboard) = await _dashboard.UnitAsync(unitId, Me(), IsSuperAdmin());
+            return problem == null && dashboard != null ? Ok(dashboard) : StatusCode(problem!.Status, new ApiError(problem.Message));
+        }
     }
 }
