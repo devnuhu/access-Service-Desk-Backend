@@ -362,6 +362,44 @@ describe("access table", () => {
     expect(inventoryAccess("Policy: Nope")).toMatch(/unknown policy/);
   });
 
+  it("splits rows with several methods and takes the row above for same / the owner", () => {
+    const rows = parseInventory(
+      [
+        "| GET | `/api/reports/catalogue` | unit heads, HOD, Department Admin, Super Admin | Catalogue |",
+        "| POST | `/api/reports/export?format=xlsx\\|csv` | same | Download |",
+        "| GET, POST | `/api/reports/saved` | same | List; save |",
+        "| PUT, DELETE | `/api/reports/saved/{id}` | the owner | Change; delete |",
+        "| POST | `/api/reports/saved/{id}/run` | same people as above | Run |",
+        "| GET | `/api/dashboard/summary` | signed in | Home counts |",
+      ].join("\n"),
+    );
+    expect(rows.map((row) => `${row.method} ${row.path}`)).toEqual([
+      "GET /api/reports/catalogue",
+      "POST /api/reports/export",
+      "GET /api/reports/saved",
+      "POST /api/reports/saved",
+      "PUT /api/reports/saved/{id}",
+      "DELETE /api/reports/saved/{id}",
+      "POST /api/reports/saved/{id}/run",
+      "GET /api/dashboard/summary",
+    ]);
+    const reports = ["HeadOfUnit", "HOD", "DepartmentAdmin", "SuperAdmin"];
+    for (const row of rows.slice(0, 7))
+      expect(inventoryAccess(row.access)).toEqual(reports);
+    expect(inventoryAccess(rows[7].access)).toBe("signedIn");
+    expect(
+      inventoryAccess(
+        "staff of that department (a unit's staff: their own unit), Super Admin",
+      ),
+    ).toEqual([
+      "CaseWorker",
+      "HeadOfUnit",
+      "HOD",
+      "DepartmentAdmin",
+      "SuperAdmin",
+    ]);
+  });
+
   it("reads the plain-language Who column of the Service Desk inventory", () => {
     expect(inventoryAccess("anyone")).toBe("anonymous");
     expect(inventoryAccess("anyone with the refresh cookie")).toBe("anonymous");
@@ -374,10 +412,12 @@ describe("access table", () => {
       "HeadOfUnit",
     ]);
     expect(
-      inventoryAccess(
-        "unit head or deputy, HOD of its department, Super Admin",
-      ),
+      inventoryAccess("unit head, HOD of its department, Super Admin"),
     ).toEqual(["HeadOfUnit", "HOD", "SuperAdmin"]);
+    expect(inventoryAccess("unit head of the unit, Super Admin")).toEqual([
+      "HeadOfUnit",
+      "SuperAdmin",
+    ]);
     expect(inventoryAccess("the moon")).toMatch(/unrecognised/);
   });
 
@@ -569,7 +609,7 @@ describe("check-api multipart forms and file downloads", () => {
     ).toBe("signedIn");
     expect(
       inventoryAccess(
-        "holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department)",
+        "holder and unit head (same unit, mapped); HOD and Super Admin (any unit of the department)",
       ),
     ).toBe("signedIn");
     expect(inventoryAccess("the assignee")).toBe("signedIn");

@@ -146,7 +146,6 @@ const member = (overrides) => ({
   fullName: "Test Caseworker1",
   staffCategory: 1,
   isHead: false,
-  isDeputy: false,
   accountActive: true,
   availableNow: true,
   current: null,
@@ -258,7 +257,7 @@ describe("Unit availability", () => {
       "GET /api/availability/units/:unitId": () => [
         403,
         {
-          message: "Only the head, deputy or HOD can see this unit.",
+          message: "Only the head or HOD can see this unit.",
           errors: {},
         },
       ],
@@ -273,9 +272,7 @@ describe("Unit availability", () => {
       { route: "/availability/units/u-rf", queryClient },
     );
     expect(
-      await screen.findByText(
-        "Only the head, deputy or HOD can see this unit.",
-      ),
+      await screen.findByText("Only the head or HOD can see this unit."),
     ).toBeInTheDocument();
   });
 });

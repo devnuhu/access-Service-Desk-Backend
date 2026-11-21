@@ -3,7 +3,14 @@ import { ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { ROLE_ORDER, roleLabel } from "@/shared/lib/roles";
 import { formatWat } from "@/shared/lib/time";
-import { Button, Card, Chip, RoleChips, Spinner } from "@/shared/ui";
+import {
+  Button,
+  Card,
+  Chip,
+  RoleChips,
+  Spinner,
+  PageHeader,
+} from "@/shared/ui";
 import { PAGE_SIZE, usePeopleList } from "../hooks/usePeople.js";
 import PersonPanel from "../components/PersonPanel.jsx";
 import AddFromDirectoryDialog from "../components/AddFromDirectoryDialog.jsx";
@@ -41,12 +48,10 @@ export default function PeopleRolesPage() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">People and roles</h1>
-        <p className="mt-1 text-sm text-muted">
-          Give or take away roles, and block or allow access.
-        </p>
-      </div>
+      <PageHeader
+        title="People and roles"
+        description="Give or take away roles, and block or allow access."
+      />
 
       <Card>
         <div className="flex flex-wrap items-end gap-3 border-b border-line px-5 py-4">
@@ -69,7 +74,7 @@ export default function PeopleRolesPage() {
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
                 placeholder="Name, login name, email or department"
-                className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
+                className="h-10 w-full rounded-lg border border-line pr-3 pl-9 text-sm text-ink"
               />
             </div>
           </div>
@@ -84,7 +89,7 @@ export default function PeopleRolesPage() {
               id="people-role"
               value={role}
               onChange={(event) => setRole(event.target.value)}
-              className="mt-1 h-10 rounded-[6px] border border-line bg-white px-2 text-sm text-ink"
+              className="mt-1 h-10 rounded-lg border border-line bg-white px-2 text-sm text-ink"
             >
               <option value="">All roles</option>
               {ROLE_ORDER.map((name) => (
@@ -118,21 +123,21 @@ export default function PeopleRolesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-page text-xs font-semibold text-muted uppercase">
+              <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
                 <tr>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Name
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Department
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Roles
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Status
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Last sign-in
                   </th>
                 </tr>

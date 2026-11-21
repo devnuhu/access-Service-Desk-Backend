@@ -385,3 +385,89 @@ describe("live ticket updates", () => {
     stop();
   });
 });
+
+describe("Escalation notifications", () => {
+  it("render in the list and open the ticket", async () => {
+    const user = userEvent.setup();
+    const { router } = renderBell({
+      "GET /api/notifications": () => [
+        200,
+        {
+          items: [
+            item({
+              id: "n-esc",
+              title: "Ticket CP-2026-000005 escalated to you",
+              message: "Test Case Worker Three needs your help.",
+              type: 3,
+              category: 4,
+              isActionRequired: true,
+              relatedEntityType: "Ticket",
+              relatedEntityId: "t-5",
+              deepLinkUrl: "/tickets/CP-2026-000005",
+            }),
+          ],
+          total: 1,
+          unread: 1,
+          page: 1,
+          pageSize: 10,
+        },
+      ],
+      "PATCH /api/notifications/:id/read": () => [204, ""],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Notifications, 1 unread" }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Ticket CP-2026-000005 escalated to you/,
+      }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/tickets/CP-2026-000005"),
+    );
+  });
+});
+
+describe("SLA notifications", () => {
+  it.each([
+    ["Ticket CP-2026-000011 is nearing its deadline", 1, "CP-2026-000011"],
+    ["Ticket CP-2026-000012 is overdue", 4, "CP-2026-000012"],
+    ["Ticket CP-2026-000013 is far past its deadline", 4, "CP-2026-000013"],
+  ])("%s renders and opens the ticket", async (title, category, reference) => {
+    const user = userEvent.setup();
+    const { router } = renderBell({
+      "GET /api/notifications": () => [
+        200,
+        {
+          items: [
+            item({
+              id: "n-sla",
+              title,
+              message: "This Account Reconciliation request needs attention.",
+              type: 3,
+              category,
+              isActionRequired: true,
+              relatedEntityType: "Ticket",
+              relatedEntityId: "t-x",
+              deepLinkUrl: `/tickets/${reference}`,
+            }),
+          ],
+          total: 1,
+          unread: 1,
+          page: 1,
+          pageSize: 10,
+        },
+      ],
+      "PATCH /api/notifications/:id/read": () => [204, ""],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Notifications, 1 unread" }),
+    );
+    await user.click(
+      await screen.findByRole("button", { name: new RegExp(title) }),
+    );
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/tickets/${reference}`),
+    );
+  });
+});

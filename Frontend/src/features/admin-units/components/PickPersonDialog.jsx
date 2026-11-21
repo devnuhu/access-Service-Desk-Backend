@@ -74,7 +74,7 @@ export default function PickPersonDialog({
             }
           />
           {selected && (
-            <p className="rounded-[6px] bg-brand-navy-light px-3 py-2 text-sm text-ink">
+            <p className="rounded-lg bg-brand-navy-light px-3 py-2 text-sm text-ink">
               Selected:{" "}
               <strong>{selected.fullName || selected.userName}</strong>
             </p>

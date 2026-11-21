@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Button, Spinner } from "@/shared/ui";
+import { Button, Spinner, PageHeader } from "@/shared/ui";
 import DepartmentCard from "../components/DepartmentCard.jsx";
 import OrgItemDialog from "../components/OrgItemDialog.jsx";
 import { useAdminDepartments, useCreateDepartment } from "../hooks/useUnits.js";
@@ -18,13 +18,10 @@ export default function UnitsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Units</h1>
-          <p className="mt-1 text-sm text-muted">
-            Departments, their units and people. Case Worker, Head of Unit and
-            Head of Department roles follow what is set here.
-          </p>
-        </div>
+        <PageHeader
+          title="Units"
+          description="Departments, their units and people. Case Worker, Head of Unit and Head of Department roles follow what is set here."
+        />
         <Button onClick={() => setAdding(true)}>
           <Plus aria-hidden="true" size={16} />
           Add department

@@ -183,7 +183,7 @@ export default function PersonPanel({ userId, onClose }) {
                     id="give-role"
                     value={roleToGive}
                     onChange={(event) => setRoleToGive(event.target.value)}
-                    className="mt-1 h-10 w-full rounded-[6px] border border-line bg-white px-2 text-sm text-ink"
+                    className="mt-1 h-10 w-full rounded-lg border border-line bg-white px-2 text-sm text-ink"
                   >
                     <option value="">Choose a role…</option>
                     {available.map((role) => (

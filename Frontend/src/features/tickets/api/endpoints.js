@@ -34,6 +34,17 @@ export const TICKET_SORT = Object.freeze({
   RecentlyAssigned: "assignedAt_desc",
 });
 
+/**
+ * SlaLevel: how far an open ticket is through its time. Staff only; the API sends OnTrack for
+ * requesters and for finished tickets, so the badge just renders what comes back.
+ */
+export const SLA_LEVEL = Object.freeze({
+  OnTrack: 0,
+  Warning: 1,
+  Overdue: 2,
+  FarPast: 3,
+});
+
 /** Who a Pending ticket is waiting on. */
 export const PENDING_REASON = Object.freeze({ Requester: 1, ThirdParty: 2 });
 
@@ -87,6 +98,25 @@ const listItemFields = {
   firstRespondedAt: z.string().nullable(),
   /** Staff only: when the assignee escalated it to the unit's head. */
   escalatedToHeadAt: z.string().nullable(),
+  /** SLA_LEVEL; always OnTrack for requesters and finished tickets. */
+  slaLevel: z.number().int(),
+  /**
+   * Staff only: when the ticket's time runs out (working hours, Pending/Resolved time added back).
+   * Null for requesters, for tickets not running (Pending, Resolved, Closed, Cancelled) and for
+   * tickets raised before SLA tracking began. It moves; always read it, never compute it.
+   */
+  slaDueAt: z.string().nullable(),
+  /**
+   * For the signed-in person: someone else commented since they last opened it, or it was
+   * assigned to them and never opened. Cleared by POST /api/tickets/{id}/read.
+   */
+  unread: z.boolean().default(false),
+  /** Comments and files this person can see (a requester never counts internal notes). */
+  commentCount: z.number().int().default(0),
+  attachmentCount: z.number().int().default(0),
+  lastCommentAt: z.string().nullable().default(null),
+  /** The last comment this person can see is the requester's: waiting for staff to answer. */
+  lastCommentByRequester: z.boolean().default(false),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 };
@@ -118,6 +148,10 @@ const ticketSchema = z.object({
   reopenCount: z.number().int(),
   /** Staff only: why it was escalated to the unit's head. */
   escalatedToHeadReason: z.string().nullable(),
+  /** Staff only: when the SLA warning, the overdue alert and the HOD alert were sent. */
+  slaWarnedAt: z.string().nullable(),
+  slaBreachedAt: z.string().nullable(),
+  slaL2At: z.string().nullable(),
 });
 
 const file = z.instanceof(Blob);
@@ -190,6 +224,8 @@ export const checkDuplicates = defineEndpoint({
 /**
  * view: mine (default), copied, assigned, department (needs departmentId). departmentId and unitId
  * narrow any view. open=true: New, Assigned, In progress, Pending, Reopened; open=false: the rest.
+ * slaBreached=true: open tickets that are overdue or far past (assigned and department views only).
+ * escalated=true: tickets passed up to the head of the unit (escalatedToHeadAt set).
  */
 export const listTickets = defineEndpoint({
   method: "GET",
@@ -201,6 +237,8 @@ export const listTickets = defineEndpoint({
     "status",
     "open",
     "waitingToStart",
+    "slaBreached",
+    "escalated",
     "sort",
     "search",
     "page",
@@ -211,6 +249,23 @@ export const listTickets = defineEndpoint({
     total: z.number(),
     page: z.number(),
     pageSize: z.number(),
+  }),
+});
+
+/**
+ * Open tickets of a department (or one unit) by SLA level, each counted once at its highest level.
+ * Staff of the department and Super Admin; anyone else 403.
+ */
+export const getSlaSummary = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/sla-summary",
+  query: ["departmentId", "unitId"],
+  response: z.object({
+    open: z.number().int(),
+    warning: z.number().int(),
+    overdue: z.number().int(),
+    farPast: z.number().int(),
+    unassigned: z.number().int(),
   }),
 });
 
@@ -247,8 +302,43 @@ export const downloadAttachment = defineEndpoint({
   responseType: "blob",
 });
 
-/** TicketAssignment.method. */
-export const ASSIGNMENT_METHOD = Object.freeze({ Auto: 1, Reassigned: 2 });
+/** TicketAssignment.method. Picked: a case worker took it from the unit pool. */
+export const ASSIGNMENT_METHOD = Object.freeze({
+  Auto: 1,
+  Reassigned: 2,
+  Picked: 3,
+});
+
+/**
+ * The unit pool: New, unassigned tickets in units I work in (a member: the categories I handle; a
+ * Head of Unit: every category of the unit). Oldest first, at most 200.
+ */
+export const listPool = defineEndpoint({
+  method: "GET",
+  path: "/api/pool",
+  response: list(
+    z.object({
+      id: z.string(),
+      reference: z.string(),
+      unitId: z.string(),
+      unitName: z.string(),
+      categoryId: z.string(),
+      categoryName: z.string(),
+      priority: z.number().int(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
+/**
+ * Take a New ticket from the pool. 403 not in the unit or not mapped to the category, 400 I am
+ * unavailable today, 409 already taken or no longer New, 404.
+ */
+export const pickTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/pick",
+  response: z.object({ message: z.string() }),
+});
 
 /**
  * Whether I may reassign the ticket and to whom (department staff and Super Admin; a requester or
@@ -385,5 +475,110 @@ export const escalateTicket = defineEndpoint({
   method: "POST",
   path: "/api/tickets/{ticketId}/escalate",
   body: z.object({ reason: z.string() }),
+  response: messageSchema,
+});
+
+/** I opened it: clears its unread marker in my lists. 404 for a ticket I cannot see. */
+export const markTicketRead = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/read",
+  response: messageSchema,
+});
+
+// Bulk: the same action on 1 to 50 tickets. Always 200 with one result per ticket (the single
+// action's rules apply to each; status is what that action would have answered). 400 only when
+// the list is empty or longer than 50.
+const bulkResultSchema = z.object({
+  total: z.number().int(),
+  succeeded: z.number().int(),
+  failed: z.number().int(),
+  items: list(
+    z.object({
+      ticketId: z.string(),
+      reference: z.string().nullable(),
+      ok: z.boolean(),
+      status: z.number().int(),
+      message: z.string(),
+    }),
+  ),
+});
+const ticketIds = z.array(z.string()).min(1).max(50);
+
+export const bulkPick = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/bulk/pick",
+  body: z.object({ ticketIds }),
+  response: bulkResultSchema,
+});
+
+export const bulkAcknowledge = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/bulk/acknowledge",
+  body: z.object({ ticketIds }),
+  response: bulkResultSchema,
+});
+
+/** reason: 5 to 500 characters. */
+export const bulkReassign = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/bulk/reassign",
+  body: z.object({
+    ticketIds,
+    toUserId: z.string().min(1),
+    reason: z.string(),
+  }),
+  response: bulkResultSchema,
+});
+
+/** code from the ticket's actions (resolutionCodes); note 10 to 4000 characters, posted on each. */
+export const bulkResolve = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/bulk/resolve",
+  body: z.object({ ticketIds, code: z.number().int(), note: z.string() }),
+  response: bulkResultSchema,
+});
+
+// Saved views: a person's own list filters. filterJson is a JSON object the app defines (see
+// ../views.js). 400 errors.name / errors.filterJson, 409 name already used, at most 30 each.
+const savedViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  filterJson: z.string(),
+  isFavourite: z.boolean(),
+  createdAt: z.string(),
+});
+
+/** Favourites first, then by name. */
+export const listSavedViews = defineEndpoint({
+  method: "GET",
+  path: "/api/views",
+  response: list(savedViewSchema),
+});
+
+export const createSavedView = defineEndpoint({
+  method: "POST",
+  path: "/api/views",
+  body: z.object({
+    name: z.string(),
+    filterJson: z.string(),
+    isFavourite: z.boolean().optional(),
+  }),
+  response: savedViewSchema,
+});
+
+export const updateSavedView = defineEndpoint({
+  method: "PATCH",
+  path: "/api/views/{viewId}",
+  body: z.object({
+    name: z.string().optional(),
+    filterJson: z.string().optional(),
+    isFavourite: z.boolean().optional(),
+  }),
+  response: savedViewSchema,
+});
+
+export const deleteSavedView = defineEndpoint({
+  method: "DELETE",
+  path: "/api/views/{viewId}",
   response: messageSchema,
 });

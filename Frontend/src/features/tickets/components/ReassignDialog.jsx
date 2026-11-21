@@ -96,7 +96,7 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
         {failure && (
           <p
             role="alert"
-            className="rounded-[6px] border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+            className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
           >
             {failure}
           </p>
@@ -115,7 +115,7 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
                     {unit.unitName}
                   </p>
                 )}
-                <ul className="divide-y divide-line rounded-[6px] border border-line">
+                <ul className="divide-y divide-line rounded-lg border border-line">
                   {unit.people.map((person) => {
                     const id = `reassign-${person.userId}`;
                     return (
@@ -174,7 +174,7 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
         {moves && (
           <p
             role="status"
-            className="flex gap-2 rounded-[6px] border border-brand-orange bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
+            className="flex gap-2 rounded-lg border border-brand-orange bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
           >
             <TriangleAlert
               aria-hidden="true"
@@ -204,7 +204,7 @@ export default function ReassignDialog({ ticket, candidates, onClose }) {
             maxLength={REASON_MAX + 50}
             aria-invalid={errors.reason ? "true" : undefined}
             aria-describedby={`reassign-reason-count${errors.reason ? " reassign-reason-error" : ""}`}
-            className={`mt-1 w-full rounded-[6px] border px-3 py-2 text-sm text-ink ${errors.reason ? "border-danger" : "border-line"}`}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-ink ${errors.reason ? "border-danger" : "border-line"}`}
           />
           <p
             id="reassign-reason-count"

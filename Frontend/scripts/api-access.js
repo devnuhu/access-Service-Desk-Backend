@@ -9,6 +9,8 @@
  *   orgScope     "unit" or "department": fill the path parameter with a real id, the one this person
  *                runs when there is one (a role that must be refused gets its 403 for a real id)
  *   queryFrom    fill a required query parameter the same way ({ listPath, field, param })
+ *   queryOrgScope  fill a required query parameter with this person's department or unit id
+ *                ({ scope: "department" | "unit", param }), like orgScope does for the path
  *   skip         never called live; the text says why and what data it needs
  *   skipAlways   with skip: not probed for any role (the service decides by organisation, and
  *                answers 404 for an unknown id before it checks access)
@@ -34,12 +36,26 @@ import {
   listMyCategories,
 } from "../src/features/catalogue/api/endpoints.js";
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
+import { listHolidays } from "../src/features/admin-holidays/api/endpoints.js";
+import {
+  listPlaceholders,
+  listSharedReplies,
+  listUnitReplies,
+} from "../src/features/canned-replies/api/endpoints.js";
+import {
+  getUnitSkills as getMyUnitSkills,
+  listUnitCategories,
+  listUnitTeam,
+} from "../src/features/my-unit/api/endpoints.js";
 import { searchPeople } from "../src/features/people/api/endpoints.js";
 import {
   getTicket,
+  getSlaSummary,
   getTicketActions,
   getTicketByReference,
+  listPool,
   listLocations,
+  listSavedViews,
   listTickets,
 } from "../src/features/tickets/api/endpoints.js";
 import {
@@ -53,16 +69,32 @@ import {
 } from "../src/features/org/api/endpoints.js";
 import { me } from "../src/features/auth/api/endpoints.js";
 import {
+  getDashboardSummary,
+  getUnitDashboard,
+} from "../src/features/home/api/endpoints.js";
+import {
+  getReportCatalogue,
+  listReportSchedules,
+  listSavedReports,
+} from "../src/features/reports/api/endpoints.js";
+import {
   getUnreadCount,
   listNotifications,
 } from "../src/features/notifications/api/endpoints.js";
 
 const SUPER = POLICIES.Super_Admin_Only;
 const UNIT = POLICIES.Unit_Management;
-// Availability views are [Authorize] only; the service checks the organisation (head or deputy of
-// the unit, HOD of the department), so a role alone is not enough. These are the roles involved.
+// Availability views are [Authorize] only; the service checks the organisation (head of the unit,
+// HOD of the department), so a role alone is not enough. These are the roles involved.
 const TEAM_VIEW = ["HeadOfUnit", "HOD", "SuperAdmin"];
 const DEPARTMENT_VIEW = ["HOD", "SuperAdmin"];
+// Reports are [Authorize] only; the service allows unit heads, HODs, Department Admins and Super
+// Admin (by the organisation) and answers 403 for anyone else.
+// A unit's saved replies: its head, the Department Admin, Super Admin (the service checks which unit).
+// A unit's own tools: read by its head, the HOD, the Department Admin and Super Admin.
+const MY_UNIT = ["HeadOfUnit", "HOD", "DepartmentAdmin", "SuperAdmin"];
+const UNIT_LIBRARY = ["HeadOfUnit", "DepartmentAdmin", "SuperAdmin"];
+const REPORTS = ["HeadOfUnit", "HOD", "DepartmentAdmin", "SuperAdmin"];
 const SIGNED_IN = "signedIn";
 const ANONYMOUS = "anonymous";
 
@@ -164,7 +196,6 @@ export const ACCESS_TABLE = [
   write("POST", "/api/admin/departments/{departmentId}/units", SUPER),
   write("PATCH", "/api/admin/units/{unitId}", SUPER),
   write("PUT", "/api/admin/units/{unitId}/head", SUPER),
-  write("PUT", "/api/admin/units/{unitId}/deputy", SUPER),
   get("/api/admin/units/{unitId}/members", SUPER, {
     skip: "needs a unit id from GET /api/admin/departments (nested list)",
   }),
@@ -231,6 +262,50 @@ export const ACCESS_TABLE = [
   }),
   write("POST", "/api/admin/locations", SUPER),
   write("PATCH", "/api/admin/locations/{locationId}", SUPER),
+  // Company holidays: the SLA clock skips them; server-settings rows (fromConfig) are read-only
+  get("/api/admin/holidays", SUPER, {
+    probe: { year: 2026 },
+    schema: listHolidays.response,
+  }),
+  write("POST", "/api/admin/holidays", SUPER),
+  write("DELETE", "/api/admin/holidays/{holidayId}", SUPER),
+
+  // Saved replies: staff of a ticket read its replies (404 otherwise); a unit's head, the
+  // Department Admin and Super Admin keep its library (403 otherwise); Super Admin the shared one
+  get("/api/canned-replies/placeholders", SIGNED_IN, {
+    probe: {},
+    schema: listPlaceholders.response,
+  }),
+  get("/api/tickets/{ticketId}/canned-replies", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the ticket's staff and Super Admin; anyone else gets 404 by design",
+  }),
+  get("/api/units/{unitId}/canned-replies", UNIT_LIBRARY, {
+    orgScope: "unit",
+    schema: listUnitReplies.response,
+  }),
+  write("POST", "/api/units/{unitId}/canned-replies", UNIT_LIBRARY),
+  get("/api/admin/canned-replies", SUPER, {
+    probe: {},
+    schema: listSharedReplies.response,
+  }),
+  write("POST", "/api/admin/canned-replies", SUPER),
+  // My unit: the unit's head, its department's HOD (read only) and Department Admin, Super Admin
+  get("/api/units/{unitId}/categories", MY_UNIT, {
+    orgScope: "unit",
+    schema: listUnitCategories.response,
+  }),
+  get("/api/units/{unitId}/team", MY_UNIT, {
+    orgScope: "unit",
+    schema: listUnitTeam.response,
+  }),
+  get("/api/units/{unitId}/skills", MY_UNIT, {
+    orgScope: "unit",
+    schema: getMyUnitSkills.response,
+  }),
+  write("PUT", "/api/units/{unitId}/skills/{userId}", UNIT_LIBRARY),
+  write("PATCH", "/api/canned-replies/{replyId}", SIGNED_IN),
+  write("DELETE", "/api/canned-replies/{replyId}", SIGNED_IN),
 
   // Tickets: any signed-in person raises and reads; the service decides per ticket (404 for others)
   write("POST", "/api/tickets", SIGNED_IN),
@@ -244,6 +319,16 @@ export const ACCESS_TABLE = [
     probe: { view: "mine", page: 1, pageSize: 5 },
     schema: listTickets.response,
   }),
+  // [Authorize] only; the service allows staff of the department (members, HOD) and Super Admin.
+  get(
+    "/api/tickets/sla-summary",
+    ["CaseWorker", "HeadOfUnit", "HOD", "DepartmentAdmin", "SuperAdmin"],
+    {
+      probe: {},
+      queryOrgScope: { scope: "department", param: "departmentId" },
+      schema: getSlaSummary.response,
+    },
+  ),
   get("/api/tickets/{ticketId}", SIGNED_IN, {
     ...from("/api/tickets", "id", { view: "mine", page: 1, pageSize: 1 }),
     schema: getTicket.response,
@@ -268,6 +353,21 @@ export const ACCESS_TABLE = [
     skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",
   }),
   write("POST", "/api/tickets/{ticketId}/reassign", SIGNED_IN),
+  // Unit pool: any signed-in person; the service lists only units they work in (empty otherwise)
+  // and decides each pick (403 not in the unit or category, 400 unavailable, 409 taken).
+  get("/api/pool", SIGNED_IN, { probe: {}, schema: listPool.response }),
+  write("POST", "/api/tickets/{ticketId}/pick", SIGNED_IN),
+  // Queue tools: my own saved views; bulk actions (each ticket follows the single action's rules,
+  // always 200 with a result per ticket); marking a ticket read (anyone who can see it)
+  get("/api/views", SIGNED_IN, { probe: {}, schema: listSavedViews.response }),
+  write("POST", "/api/views", SIGNED_IN),
+  write("PATCH", "/api/views/{viewId}", SIGNED_IN),
+  write("DELETE", "/api/views/{viewId}", SIGNED_IN),
+  write("POST", "/api/tickets/bulk/pick", SIGNED_IN),
+  write("POST", "/api/tickets/bulk/acknowledge", SIGNED_IN),
+  write("POST", "/api/tickets/bulk/reassign", SIGNED_IN),
+  write("POST", "/api/tickets/bulk/resolve", SIGNED_IN),
+  write("POST", "/api/tickets/{ticketId}/read", SIGNED_IN),
   get("/api/tickets/{ticketId}/assignments", SIGNED_IN, {
     skipAlways: true,
     skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",
@@ -291,6 +391,56 @@ export const ACCESS_TABLE = [
   refused("reopen", { reason: "" }, "an empty reason"),
   refused("cancel", { reason: "" }, "an empty reason"),
   refused("escalate", { reason: "" }, "an empty reason"),
+
+  // Reports (Step 9): the viewer's own scope; schedules are the viewer's own
+  get("/api/reports/catalogue", REPORTS, {
+    probe: {},
+    schema: getReportCatalogue.response,
+  }),
+  write(
+    "POST",
+    "/api/reports/run",
+    REPORTS,
+    "a POST (reads only, but the run is GET-only)",
+  ),
+  write("POST", "/api/reports/export", REPORTS, "a POST file download"),
+  get("/api/reports/saved", REPORTS, {
+    probe: {},
+    schema: listSavedReports.response,
+  }),
+  write("POST", "/api/reports/saved", REPORTS),
+  write("PUT", "/api/reports/saved/{id}", REPORTS),
+  write("DELETE", "/api/reports/saved/{id}", REPORTS),
+  write(
+    "POST",
+    "/api/reports/saved/{id}/run",
+    REPORTS,
+    "a POST (reads only, but the run is GET-only)",
+  ),
+  write(
+    "POST",
+    "/api/reports/saved/{id}/export",
+    REPORTS,
+    "a POST file download, written to the audit log",
+  ),
+  get("/api/reports/schedules", REPORTS, {
+    probe: {},
+    schema: listReportSchedules.response,
+  }),
+  write("POST", "/api/reports/schedules", REPORTS),
+  write("PUT", "/api/reports/schedules/{id}", REPORTS),
+  write("DELETE", "/api/reports/schedules/{id}", REPORTS),
+
+  // Home counts (Step 9e): mine for everyone; the overview (or null) by what the person leads
+  get("/api/dashboard/summary", SIGNED_IN, {
+    probe: {},
+    schema: getDashboardSummary.response,
+  }),
+  // One unit's dashboard: the unit's head, its department's HOD or Department Admin, Super Admin
+  get("/api/dashboard/unit/{unitId}", REPORTS, {
+    orgScope: "unit",
+    schema: getUnitDashboard.response,
+  }),
 
   // Health
   get("/api/health", ANONYMOUS),

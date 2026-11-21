@@ -40,7 +40,6 @@ const unitAvailabilitySchema = z.object({
       fullName: z.string().nullable(),
       staffCategory: z.number().int(),
       isHead: z.boolean(),
-      isDeputy: z.boolean(),
       accountActive: z.boolean(),
       availableNow: z.boolean(),
       current: absenceSchema.nullable(),
@@ -89,7 +88,7 @@ export const cancelAbsence = defineEndpoint({
   response: z.object({ message: z.string().nullable() }),
 });
 
-// Unit head or deputy, HOD of its department, Super Admin (403 otherwise).
+// Unit head, HOD of its department, Super Admin (403 otherwise).
 export const getUnitAvailability = defineEndpoint({
   method: "GET",
   path: "/api/availability/units/{unitId}",

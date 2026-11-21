@@ -1,20 +1,31 @@
-import { Link, useParams } from "react-router-dom";
-import { ChevronRight, SearchX } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { SearchX } from "lucide-react";
 import { useSession } from "@/features/auth";
 import { PriorityChip } from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
-import { Card, MessageCard, RichTextView, Spinner } from "@/shared/ui";
+import {
+  Card,
+  Chip,
+  MessageCard,
+  PageHeader,
+  RichTextView,
+  Spinner,
+} from "@/shared/ui";
 import { STATUS } from "../api/endpoints.js";
 import Ago from "../components/Ago.jsx";
 import AssignmentPanel from "../components/AssignmentPanel.jsx";
+import DueTime from "../components/DueTime.jsx";
 import EscalatedBadge from "../components/EscalatedBadge.jsx";
+import SlaBadge from "../components/SlaBadge.jsx";
 import AttachmentList from "../components/AttachmentList.jsx";
+import PickCard from "../components/PickCard.jsx";
 import Conversation from "../components/Conversation.jsx";
 import ReplyBox from "../components/ReplyBox.jsx";
 import StatusChip from "../components/StatusChip.jsx";
 import StatusCallout from "../components/StatusCallout.jsx";
 import { ActionsCard } from "../components/TicketActions.jsx";
 import { useTicket, useTicketActions } from "../hooks/useTickets.js";
+import { useMarkRead } from "../hooks/useQueueTools.js";
 import { personName } from "../ticketText.js";
 
 function Detail({ label, children }) {
@@ -34,6 +45,8 @@ export default function TicketPage() {
   const { reference, id } = useParams();
   const { user } = useSession();
   const query = useTicket({ reference, id });
+  // Opening it clears its unread marker (once per ticket opened, not on refetches).
+  useMarkRead(query.data?.id);
   const actions = useTicketActions(query.data?.id);
 
   if (query.isLoading) {
@@ -69,41 +82,25 @@ export default function TicketPage() {
 
   return (
     <div className="space-y-4">
-      <nav aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
-          <li>
-            <Link
-              to="/tickets"
-              className="font-semibold text-brand-navy hover:underline"
-            >
-              My requests
-            </Link>
-          </li>
-          <ChevronRight aria-hidden="true" size={14} />
-          <li aria-current="page" className="text-ink">
-            {ticket.reference}
-          </li>
-        </ol>
-      </nav>
-
-      <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-brand-navy">
-            {ticket.reference}
-          </span>
+      <PageHeader
+        title={<span className="break-words">{ticket.subject}</span>}
+        crumb={ticket.reference}
+        eyebrow={ticket.reference}
+      >
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusChip status={ticket.status} />
           <PriorityChip priority={ticket.priority} />
+          <SlaBadge level={ticket.slaLevel} />
           {ticket.escalatedToHeadAt && (
             <EscalatedBadge at={ticket.escalatedToHeadAt} />
           )}
         </div>
-        <h1 className="text-2xl font-semibold break-words">{ticket.subject}</h1>
-        <p className="text-sm text-body">
+        <p className="mt-3 text-sm text-body">
           {ticket.categoryName} · {ticket.unitName} · {ticket.departmentName}
           <span className="text-muted"> · </span>
           {ticket.locationName}
         </p>
-        <p className="text-sm text-body">
+        <p className="mt-1 text-sm text-body">
           Raised {formatWat(ticket.createdAt)} by{" "}
           {raisedForSomeoneElse ? (
             <>
@@ -124,7 +121,7 @@ export default function TicketPage() {
             <span className="text-muted">Waiting for assignment</span>
           )}
         </p>
-      </header>
+      </PageHeader>
 
       <StatusCallout
         ticket={ticket}
@@ -216,11 +213,28 @@ export default function TicketPage() {
                 )}
               </Detail>
               <Detail label="Raised">{formatWat(ticket.createdAt)}</Detail>
+              <Detail label="First response">
+                <span data-testid="detail-first-response">
+                  {ticket.firstRespondedAt ? (
+                    formatWat(ticket.firstRespondedAt)
+                  ) : ticket.assignee ? (
+                    <Chip tone="orange">Waiting</Chip>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </span>
+              </Detail>
+              {ticket.slaDueAt && (
+                <Detail label="Due">
+                  <DueTime at={ticket.slaDueAt} full />
+                </Detail>
+              )}
               <Detail label="Updated">
                 {ticket.updatedAt ? formatWat(ticket.updatedAt) : "—"}
               </Detail>
             </dl>
           </Card>
+          <PickCard ticket={ticket} />
           {actions.data && (
             <ActionsCard
               ticket={ticket}

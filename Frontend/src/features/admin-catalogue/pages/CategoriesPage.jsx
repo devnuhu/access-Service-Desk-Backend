@@ -10,6 +10,7 @@ import {
   ConfirmDialog,
   Spinner,
   useToast,
+  PageHeader,
 } from "@/shared/ui";
 import CategoryDialog from "../components/CategoryDialog.jsx";
 import CoverBanner from "../components/CoverBanner.jsx";
@@ -138,13 +139,10 @@ export default function CategoriesPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="mt-1 text-sm text-muted">
-            What requesters can ask for, the unit that handles each and how many
-            case workers can take it.
-          </p>
-        </div>
+        <PageHeader
+          title="Categories"
+          description="What requesters can ask for, the unit that handles each and how many case workers can take it."
+        />
         <div className="flex flex-wrap items-end gap-2">
           {departmentList.length > 1 && (
             <div>
@@ -158,7 +156,7 @@ export default function CategoriesPage() {
                 id="category-department"
                 value={department?.id ?? ""}
                 onChange={(event) => setChosenId(event.target.value)}
-                className="mt-1 h-9 rounded-[6px] border border-line bg-white px-2 text-sm text-ink"
+                className="mt-1 h-9 rounded-lg border border-line bg-white px-2 text-sm text-ink"
               >
                 {departmentList.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -202,7 +200,7 @@ export default function CategoriesPage() {
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[56rem] text-left text-sm">
-              <thead className="bg-page text-xs font-semibold text-muted uppercase">
+              <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
                 <tr>
                   <th scope="col" className="w-28 px-5 py-2.5">
                     Order
@@ -222,7 +220,7 @@ export default function CategoriesPage() {
                   <th scope="col" className="px-3 py-2.5">
                     Status
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>

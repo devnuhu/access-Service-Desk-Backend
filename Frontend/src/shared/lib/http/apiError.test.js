@@ -87,7 +87,7 @@ describe("toApiError", () => {
     expect(error.kind).toBe("network");
     expect(error.status).toBeNull();
     expect(error.message).toBe(
-      "Access Desk cannot be reached right now. Try again shortly.",
+      "Access Service Desk cannot be reached right now. Try again shortly.",
     );
   });
 });

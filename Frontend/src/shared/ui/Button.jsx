@@ -1,7 +1,7 @@
 import Spinner from "./Spinner.jsx";
 
 const VARIANTS = {
-  // Navy with a 3px orange bottom edge, as in the Access Desk emails.
+  // Navy with a 3px orange bottom edge, as in the Access Service Desk emails.
   primary:
     "bg-brand-navy text-white border-b-[3px] border-brand-orange hover:bg-brand-navy-dark disabled:bg-brand-navy/60",
   secondary:
@@ -36,7 +36,7 @@ export default function Button({
       type={type}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-[6px] font-semibold transition-colors disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors disabled:cursor-not-allowed ${VARIANTS[variant]} ${SIZES[size]} ${className}`}
       {...rest}
     >
       {busy ? (

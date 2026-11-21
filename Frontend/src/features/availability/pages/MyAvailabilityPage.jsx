@@ -1,6 +1,6 @@
 import { CalendarCheck, CalendarX } from "lucide-react";
 import { WhatIHandle } from "@/features/catalogue";
-import { Card, CardHeader, Spinner } from "@/shared/ui";
+import { Card, CardHeader, Spinner, PageHeader } from "@/shared/ui";
 import { awayUntil } from "../absenceText.js";
 import AbsenceForm from "../components/AbsenceForm.jsx";
 import AbsenceList from "../components/AbsenceList.jsx";
@@ -55,7 +55,10 @@ export default function MyAvailabilityPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">My availability</h1>
+      <PageHeader
+        title="My availability"
+        description="Record leave so your work is covered while you are away."
+      />
 
       {!availability.inStructure ? (
         <Card className="px-5 py-6">

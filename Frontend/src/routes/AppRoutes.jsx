@@ -1,6 +1,8 @@
 import { Route, Routes } from "react-router-dom";
 import { CategoriesPage, SkillsMatrixPage } from "@/features/admin-catalogue";
 import { EmailPage } from "@/features/admin-email";
+import { HolidaysPage } from "@/features/admin-holidays";
+import { SharedRepliesPage } from "@/features/canned-replies";
 import { LocationsPage } from "@/features/admin-locations";
 import { PeopleRolesPage } from "@/features/admin-people";
 import { UnitPage, UnitsPage } from "@/features/admin-units";
@@ -11,7 +13,9 @@ import {
   RequireTeamAccess,
   UnitAvailabilityPage,
 } from "@/features/availability";
-import { HomePage } from "@/features/home";
+import { HomePage, UnitDashboardPage } from "@/features/home";
+import { MyUnitPage } from "@/features/my-unit";
+import { ReportsPage } from "@/features/reports";
 import {
   MyRequestsPage,
   NewTicketPage,
@@ -19,7 +23,7 @@ import {
   WorkQueuePage,
 } from "@/features/tickets";
 import AppLayout from "@/layouts/AppLayout.jsx";
-import { ROLES } from "@/shared/lib/roles";
+import { REPORT_ROLES, ROLES } from "@/shared/lib/roles";
 import { NoAccessPage, NotFoundPage } from "./StatusPages.jsx";
 
 export default function AppRoutes() {
@@ -29,6 +33,11 @@ export default function AppRoutes() {
       <Route element={<RequireRole />}>
         <Route element={<AppLayout />}>
           <Route index element={<HomePage />} />
+          <Route
+            path="dashboard/unit/:unitId"
+            element={<UnitDashboardPage />}
+          />
+          <Route path="units/:unitId" element={<MyUnitPage />} />
           <Route path="availability" element={<MyAvailabilityPage />} />
           <Route path="tickets" element={<MyRequestsPage />} />
           <Route path="tickets/new" element={<NewTicketPage />} />
@@ -48,6 +57,9 @@ export default function AppRoutes() {
               element={<DepartmentAvailabilityPage />}
             />
           </Route>
+          <Route element={<RequireRole roles={REPORT_ROLES} />}>
+            <Route path="reports" element={<ReportsPage />} />
+          </Route>
           <Route element={<RequireRole roles={[ROLES.SuperAdmin]} />}>
             <Route path="admin/people" element={<PeopleRolesPage />} />
             <Route path="admin/units" element={<UnitsPage />} />
@@ -58,6 +70,8 @@ export default function AppRoutes() {
             />
             <Route path="admin/categories" element={<CategoriesPage />} />
             <Route path="admin/locations" element={<LocationsPage />} />
+            <Route path="admin/holidays" element={<HolidaysPage />} />
+            <Route path="admin/replies" element={<SharedRepliesPage />} />
             <Route path="admin/email" element={<EmailPage />} />
           </Route>
           <Route path="no-access" element={<NoAccessPage />} />

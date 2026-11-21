@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ChevronRight, Grid3x3, UserPlus } from "lucide-react";
+import { Grid3x3, MessageSquareText, UserPlus } from "lucide-react";
 import { useUnitSkills } from "@/features/admin-catalogue";
 import { formatWat } from "@/shared/lib/time";
 import {
@@ -9,10 +9,10 @@ import {
   CardHeader,
   Chip,
   ConfirmDialog,
-  Dialog,
   MessageCard,
   Spinner,
   useToast,
+  PageHeader,
 } from "@/shared/ui";
 import { STAFF_CATEGORY } from "../api/endpoints.js";
 import PickPersonDialog from "../components/PickPersonDialog.jsx";
@@ -21,7 +21,6 @@ import {
   useAddMember,
   useAdminDepartments,
   useRemoveMember,
-  useSetDeputy,
   useSetHead,
   useUnitMembers,
   useUpdateUnit,
@@ -29,7 +28,7 @@ import {
 
 const name = (person) => (person ? person.fullName || person.userName : null);
 
-function Post({ title, hint, person, onChange, onClear, changeDisabled }) {
+function Post({ title, hint, person, onChange, onClear }) {
   return (
     <div className="flex-1 rounded-card border border-line p-4">
       <h3 className="text-xs font-semibold text-muted uppercase">{title}</h3>
@@ -38,12 +37,7 @@ function Post({ title, hint, person, onChange, onClear, changeDisabled }) {
       </p>
       <p className="mt-1 text-xs text-muted">{hint}</p>
       <div className="mt-3 flex gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onChange}
-          disabled={changeDisabled}
-        >
+        <Button size="sm" variant="secondary" onClick={onChange}>
           Change
         </Button>
         {person && (
@@ -56,7 +50,7 @@ function Post({ title, hint, person, onChange, onClear, changeDisabled }) {
   );
 }
 
-/** One unit (Super Admin): head, deputy and members. */
+/** One unit (Super Admin): its head and members. */
 export default function UnitPage() {
   const { unitId } = useParams();
   const toast = useToast();
@@ -64,13 +58,11 @@ export default function UnitPage() {
   const members = useUnitMembers(unitId);
   const skills = useUnitSkills(unitId);
   const setHead = useSetHead();
-  const setDeputy = useSetDeputy();
   const addMember = useAddMember();
   const removeMember = useRemoveMember();
   const updateUnit = useUpdateUnit();
   const [dialog, setDialog] = useState(null);
   const [staffNo, setStaffNo] = useState("");
-  const [deputyId, setDeputyId] = useState("");
 
   const department = departments.data?.find((d) =>
     d.units.some((u) => u.id === unitId),
@@ -121,35 +113,24 @@ export default function UnitPage() {
   const categoryCount = new Map(
     (skills.data?.members ?? []).map((m) => [m.userId, m.categoryIds.length]),
   );
-  const candidates = rows.filter((member) => !member.isHead);
 
   return (
     <div className="space-y-4">
-      <nav aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
-          <li>
-            <Link
-              to="/admin/units"
-              className="font-semibold text-brand-navy hover:underline"
-            >
-              Units
-            </Link>
-          </li>
-          <ChevronRight aria-hidden="true" size={14} />
-          <li>{department.name}</li>
-          <ChevronRight aria-hidden="true" size={14} />
-          <li aria-current="page" className="text-ink">
-            {unit.name}
-          </li>
-        </ol>
-      </nav>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="flex flex-wrap items-center gap-2 text-2xl font-semibold">
-          {unit.name}
-          <Chip tone="grey">{unit.code}</Chip>
-          {!unit.isActive && <Chip tone="red">Off</Chip>}
-        </h1>
+        <PageHeader
+          title={
+            <span className="flex flex-wrap items-center gap-3">
+              {unit.name}
+              <Chip tone="grey">{unit.code}</Chip>
+              {!unit.isActive && <Chip tone="red">Off</Chip>}
+            </span>
+          }
+          crumb={unit.name}
+          trail={[
+            { label: "Units", to: "/admin/units" },
+            ...(department ? [{ label: department.name }] : []),
+          ]}
+        />
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -176,17 +157,6 @@ export default function UnitPage() {
           onChange={() => setDialog("head")}
           onClear={() => setDialog("clearHead")}
         />
-        <Post
-          title="Deputy"
-          hint="Receives escalations when the head is on leave."
-          person={unit.deputy}
-          onChange={() => {
-            setDeputyId(unit.deputy?.userId ?? "");
-            setDialog("deputy");
-          }}
-          onClear={() => setDialog("clearDeputy")}
-          changeDisabled={candidates.length === 0}
-        />
       </div>
 
       <Card>
@@ -197,10 +167,17 @@ export default function UnitPage() {
             <div className="flex flex-wrap gap-2">
               <Link
                 to={`/admin/units/${unitId}/skills`}
-                className="inline-flex h-8 items-center gap-1.5 rounded-[6px] border border-line bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-page"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-page"
               >
                 <Grid3x3 aria-hidden="true" size={16} />
                 Skills matrix
+              </Link>
+              <Link
+                to={`/units/${unitId}?tab=replies`}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-page"
+              >
+                <MessageSquareText aria-hidden="true" size={16} />
+                Saved replies
               </Link>
               <Button size="sm" onClick={() => setDialog("member")}>
                 <UserPlus aria-hidden="true" size={16} />
@@ -224,38 +201,33 @@ export default function UnitPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-page text-xs font-semibold text-muted uppercase">
+              <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
                 <tr>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Name
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Staff no.
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Staff category
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Categories
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Account
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Joined
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {rows.map((member) => {
-                  const post = member.isHead
-                    ? "head"
-                    : member.isDeputy
-                      ? "deputy"
-                      : null;
                   return (
                     <tr key={member.userId}>
                       <td className="px-5 py-3">
@@ -281,7 +253,6 @@ export default function UnitPage() {
                               : "Employee"}
                           </Chip>
                           {member.isHead && <Chip tone="orange">Head</Chip>}
-                          {member.isDeputy && <Chip tone="orange">Deputy</Chip>}
                         </span>
                       </td>
                       <td
@@ -302,12 +273,14 @@ export default function UnitPage() {
                       </td>
                       <td className="px-5 py-3 text-right">
                         <span
-                          title={post ? `Change the ${post} first` : undefined}
+                          title={
+                            member.isHead ? "Change the head first" : undefined
+                          }
                         >
                           <Button
                             size="sm"
                             variant="danger"
-                            disabled={Boolean(post)}
+                            disabled={member.isHead}
                             onClick={() => setDialog({ remove: member })}
                             aria-label={`Remove ${member.fullName || member.userName}`}
                           >
@@ -368,75 +341,20 @@ export default function UnitPage() {
             value={staffNo}
             maxLength={30}
             onChange={(event) => setStaffNo(event.target.value)}
-            className="mt-1 h-10 w-full rounded-[6px] border border-line px-3 text-sm text-ink"
+            className="mt-1 h-10 w-full rounded-lg border border-line px-3 text-sm text-ink"
           />
         </div>
       </PickPersonDialog>
 
-      <Dialog
-        open={dialog === "deputy"}
-        onClose={() => setDialog(null)}
-        title={`Set the deputy of ${unit.name}`}
-        description="The deputy must already be a member of the unit."
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!deputyId}
-              busy={setDeputy.isPending}
-              onClick={async () =>
-                done(
-                  await report(
-                    setDeputy.mutateAsync({ unitId, userId: deputyId }),
-                  ),
-                )
-              }
-            >
-              Set deputy
-            </Button>
-          </>
-        }
-      >
-        <fieldset>
-          <legend className="sr-only">Members</legend>
-          <ul className="space-y-1">
-            {candidates.map((member) => (
-              <li key={member.userId}>
-                <label className="flex cursor-pointer items-center gap-2 rounded-[6px] px-2 py-1.5 text-sm hover:bg-page">
-                  <input
-                    type="radio"
-                    name="deputy"
-                    value={member.userId}
-                    checked={deputyId === member.userId}
-                    onChange={() => setDeputyId(member.userId)}
-                  />
-                  <span className="font-medium text-ink">
-                    {member.fullName || member.userName}
-                  </span>
-                  <span className="text-xs text-muted">{member.userName}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </fieldset>
-      </Dialog>
-
       <ConfirmDialog
-        open={dialog === "clearHead" || dialog === "clearDeputy"}
-        title={dialog === "clearHead" ? "Clear the head?" : "Clear the deputy?"}
-        message={
-          dialog === "clearHead"
-            ? `${unit.name} will have no Head of Unit. ${name(unit.head)} stays as a case worker.`
-            : `${unit.name} will have no deputy. ${name(unit.deputy)} stays as a case worker.`
-        }
+        open={dialog === "clearHead"}
+        title="Clear the head?"
+        message={`${unit.name} will have no Head of Unit. ${name(unit.head)} stays as a case worker.`}
         confirmLabel="Clear"
         danger
-        busy={setHead.isPending || setDeputy.isPending}
+        busy={setHead.isPending}
         onConfirm={async () => {
-          const mutation = dialog === "clearHead" ? setHead : setDeputy;
-          await report(mutation.mutateAsync({ unitId, userId: null }));
+          await report(setHead.mutateAsync({ unitId, userId: null }));
           setDialog(null);
         }}
         onCancel={() => setDialog(null)}

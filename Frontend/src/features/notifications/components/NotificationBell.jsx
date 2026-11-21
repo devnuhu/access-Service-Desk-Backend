@@ -94,13 +94,13 @@ export default function NotificationBell() {
         aria-controls={panelId}
         aria-haspopup="true"
         aria-label={count ? `Notifications, ${count} unread` : "Notifications"}
-        className="relative rounded-[6px] p-2 text-white hover:bg-white/10"
+        className="relative rounded-full p-2.5 text-ink hover:bg-page"
       >
         <Bell aria-hidden="true" size={20} />
         {count > 0 && (
           <span
             data-testid="bell-count"
-            className="absolute -top-0.5 -right-0.5 min-w-5 rounded-full border-2 border-brand-navy bg-brand-orange px-1 text-center text-[10px] leading-4 font-bold text-ink"
+            className="absolute -top-0.5 -right-0.5 min-w-5 rounded-full border-2 border-white bg-brand-orange px-1 text-center text-[10px] leading-4 font-bold text-ink"
           >
             {badgeText(count)}
           </span>

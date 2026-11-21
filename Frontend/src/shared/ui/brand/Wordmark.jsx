@@ -1,20 +1,25 @@
 /**
- * "Access Desk" with "Service Desk" under it, for navy backgrounds. Platform branding: never a
- * department name here.
+ * "Access Service Desk": a small spaced ACCESS over a bold "Service Desk" (Desk in green).
+ * tone="light" for navy backgrounds (white), tone="dark" for white ones (navy). Platform
+ * branding: never a department name here.
  */
-export default function Wordmark({ size = "md" }) {
+export default function Wordmark({ size = "md", tone = "light" }) {
   const large = size === "lg";
+  const dark = tone === "dark";
   return (
-    <span className="inline-flex flex-col leading-none">
+    <span className="inline-flex flex-col leading-none whitespace-nowrap">
       <span
-        className={`font-bold tracking-tight text-white ${large ? "text-3xl" : "text-xl"}`}
+        className={`font-semibold tracking-[0.32em] uppercase ${dark ? "text-muted" : "text-white/70"} ${large ? "text-xs" : "text-[10px]"}`}
       >
-        Access <span className="text-brand-green">Desk</span>
+        Access
       </span>
       <span
-        className={`mt-1 font-medium tracking-[0.14em] text-white/75 uppercase ${large ? "text-xs" : "text-[10px]"}`}
+        className={`mt-1 font-bold tracking-tight ${dark ? "text-brand-navy" : "text-white"} ${large ? "text-3xl" : "text-xl"}`}
       >
-        Service Desk
+        Service{" "}
+        <span className={dark ? "text-brand-green-text" : "text-brand-green"}>
+          Desk
+        </span>
       </span>
     </span>
   );

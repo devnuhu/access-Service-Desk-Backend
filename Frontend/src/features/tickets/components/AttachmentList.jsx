@@ -38,7 +38,7 @@ export default function AttachmentList({ ticketId, files, label = "Files" }) {
               onClick={() => download(file)}
               disabled={busyId === file.id}
               aria-label={`Download ${file.fileName} (${formatSize(file.sizeBytes)})`}
-              className="inline-flex max-w-72 items-center gap-2 rounded-[6px] border border-line bg-white px-2.5 py-1.5 text-left text-sm hover:border-brand-navy hover:bg-brand-navy-light"
+              className="inline-flex max-w-72 items-center gap-2 rounded-lg border border-line bg-white px-2.5 py-1.5 text-left text-sm hover:border-brand-navy hover:bg-brand-navy-light"
             >
               <Icon
                 aria-hidden="true"

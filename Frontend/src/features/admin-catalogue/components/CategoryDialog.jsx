@@ -43,7 +43,7 @@ const editSchema = baseSchema.extend({
 });
 
 const inputClass = (invalid) =>
-  `mt-1 w-full rounded-[6px] border px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
+  `mt-1 w-full rounded-lg border px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
 
 function Field({ id, label, hint, error, children }) {
   return (
@@ -184,7 +184,7 @@ export default function CategoryDialog({
         {failure && (
           <p
             role="alert"
-            className="rounded-[6px] border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+            className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
           >
             {failure}
           </p>
@@ -209,7 +209,7 @@ export default function CategoryDialog({
           <p
             role="note"
             data-testid="move-warning"
-            className="flex gap-2 rounded-[6px] border border-brand-orange bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
+            className="flex gap-2 rounded-lg border border-brand-orange bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
           >
             <TriangleAlert
               aria-hidden="true"

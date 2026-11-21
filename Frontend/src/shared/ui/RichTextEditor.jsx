@@ -10,7 +10,7 @@ export default function RichTextEditor(props) {
     <Suspense
       fallback={
         <div
-          className={`flex items-center justify-center rounded-[6px] border border-line bg-white text-muted ${props.compact ? "min-h-[180px]" : "min-h-[260px]"}`}
+          className={`flex items-center justify-center rounded-lg border border-line bg-white text-muted ${props.compact ? "min-h-[180px]" : "min-h-[260px]"}`}
         >
           <Spinner label="Loading the editor…" />
         </div>

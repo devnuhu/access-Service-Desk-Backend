@@ -7,7 +7,7 @@ export default function Card({
 }) {
   return (
     <Tag
-      className={`rounded-card border border-line bg-white ${className}`}
+      className={`rounded-card border border-line bg-white shadow-card ${className}`}
       {...rest}
     >
       {children}

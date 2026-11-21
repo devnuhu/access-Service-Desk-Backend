@@ -20,18 +20,18 @@ const POINTS = [
   },
 ];
 
-/** Company logo, divider, then "Access Desk" with "Service Desk" under it (light background). */
+/** Company logo, divider, then the Access Service Desk wordmark (light background). */
 function LogoRow() {
   return (
     <div className="flex items-center gap-4">
       <CompanyLogo height={32} className="border border-login-badge-line" />
       <span aria-hidden="true" className="h-10 w-px bg-login-divider" />
       <span className="flex flex-col leading-none whitespace-nowrap">
-        <span className="text-[22px] font-bold tracking-tight text-brand-navy lg:text-2xl">
-          Access <span className="text-brand-green">Desk</span>
+        <span className="text-[11px] font-semibold tracking-[0.32em] text-login-unit uppercase">
+          Access
         </span>
-        <span className="mt-1 text-xs font-medium text-login-unit">
-          Service Desk
+        <span className="mt-1 text-[22px] font-bold tracking-tight text-brand-navy lg:text-2xl">
+          Service <span className="text-brand-green-text">Desk</span>
         </span>
       </span>
     </div>
@@ -77,7 +77,7 @@ export function LoginBrandPanel() {
                 key={lines[0]}
                 className="flex items-center gap-2.5 text-sm text-ink"
               >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-login-icon-line bg-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-login-icon-line bg-white">
                   <Icon aria-hidden="true" size={16} className={color} />
                 </span>
                 <span className="leading-snug">

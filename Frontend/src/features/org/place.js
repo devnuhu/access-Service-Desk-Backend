@@ -12,20 +12,17 @@ export function describePlaces(org) {
     for (const unit of department.units) {
       const where = `${unit.name} · ${department.name}`;
       if (unit.isHead) places.push(`${where} (Head of Unit)`);
-      else if (unit.isDeputy) places.push(`${where} (Deputy Head of Unit)`);
       else if (unit.isMember) places.push(where);
     }
   }
   return places;
 }
 
-/** True when the person heads or deputises this unit. */
+/** True when the person heads this unit. */
 export function leadsUnit(org, unitId) {
   return Boolean(
     org?.departments?.some((department) =>
-      department.units.some(
-        (unit) => unit.id === unitId && (unit.isHead || unit.isDeputy),
-      ),
+      department.units.some((unit) => unit.id === unitId && unit.isHead),
     ),
   );
 }
@@ -47,5 +44,37 @@ export function isDepartmentStaff(org, departmentId) {
         department.id === departmentId &&
         (department.isHod || department.units.some((unit) => unit.isMember)),
     ),
+  );
+}
+
+/** The units this person heads (org/me). */
+export function headedUnits(org) {
+  return (org?.departments ?? []).flatMap((department) =>
+    department.units.filter((unit) => unit.isHead),
+  );
+}
+
+/** Oversees whole departments: an HOD or Department Admin in org/me, or a Super Admin. */
+export function oversees(org, isSuperAdmin = false) {
+  return (
+    isSuperAdmin ||
+    Boolean(
+      org?.departments?.some(
+        (department) => department.isHod || department.isAdmin,
+      ),
+    )
+  );
+}
+
+/** The units this person works in (org/me), with their department's id and name. */
+export function memberUnits(org) {
+  return (org?.departments ?? []).flatMap((department) =>
+    department.units
+      .filter((unit) => unit.isMember)
+      .map((unit) => ({
+        ...unit,
+        departmentId: department.id,
+        departmentName: department.name,
+      })),
   );
 }

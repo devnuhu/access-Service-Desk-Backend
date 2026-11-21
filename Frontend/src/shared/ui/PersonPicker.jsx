@@ -65,7 +65,7 @@ export default function PersonPicker({
           onChange={(event) => setText(event.target.value)}
           placeholder={placeholder}
           autoComplete="off"
-          className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
+          className="h-10 w-full rounded-lg border border-line pr-3 pl-9 text-sm text-ink"
         />
       </div>
 
@@ -84,7 +84,7 @@ export default function PersonPicker({
           <p className="py-2 text-sm text-muted">No one matches “{query}”.</p>
         ) : (
           <ul
-            className="max-h-64 divide-y divide-line overflow-y-auto rounded-[6px] border border-line"
+            className="max-h-64 divide-y divide-line overflow-y-auto rounded-lg border border-line"
             aria-label="Matching people"
           >
             {people.map((person) => {

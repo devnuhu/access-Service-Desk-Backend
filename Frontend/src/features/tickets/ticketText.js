@@ -1,15 +1,31 @@
 import { STATUS, STATUS_LABELS } from "./api/endpoints.js";
 
 /** Status chip classes: New grey, Assigned navy, In progress light navy, Pending orange, ... */
+/** Status pill: a soft fill, a hairline outline and a dot in the status colour. */
 export const STATUS_STYLE = {
-  [STATUS.New]: "bg-page text-body border border-line",
-  [STATUS.Assigned]: "bg-brand-navy text-white",
-  [STATUS.InProgress]: "bg-brand-navy-light text-brand-navy",
-  [STATUS.Pending]: "bg-brand-orange-light text-brand-orange-ink",
-  [STATUS.Resolved]: "bg-brand-green-light text-brand-green-ink",
-  [STATUS.Reopened]: "bg-brand-orange-light text-brand-orange-ink",
-  [STATUS.Closed]: "bg-page text-body border border-line",
-  [STATUS.Cancelled]: "bg-page text-muted border border-line line-through",
+  [STATUS.New]: ["bg-white text-ink ring-line", "bg-muted"],
+  [STATUS.Assigned]: [
+    "bg-brand-navy-light text-brand-navy ring-brand-navy/15",
+    "bg-brand-navy",
+  ],
+  [STATUS.InProgress]: [
+    "bg-[#eaf2fc] text-[#1c5cab] ring-[#2a78d6]/20",
+    "bg-[#2a78d6]",
+  ],
+  [STATUS.Pending]: [
+    "bg-brand-orange-light text-brand-orange-ink ring-brand-orange-ink/20",
+    "bg-brand-orange",
+  ],
+  [STATUS.Resolved]: [
+    "bg-brand-green-light text-brand-green-ink ring-brand-green-ink/20",
+    "bg-brand-green",
+  ],
+  [STATUS.Reopened]: [
+    "bg-brand-orange-light text-brand-orange-ink ring-brand-orange-ink/20",
+    "bg-brand-orange",
+  ],
+  [STATUS.Closed]: ["bg-page text-body ring-line", "bg-body"],
+  [STATUS.Cancelled]: ["bg-page text-muted line-through ring-line", "bg-muted"],
 };
 
 export function statusLabel(status) {

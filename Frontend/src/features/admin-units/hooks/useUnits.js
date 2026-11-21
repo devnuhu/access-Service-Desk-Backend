@@ -11,7 +11,6 @@ import {
   removeUnitMember,
   setDepartmentAdmin,
   setDepartmentHod,
-  setUnitDeputy,
   setUnitHead,
   updateDepartment,
   updateUnit,
@@ -93,11 +92,6 @@ export const useUpdateUnit = () =>
 export const useSetHead = () =>
   useOrgMutation(({ unitId, userId }) =>
     request(setUnitHead, { params: { unitId }, body: { userId } }),
-  );
-
-export const useSetDeputy = () =>
-  useOrgMutation(({ unitId, userId }) =>
-    request(setUnitDeputy, { params: { unitId }, body: { userId } }),
   );
 
 export const useAddMember = () =>

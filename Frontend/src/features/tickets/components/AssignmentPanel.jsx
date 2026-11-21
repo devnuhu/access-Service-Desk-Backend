@@ -7,6 +7,7 @@ import { personName } from "../ticketText.js";
 import Ago from "./Ago.jsx";
 import AssignmentHistory from "./AssignmentHistory.jsx";
 import ReassignDialog from "./ReassignDialog.jsx";
+import SlaHistory from "./SlaHistory.jsx";
 
 /**
  * Staff only (the ticket page shows it when isStaffView): who has the ticket and since when,
@@ -71,6 +72,10 @@ export default function AssignmentPanel({ ticket }) {
 
       <div className="mt-4">
         <AssignmentHistory ticketId={ticket.id} />
+      </div>
+
+      <div className="mt-4 empty:hidden">
+        <SlaHistory ticket={ticket} />
       </div>
 
       {reassigning && (

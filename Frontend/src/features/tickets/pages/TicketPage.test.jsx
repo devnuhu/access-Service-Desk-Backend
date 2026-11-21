@@ -9,6 +9,7 @@ import {
   makeUser,
   renderWithProviders,
 } from "@/test/render";
+import { ticketKeys } from "../hooks/useTickets.js";
 import { autoReasonText } from "../ticketText.js";
 import TicketPage from "./TicketPage.jsx";
 
@@ -60,6 +61,14 @@ const ticket = (overrides = {}) => ({
   canComment: true,
   canAddInternalNote: false,
   assignedAt: null,
+  firstRespondedAt: null,
+  escalatedToHeadAt: null,
+  escalatedToHeadReason: null,
+  slaLevel: 0,
+  slaDueAt: null,
+  slaWarnedAt: null,
+  slaBreachedAt: null,
+  slaL2At: null,
   acknowledgedAt: null,
   pendingReason: null,
   pendingSince: null,
@@ -80,6 +89,7 @@ const NO_ACTIONS = {
   canConfirm: false,
   canReopen: false,
   canCancel: false,
+  canEscalate: false,
   resolutionCodes: [],
 };
 
@@ -97,12 +107,47 @@ function renderTicket(routes, route = "/tickets/CP-2026-000001") {
     </Routes>,
     { route, queryClient },
   );
+  api.queryClient = queryClient;
   return api;
 }
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("Ticket page", () => {
+  it("opening a ticket marks it read once, and its list row stops being bold", async () => {
+    let reads = 0;
+    const api = renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
+      "POST /api/tickets/:ticketId/read": (config) => {
+        reads += 1;
+        expect(config.pathParams.ticketId).toBe("t-1");
+        return [200, { message: "Marked as read." }];
+      },
+    });
+    // A list the person had open before, with this ticket unread.
+    const listKey = ticketKeys.list({ view: "mine", open: true });
+    api.queryClient.setQueryData(listKey, {
+      items: [
+        { id: "t-1", unread: true },
+        { id: "t-2", unread: true },
+      ],
+      total: 2,
+      page: 1,
+      pageSize: 20,
+    });
+    await screen.findByRole("heading", { name: "Balance does not agree" });
+    await waitFor(() => expect(reads).toBe(1));
+    await waitFor(() =>
+      expect(api.queryClient.getQueryData(listKey).items).toEqual([
+        { id: "t-1", unread: false },
+        { id: "t-2", unread: true },
+      ]),
+    );
+    // A refetch of the ticket (a poll, a push) does not mark it again.
+    await api.queryClient.refetchQueries({ queryKey: ticketKeys.tickets });
+    expect(reads).toBe(1);
+  });
+
   it("a requester sees no internal-note toggle and replies publicly", async () => {
     renderTicket({
       "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
@@ -138,6 +183,7 @@ describe("Ticket page", () => {
               author: HOU,
               bodyHtml: "<p>Checked the ledger.</p>",
               isInternal: true,
+              kind: 0,
               createdAt: "2026-11-03T10:00:00Z",
               attachments: [file("f-2", "Ledger.pdf", "cm-1")],
             },
@@ -146,6 +192,7 @@ describe("Ticket page", () => {
               author: HOU,
               bodyHtml: "<p>We are on it.</p>",
               isInternal: false,
+              kind: 0,
               createdAt: "2026-11-03T10:05:00Z",
               attachments: [],
             },
@@ -572,5 +619,278 @@ describe("Assignment panel", () => {
     expect(autoReasonText("reopened while the assignee is unavailable")).toBe(
       "When it was reopened and the assignee was unavailable",
     );
+  });
+});
+
+describe("SLA and first response", () => {
+  it("staff see the Overdue badge and when each alert was sent", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({
+          slaLevel: 2,
+          firstRespondedAt: "2026-11-03T09:30:00Z",
+          slaWarnedAt: "2026-11-03T12:00:00Z",
+          slaBreachedAt: "2026-11-04T09:00:00Z",
+          slaL2At: null,
+        }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    expect(await screen.findByTestId("sla-badge")).toHaveTextContent("Overdue");
+    expect(screen.getByTestId("detail-first-response")).toHaveTextContent(
+      "Tue 3 Nov 2026, 10:30 WAT",
+    );
+    const history = await screen.findByTestId("sla-history");
+    expect(
+      [...history.querySelectorAll("li")].map((li) => li.textContent),
+    ).toEqual([
+      "Warning sentTue 3 Nov 2026, 13:00 WAT",
+      "Marked overdueWed 4 Nov 2026, 10:00 WAT",
+    ]);
+  });
+
+  it("far past says so and lists the report to the Head of Department", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({
+          slaLevel: 3,
+          slaWarnedAt: "2026-11-03T12:00:00Z",
+          slaBreachedAt: "2026-11-04T09:00:00Z",
+          slaL2At: "2026-11-05T09:00:00Z",
+        }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    expect(await screen.findByTestId("sla-badge")).toHaveTextContent(
+      "Far past",
+    );
+    expect(
+      await screen.findByText("Reported to the Head of Department"),
+    ).toBeInTheDocument();
+    // Assigned, nobody has answered yet
+    expect(screen.getByTestId("detail-first-response")).toHaveTextContent(
+      "Waiting",
+    );
+  });
+
+  it("staff see Due with the full WAT time and how long until then", async () => {
+    vi.useFakeTimers({
+      now: new Date("2026-11-17T09:00:00Z"),
+      toFake: ["Date"],
+    });
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({ status: 3, slaDueAt: "2026-11-17T14:00:00Z" }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    const due = await screen.findByTestId("detail-due");
+    expect(due).toHaveTextContent("Tue 17 Nov 2026, 15:00 WAT");
+    expect(due).toHaveTextContent("in 5 hours");
+    vi.useRealTimers();
+  });
+
+  it("a passed due time says how long ago", async () => {
+    vi.useFakeTimers({
+      now: new Date("2026-11-17T09:00:00Z"),
+      toFake: ["Date"],
+    });
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({
+          status: 3,
+          slaLevel: 2,
+          slaDueAt: "2026-11-17T07:00:00Z",
+        }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    const due = await screen.findByTestId("detail-due");
+    expect(due).toHaveTextContent("Tue 17 Nov 2026, 08:00 WAT");
+    expect(due).toHaveTextContent("2 hours ago");
+    vi.useRealTimers();
+  });
+
+  it("no Due row when the API sends null (Pending, finished, requester)", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({ status: 4, slaDueAt: null }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    await screen.findByRole("heading", { name: "Balance does not agree" });
+    expect(screen.queryByTestId("detail-due")).not.toBeInTheDocument();
+    expect(screen.queryByText("Due")).not.toBeInTheDocument();
+  });
+
+  it("a requester sees no SLA badge or alerts; First response is a dash before assignment", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
+    });
+    await screen.findByRole("heading", { name: "Balance does not agree" });
+    expect(screen.queryByTestId("sla-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("sla-history")).not.toBeInTheDocument();
+    expect(screen.getByTestId("detail-first-response")).toHaveTextContent("—");
+  });
+});
+
+describe("Pick this ticket", () => {
+  const orgWith = (flags) => ({
+    departments: [
+      {
+        id: "d-cp",
+        code: "CP",
+        name: "Contribution Processing",
+        isHod: false,
+        isAdmin: false,
+        units: [
+          {
+            id: "u-cm",
+            code: "CM",
+            name: "Contribution Matching",
+            isHead: false,
+            isMember: false,
+            ...flags,
+          },
+        ],
+      },
+    ],
+  });
+
+  it("a member of the unit picks a New ticket and stays on it", async () => {
+    const user = userEvent.setup();
+    const picked = [];
+    let current = ticket();
+    renderTicket({
+      "GET /api/org/me": () => [200, orgWith({ isMember: true })],
+      "GET /api/tickets/by-reference/:reference": () => [200, current],
+      "POST /api/tickets/:ticketId/pick": (config) => {
+        picked.push(config.pathParams.ticketId);
+        current = ticket({ status: 2, assignee: person("u-viewer", "Me") });
+        return [200, { message: "CP-2026-000001 is now assigned to you." }];
+      },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Pick this ticket" }),
+    );
+    expect(
+      await screen.findByText("CP-2026-000001 is now assigned to you."),
+    ).toBeInTheDocument();
+    expect(picked).toEqual(["t-1"]);
+    // Refreshed: no longer New, so the button goes.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Pick this ticket" }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("shows the server's message when the pick is refused (403)", async () => {
+    const user = userEvent.setup();
+    renderTicket({
+      "GET /api/org/me": () => [200, orgWith({ isMember: true })],
+      "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
+      "POST /api/tickets/:ticketId/pick": () => [
+        403,
+        { message: "You do not handle this category." },
+      ],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Pick this ticket" }),
+    );
+    expect(
+      await screen.findByText("You do not handle this category."),
+    ).toBeInTheDocument();
+  });
+
+  it("is not offered outside the unit, or once the ticket has left New", async () => {
+    renderTicket({
+      "GET /api/org/me": () => [200, orgWith({ isMember: false })],
+      "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Balance does not agree" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByTestId("pick-card")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("is not offered for a ticket that is no longer New", async () => {
+    renderTicket({
+      "GET /api/org/me": () => [200, orgWith({ isMember: true })],
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        ticket({ status: 2 }),
+      ],
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Balance does not agree" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("pick-card")).not.toBeInTheDocument();
+  });
+
+  it("the assignment history says who picked it", async () => {
+    const user = userEvent.setup();
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({ assignee: CW1 }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [
+        200,
+        [
+          {
+            id: "a-9",
+            at: "2026-11-03T09:10:00Z",
+            method: 3,
+            reason: "Picked from the unit pool",
+            from: null,
+            to: CW1,
+            by: CW1,
+            fromUnitName: "Contribution Matching",
+            toUnitName: "Contribution Matching",
+            scores: [],
+          },
+        ],
+      ],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: /Assignment history/ }),
+    );
+    const entry = await screen.findByTestId("assignment-a-9");
+    expect(within(entry).getByText("Picked by Chidi One")).toBeInTheDocument();
+    expect(
+      within(entry).getByText("Picked from the unit pool"),
+    ).toBeInTheDocument();
   });
 });

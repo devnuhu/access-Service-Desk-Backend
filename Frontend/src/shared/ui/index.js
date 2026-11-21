@@ -15,3 +15,6 @@ export { default as Wordmark } from "./brand/Wordmark.jsx";
 export { default as FilePicker } from "./FilePicker.jsx";
 export { default as RichTextEditor } from "./RichTextEditor.jsx";
 export { default as RichTextView } from "./RichTextView.jsx";
+export { default as Switch } from "./Switch.jsx";
+export { default as PageHeader } from "./PageHeader.jsx";
+export { PageContext, usePageContext } from "./pageContext.js";

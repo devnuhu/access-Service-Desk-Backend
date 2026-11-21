@@ -131,7 +131,7 @@ function MenuButton({ label, icon: Icon, disabled, children }) {
           id={menuId}
           role="group"
           aria-label={label}
-          className="absolute top-9 left-0 z-30 min-w-44 rounded-[6px] border border-line bg-white p-1 shadow-lg"
+          className="absolute top-9 left-0 z-30 min-w-44 rounded-lg border border-line bg-white p-1 shadow-lg"
           onClick={(event) => {
             if (event.target.closest("button")) setOpen(false);
           }}
@@ -220,7 +220,7 @@ function LinkDialog({ open, initial, onClose, onSave }) {
           placeholder="https://… or mailto:…"
           aria-invalid={error ? "true" : undefined}
           aria-describedby={error ? `${inputId}-error` : undefined}
-          className={`mt-1 h-10 w-full rounded-[6px] border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
+          className={`mt-1 h-10 w-full rounded-lg border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
         />
         {error && (
           <p
@@ -252,8 +252,11 @@ const BLOCKS = [
  * @param {{
  *   id: string, value: string, onChange: (html: string) => void, labelledBy?: string,
  *   describedBy?: string, invalid?: boolean, placeholder?: string, compact?: boolean,
- *   toolbarLabel?: string,
+ *   toolbarLabel?: string, apiRef?: { current: any },
  * }} props
+ * `apiRef` receives { insert(html), replace(html), isEmpty() } for content added from outside (a
+ * saved reply, a placeholder): insert goes in at the cursor (or the last place it was), replace
+ * swaps the whole text. Both report the change through onChange.
  */
 export default function RichTextEditor({
   id,
@@ -265,6 +268,7 @@ export default function RichTextEditor({
   placeholder = "",
   compact = false,
   toolbarLabel = "Formatting",
+  apiRef,
 }) {
   const [hint, setHint] = useState("");
   const [fullScreen, setFullScreen] = useState(false);
@@ -354,6 +358,24 @@ export default function RichTextEditor({
       onChangeRef.current(html);
     },
   });
+
+  // Inserting from outside (saved replies, placeholders).
+  useEffect(() => {
+    if (!apiRef) return undefined;
+    apiRef.current = editor
+      ? {
+          insert: (html) => editor.chain().focus().insertContent(html).run(),
+          replace: (html) => {
+            editor.commands.setContent(html, { emitUpdate: true });
+            editor.commands.focus("end");
+          },
+          isEmpty: () => editor.isEmpty,
+        }
+      : null;
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef, editor]);
 
   // A value set from outside (a restored draft, a cleared form) replaces the content.
   useEffect(() => {
@@ -460,7 +482,7 @@ export default function RichTextEditor({
       }
     >
       <div
-        className={`flex flex-col rounded-[6px] border bg-white ${invalid ? "border-danger" : "border-line"} ${fullScreen ? "h-full shadow-xl" : ""}`}
+        className={`flex flex-col rounded-lg border bg-white ${invalid ? "border-danger" : "border-line"} ${fullScreen ? "h-full shadow-xl" : ""}`}
       >
         <div
           ref={toolbarRef}

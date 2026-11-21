@@ -33,6 +33,14 @@ const ticket = (overrides = {}) => ({
   requester: REQUESTER,
   assignee: WORKER,
   assignedAt: "2026-11-03T09:00:05Z",
+  firstRespondedAt: "2026-11-03T09:30:00Z",
+  escalatedToHeadAt: null,
+  escalatedToHeadReason: null,
+  slaLevel: 0,
+  slaDueAt: null,
+  slaWarnedAt: null,
+  slaBreachedAt: null,
+  slaL2At: null,
   createdAt: "2026-11-03T09:00:00Z",
   updatedAt: null,
   departmentId: "d-cp",
@@ -74,6 +82,7 @@ const flags = (overrides = {}) => ({
   canConfirm: false,
   canReopen: false,
   canCancel: false,
+  canEscalate: false,
   resolutionCodes: CODES,
   ...overrides,
 });
@@ -507,12 +516,13 @@ describe("Status callout", () => {
 });
 
 describe("Comments and the CC list", () => {
-  it("a workflow comment gets a chip from its bold label; an ordinary one does not", async () => {
+  it("workflow entries (kind 1) are timeline lines; a person's comment that looks like one is not", async () => {
     const comment = (id, bodyHtml, overrides = {}) => ({
       id,
       author: WORKER,
       bodyHtml,
       isInternal: false,
+      kind: 0,
       createdAt: "2026-11-03T10:00:00Z",
       attachments: [],
       ...overrides,
@@ -523,18 +533,27 @@ describe("Comments and the CC list", () => {
           comment(
             "c-1",
             "<p><strong>Resolved: Completed</strong></p><p>Done.</p>",
+            { kind: 1 },
           ),
-          comment("c-2", "<p><strong>Thanks</strong></p><p>Noted.</p>"),
+          comment(
+            "c-2",
+            "<p><strong>Resolved: Completed</strong></p><p>Typed by hand.</p>",
+          ),
         ],
       }),
     });
-    const resolved = await screen.findByTestId("comment-c-1");
-    expect(within(resolved).getAllByText("Resolved: Completed")).toHaveLength(
-      2,
+    const line = await screen.findByTestId("comment-c-1");
+    expect(line).toHaveAttribute("data-kind", "workflow");
+    expect(line).toHaveTextContent(
+      "Resolved: Completed · Chidi Worker · Tue 3 Nov 2026, 11:00 WAT",
     );
-    expect(
-      within(screen.getByTestId("comment-c-2")).getAllByText("Thanks"),
-    ).toHaveLength(1);
+    expect(line).toHaveTextContent("Done.");
+    expect(within(line).getAllByText("Resolved: Completed")).toHaveLength(1);
+    const typed = screen.getByTestId("comment-c-2");
+    expect(typed).not.toHaveAttribute("data-kind");
+    expect(within(typed).getByText("Resolved: Completed").tagName).toBe(
+      "STRONG",
+    );
   });
 
   it("someone copied and assigned shows as copied · handling it", async () => {
@@ -543,5 +562,103 @@ describe("Comments and the CC list", () => {
       await screen.findByText("Chidi Worker, copied · handling it"),
     ).toBeInTheDocument();
     expect(screen.getByText("Sade Admin")).toBeInTheDocument();
+  });
+});
+
+describe("Escalate to unit head", () => {
+  it("shows only with canEscalate; a 3-character reason is refused by the server and shown under the field", async () => {
+    const user = userEvent.setup();
+    let answer = [
+      400,
+      {
+        message: "Some details are not valid.",
+        errors: {
+          reason:
+            "Say why it needs the head of the unit (5 to 1000 characters).",
+        },
+      },
+    ];
+    const { sent, loads } = renderPage({
+      data: ticket({ isStaffView: true }),
+      viewer: "u-cw",
+      actions: flags({ canEscalate: true }),
+      answers: { escalate: () => answer },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Escalate to unit head" }),
+    );
+    const dialog = await dialogNamed("Escalate to unit head");
+    const box = within(dialog).getByRole("textbox");
+    const submit = within(dialog).getByRole("button", { name: "Escalate" });
+
+    await user.click(submit);
+    expect(
+      within(dialog).getByText("Say why it needs the head of the unit."),
+    ).toBeInTheDocument();
+    expect(sent).toHaveLength(0);
+
+    await user.type(box, "abc");
+    expect(
+      within(dialog).getByText("3 of 1000 characters"),
+    ).toBeInTheDocument();
+    await user.click(submit);
+    expect(
+      await within(dialog).findByText(
+        "Say why it needs the head of the unit (5 to 1000 characters).",
+      ),
+    ).toBeInTheDocument();
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(sent).toEqual([["escalate", { reason: "abc" }]]);
+
+    answer = [200, { message: "CP-2026-000001 is escalated." }];
+    await user.type(box, " - the employer disputes it");
+    await user.click(submit);
+    expect(
+      await screen.findByText("CP-2026-000001 is escalated."),
+    ).toBeInTheDocument();
+    expect(sent[1]).toEqual([
+      "escalate",
+      { reason: "abc - the employer disputes it" },
+    ]);
+    await waitFor(() => expect(loads.ticket).toBe(2));
+  });
+
+  it("is not offered without the flag (a head on their own ticket)", async () => {
+    const { loads } = renderPage({
+      data: ticket({ isStaffView: true }),
+      viewer: "u-cw",
+      actions: flags({ canResolve: true, canEscalate: false }),
+    });
+    await screen.findByRole("button", { name: "Resolve" });
+    expect(loads.actions).toBe(1);
+    expect(
+      screen.queryByRole("button", { name: "Escalate to unit head" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("an escalated ticket shows the badge with its time, and the reason to staff", async () => {
+    renderPage({
+      data: ticket({
+        isStaffView: true,
+        escalatedToHeadAt: "2026-11-03T10:00:00Z",
+        escalatedToHeadReason: "The employer disputes the figures.",
+      }),
+      viewer: "u-hou",
+    });
+    const badge = await screen.findByTestId("escalated-badge");
+    expect(badge).toHaveTextContent(/^Escalated to unit head .*ago$/);
+    expect(badge).toHaveAttribute("title", "Tue 3 Nov 2026, 11:00 WAT");
+    expect(screen.getByTestId("escalation-reason")).toHaveTextContent(
+      "The employer disputes the figures.",
+    );
+  });
+
+  it("the requester never sees a reason", async () => {
+    renderPage({
+      data: ticket({ escalatedToHeadAt: null, escalatedToHeadReason: null }),
+    });
+    await callout();
+    expect(screen.queryByTestId("escalated-badge")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("escalation-reason")).not.toBeInTheDocument();
   });
 });

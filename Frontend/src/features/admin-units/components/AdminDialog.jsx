@@ -6,22 +6,18 @@ function personName(person) {
 }
 
 /**
- * Name the Department Admin: one of the heads or deputies of the department's active units (the
- * only people the API accepts), or nobody. The API's refusals show as the dialog's message.
+ * Name the Department Admin: the head of one of the department's active units (the only people
+ * the API accepts), or nobody. The API's refusals show as the dialog's message.
  */
 export default function AdminDialog({ department, onClose, onSave }) {
   const toast = useToast();
   const candidates = [];
   for (const unit of department.units.filter((u) => u.isActive)) {
-    for (const [person, post] of [
-      [unit.head, "Head"],
-      [unit.deputy, "Deputy"],
-    ]) {
-      if (person && !candidates.some((c) => c.person.id === person.id))
-        candidates.push({ person, post: `${post} of ${unit.name}` });
-    }
+    const person = unit.head;
+    if (person && !candidates.some((c) => c.person.userId === person.userId))
+      candidates.push({ person, post: `Head of ${unit.name}` });
   }
-  const [userId, setUserId] = useState(department.admin?.id ?? "");
+  const [userId, setUserId] = useState(department.admin?.userId ?? "");
   const [failure, setFailure] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,7 +40,7 @@ export default function AdminDialog({ department, onClose, onSave }) {
       open
       onClose={onClose}
       title={`Department Admin of ${department.name}`}
-      description="Sees every ticket in the department and reassigns anywhere in it, like the HOD. Must head or deputise one of its units."
+      description="Sees every ticket in the department and reassigns anywhere in it, like the HOD. The person must head an active unit in that department."
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -60,7 +56,7 @@ export default function AdminDialog({ department, onClose, onSave }) {
         {failure && (
           <p
             role="alert"
-            className="rounded-[6px] border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+            className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
           >
             {failure}
           </p>
@@ -69,15 +65,15 @@ export default function AdminDialog({ department, onClose, onSave }) {
           <legend className="text-sm font-semibold text-ink">
             Department Admin
           </legend>
-          <ul className="mt-2 divide-y divide-line rounded-[6px] border border-line">
+          <ul className="mt-2 divide-y divide-line rounded-lg border border-line">
             {candidates.map(({ person, post }) => (
-              <li key={person.id}>
+              <li key={person.userId}>
                 <label className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm">
                   <input
                     type="radio"
                     name="department-admin"
-                    checked={userId === person.id}
-                    onChange={() => setUserId(person.id)}
+                    checked={userId === person.userId}
+                    onChange={() => setUserId(person.userId)}
                     className="h-4 w-4"
                   />
                   <span className="text-ink">{personName(person)}</span>
@@ -100,7 +96,7 @@ export default function AdminDialog({ department, onClose, onSave }) {
           </ul>
           {candidates.length === 0 && (
             <p className="mt-2 text-xs text-muted">
-              No unit of {department.name} has a head or deputy yet.
+              No active unit of {department.name} has a head yet.
             </p>
           )}
         </fieldset>

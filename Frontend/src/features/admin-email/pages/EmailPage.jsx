@@ -5,7 +5,7 @@ import { z } from "zod";
 import { CircleAlert, CircleCheck, Send } from "lucide-react";
 import { applyFieldErrors, request } from "@/shared/lib/http";
 import { zodResolver } from "@/shared/lib/zodResolver";
-import { Button, Card, CardHeader, Spinner } from "@/shared/ui";
+import { Button, Card, CardHeader, Spinner, PageHeader } from "@/shared/ui";
 import { getEmailStatus, sendTestEmail } from "../api/endpoints.js";
 
 const testSchema = z.object({
@@ -40,7 +40,7 @@ function StatusCard() {
     <Card>
       <CardHeader
         title="Status"
-        description="Which provider sends Access Desk email, and whether it is ready."
+        description="Which provider sends Access Service Desk email, and whether it is ready."
       />
       <div className="px-5 py-3">
         {status.isLoading ? (
@@ -109,7 +109,7 @@ function TestCard() {
     <Card>
       <CardHeader
         title="Send a test email"
-        description="Sends one message with the Access Desk layout."
+        description="Sends one message with the Access Service Desk layout."
       />
       <form
         className="space-y-3 px-5 py-4"
@@ -130,7 +130,7 @@ function TestCard() {
               autoComplete="email"
               aria-invalid={errors.to ? "true" : undefined}
               aria-describedby={errors.to ? "test-to-error" : undefined}
-              className={`h-10 min-w-56 flex-1 rounded-[6px] border px-3 text-sm text-ink ${errors.to ? "border-danger" : "border-line"}`}
+              className={`h-10 min-w-56 flex-1 rounded-lg border px-3 text-sm text-ink ${errors.to ? "border-danger" : "border-line"}`}
               {...register("to")}
             />
             <Button type="submit" busy={send.isPending} busyText="Sending…">
@@ -150,7 +150,7 @@ function TestCard() {
         <div aria-live="polite">
           {result && (
             <p
-              className={`flex items-start gap-2 rounded-[6px] border px-3 py-2 text-sm ${
+              className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
                 result.success
                   ? "border-brand-green/50 bg-brand-green-light text-brand-green-ink"
                   : "border-danger/30 bg-danger-light text-danger"
@@ -181,12 +181,10 @@ function TestCard() {
 export default function EmailPage() {
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Email</h1>
-        <p className="mt-1 text-sm text-muted">
-          Check that Access Desk can send email.
-        </p>
-      </div>
+      <PageHeader
+        title="Email"
+        description="Check that Access Service Desk can send email."
+      />
       <div className="grid gap-4 xl:grid-cols-2">
         <StatusCard />
         <TestCard />

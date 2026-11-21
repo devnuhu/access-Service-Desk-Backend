@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
+import { saveBlob } from "@/shared/lib/files";
 import {
   acknowledgeTicket,
   addComment,
@@ -10,6 +11,9 @@ import {
   createTicket,
   downloadAttachment,
   getReassignOptions,
+  listPool,
+  pickTicket,
+  getSlaSummary,
   getTicket,
   getTicketActions,
   getTicketByReference,
@@ -42,7 +46,28 @@ export const ticketKeys = {
   assignment: (ticketId) => ["tickets", "assignment", ticketId],
   reassignOptions: (ticketId) => ["tickets", "assignment", ticketId, "options"],
   history: (ticketId) => ["tickets", "assignment", ticketId, "history"],
+  /** The unit pool; under "tickets", so a pushed change and any pick refetch it. */
+  pool: ["tickets", "pool"],
+  /** Oversight counts; under "tickets", so an SLA or ticket push refetches them. */
+  slaSummary: (departmentId, unitId) => [
+    "tickets",
+    "sla-summary",
+    departmentId,
+    unitId ?? "all",
+  ],
 };
+
+/** Open / Warning / Overdue / Far past / Unassigned for a department, or one unit of it. */
+export function useSlaSummary(departmentId, unitId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ticketKeys.slaSummary(departmentId, unitId),
+    queryFn: () =>
+      request(getSlaSummary, {
+        query: unitId ? { departmentId, unitId } : { departmentId },
+      }),
+    enabled: enabled && Boolean(departmentId),
+  });
+}
 
 export function useLocationChoices(forUserId) {
   return useQuery({
@@ -108,15 +133,7 @@ export async function downloadFile(ticketId, attachment) {
     params: { ticketId, attachmentId: attachment.id },
   });
   const name = fileName === "download" ? attachment.fileName : fileName;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveBlob(blob, name);
   return name;
 }
 
@@ -140,6 +157,31 @@ export function useAssignmentHistory(ticketId, { enabled = true } = {}) {
 /** After any change (or a 409): the ticket, its actions, options and history, and the lists. */
 export function refreshTickets(queryClient) {
   return queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+}
+
+const POOL_POLL = 60_000;
+
+/**
+ * The unit pool (unit members and heads only): polled every 60 s while the browser tab is visible
+ * (React Query pauses the interval while it is hidden).
+ */
+export function usePool({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: ticketKeys.pool,
+    queryFn: () => request(listPool),
+    enabled,
+    refetchInterval: POOL_POLL,
+    refetchIntervalInBackground: false,
+  });
+}
+
+/** Pick a ticket from the pool; every ticket query refreshes after (the pool, lists, the ticket). */
+export function usePickTicket() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ticketId) => request(pickTicket, { params: { ticketId } }),
+    onSettled: () => refreshTickets(queryClient),
+  });
 }
 
 export function useReassign(ticketId) {

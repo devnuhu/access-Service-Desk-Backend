@@ -27,7 +27,6 @@ const unitSchema = z.object({
   name: z.string().nullable(),
   isActive: z.boolean(),
   head: person,
-  deputy: person,
   memberCount: z.number(),
 });
 
@@ -90,7 +89,7 @@ export const setDepartmentHod = defineEndpoint({
   response: messageSchema,
 });
 
-// The Department Admin must head or deputise an active unit of the department (400).
+// The Department Admin must head an active unit in that department (400).
 export const setDepartmentAdmin = defineEndpoint({
   method: "PUT",
   path: "/api/admin/departments/{departmentId}/admin",
@@ -121,14 +120,6 @@ export const setUnitHead = defineEndpoint({
   response: messageSchema,
 });
 
-// The deputy must already be a member, and not the head.
-export const setUnitDeputy = defineEndpoint({
-  method: "PUT",
-  path: "/api/admin/units/{unitId}/deputy",
-  body: setPersonSchema,
-  response: messageSchema,
-});
-
 export const listUnitMembers = defineEndpoint({
   method: "GET",
   path: "/api/admin/units/{unitId}/members",
@@ -141,7 +132,6 @@ export const listUnitMembers = defineEndpoint({
       staffNo: z.string().nullable(),
       staffCategory: z.number().int(),
       isHead: z.boolean(),
-      isDeputy: z.boolean(),
       accountActive: z.boolean(),
       joinedAt: z.string(),
       lastAssignedAt: z.string().nullable(),
@@ -160,7 +150,7 @@ export const addUnitMember = defineEndpoint({
   response: messageSchema,
 });
 
-// 400 for the head or the deputy (change those first).
+// 400 for the head (change the head first).
 export const removeUnitMember = defineEndpoint({
   method: "DELETE",
   path: "/api/admin/units/{unitId}/members/{userId}",

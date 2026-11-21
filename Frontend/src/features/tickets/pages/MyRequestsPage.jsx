@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
-import { Card } from "@/shared/ui";
+import { Card, PageHeader } from "@/shared/ui";
 import { STATUS_LABELS } from "../api/endpoints.js";
 import RaiseTicketLink from "../components/RaiseTicketLink.jsx";
 import TicketTable from "../components/TicketTable.jsx";
@@ -14,11 +15,15 @@ const TABS = [
   ["copied", "Copied to me"],
 ];
 
-/** My requests: tickets I raised (or that were raised for me) and tickets I am copied on. */
+/**
+ * My requests: tickets I raised (or that were raised for me) and tickets I am copied on. Home's
+ * tiles open it filtered with ?status=open or ?status=<number> (5: Resolved, waiting for me).
+ */
 export default function MyRequestsPage() {
+  const [searchParams] = useSearchParams();
   const [view, setView] = useState("mine");
   const [text, setText] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(searchParams.get("status") ?? "");
   const search = useDebouncedValue(text.trim(), 300);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
   const key = `${view}|${search}|${status}`;
@@ -38,12 +43,10 @@ export default function MyRequestsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">My requests</h1>
-          <p className="mt-1 text-sm text-muted">
-            Tickets you raised, raised for you, or were copied on.
-          </p>
-        </div>
+        <PageHeader
+          title="My requests"
+          description="Tickets you raised, raised for you, or were copied on."
+        />
         <RaiseTicketLink />
       </div>
 
@@ -79,14 +82,14 @@ export default function MyRequestsPage() {
               placeholder="Reference or subject"
               value={text}
               onChange={(event) => setText(event.target.value)}
-              className="h-10 w-full rounded-[6px] border border-line pr-3 pl-9 text-sm text-ink"
+              className="h-10 w-full rounded-lg border border-line pr-3 pl-9 text-sm text-ink"
             />
           </div>
           <select
             aria-label="Status"
             value={status}
             onChange={(event) => setStatus(event.target.value)}
-            className="h-10 rounded-[6px] border border-line bg-white px-3 text-sm text-ink"
+            className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
           >
             <option value="">All statuses</option>
             <option value={OPEN}>Open</option>

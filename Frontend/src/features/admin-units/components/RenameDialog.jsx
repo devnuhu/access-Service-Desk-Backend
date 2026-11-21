@@ -64,7 +64,7 @@ export default function RenameDialog({
           onChange={(event) => setName(event.target.value)}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={error ? "rename-error" : undefined}
-          className={`mt-1 h-10 w-full rounded-[6px] border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
+          className={`mt-1 h-10 w-full rounded-lg border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
         />
         {error && (
           <p id="rename-error" className="mt-1 text-xs font-medium text-danger">

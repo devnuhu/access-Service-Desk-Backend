@@ -143,27 +143,24 @@ export default function DepartmentCard({ department }) {
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-page text-xs font-semibold text-muted uppercase">
+            <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
               <tr>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   Code
                 </th>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   Name
                 </th>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   Head
                 </th>
-                <th scope="col" className="px-5 py-2.5">
-                  Deputy
-                </th>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   Members
                 </th>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   Status
                 </th>
-                <th scope="col" className="px-5 py-2.5">
+                <th scope="col" className="px-5 py-4">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -177,11 +174,6 @@ export default function DepartmentCard({ department }) {
                   </td>
                   <td className="px-5 py-3">
                     {personName(unit.head) ?? (
-                      <span className="text-muted">None</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-3">
-                    {personName(unit.deputy) ?? (
                       <span className="text-muted">None</span>
                     )}
                   </td>

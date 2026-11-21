@@ -47,3 +47,16 @@ export function checkFiles(chosen, picked) {
   if (tooMany) problems.push(`You can attach at most ${MAX_FILES} files.`);
   return { accepted, problems };
 }
+
+/** Saves a downloaded file under `name` (never opened inline). */
+export function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Lock, MessageSquare } from "lucide-react";
 import { fieldError } from "@/shared/lib/http";
 import { isRichTextEmpty, RICH_TEXT_MAX } from "@/shared/lib/richText";
 import { Button, FilePicker, RichTextEditor, useToast } from "@/shared/ui";
+import { RepliesMenu } from "@/features/canned-replies";
 import { useAddComment } from "../hooks/useTickets.js";
 
 /**
  * Reply to a ticket: formatted text and files. Staff who may add internal notes choose "Public
  * reply" or "Internal note" (internal by default for them); the choice and the button turn orange
- * for an internal note.
+ * for an internal note. Staff for the ticket (isStaffView) also get "Replies": a saved reply goes in
+ * at the cursor (or fills an empty box) to edit before sending.
  */
 export default function ReplyBox({ ticket }) {
   const toast = useToast();
@@ -19,6 +21,14 @@ export default function ReplyBox({ ticket }) {
   const [isInternal, setIsInternal] = useState(staff);
   const [errors, setErrors] = useState({});
   const internal = staff && isInternal;
+  const editorRef = useRef(null);
+
+  const applyReply = (html) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    if (editor.isEmpty()) editor.replace(html);
+    else editor.insert(html);
+  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -58,39 +68,44 @@ export default function ReplyBox({ ticket }) {
         <h2 id="reply-label" className="text-base font-semibold">
           {internal ? "Internal note" : "Reply"}
         </h2>
-        {staff && (
-          <div
-            role="radiogroup"
-            aria-label="Who sees it"
-            className="inline-flex rounded-[6px] border border-line bg-white p-0.5"
-          >
-            {[
-              [false, "Public reply", MessageSquare],
-              [true, "Internal note", Lock],
-            ].map(([value, label, Icon]) => {
-              const checked = isInternal === value;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  role="radio"
-                  aria-checked={checked}
-                  onClick={() => setIsInternal(value)}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-sm font-semibold ${
-                    checked
-                      ? value
-                        ? "bg-brand-orange text-white"
-                        : "bg-brand-navy text-white"
-                      : "text-body hover:bg-page"
-                  }`}
-                >
-                  <Icon aria-hidden="true" size={14} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {ticket.isStaffView && (
+            <RepliesMenu ticketId={ticket.id} onChoose={applyReply} />
+          )}
+          {staff && (
+            <div
+              role="radiogroup"
+              aria-label="Who sees it"
+              className="inline-flex rounded-lg border border-line bg-white p-0.5"
+            >
+              {[
+                [false, "Public reply", MessageSquare],
+                [true, "Internal note", Lock],
+              ].map(([value, label, Icon]) => {
+                const checked = isInternal === value;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    onClick={() => setIsInternal(value)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-[4px] px-3 text-sm font-semibold ${
+                      checked
+                        ? value
+                          ? "bg-brand-orange text-white"
+                          : "bg-brand-navy text-white"
+                        : "text-body hover:bg-page"
+                    }`}
+                  >
+                    <Icon aria-hidden="true" size={14} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
       {internal && (
         <p className="text-xs text-brand-orange-ink">
@@ -111,6 +126,7 @@ export default function ReplyBox({ ticket }) {
         describedBy={errors.bodyHtml ? "reply-body-error" : undefined}
         invalid={Boolean(errors.bodyHtml)}
         toolbarLabel="Reply formatting"
+        apiRef={editorRef}
       />
       {errors.bodyHtml && (
         <p id="reply-body-error" className="text-xs font-medium text-danger">

@@ -8,7 +8,7 @@ const list = (schema) =>
     .transform((items) => items ?? []);
 
 /**
- * The departments and units the signed-in person heads, deputises, works in or oversees (HOD).
+ * The departments and units the signed-in person heads, works in or oversees (HOD).
  * The module menu is built from this, never from a hard-coded department (rule 14).
  */
 export const getMyOrganisation = defineEndpoint({
@@ -29,7 +29,6 @@ export const getMyOrganisation = defineEndpoint({
             code: z.string().nullable(),
             name: z.string().nullable(),
             isHead: z.boolean(),
-            isDeputy: z.boolean(),
             isMember: z.boolean(),
           }),
         ),

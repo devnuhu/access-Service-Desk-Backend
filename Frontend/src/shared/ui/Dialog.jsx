@@ -10,7 +10,7 @@ const openStack = [];
 
 /**
  * Modal dialog: focus moves inside on open and returns on close, Tab stays inside, Escape closes.
- * side="right" shows it as a side panel.
+ * side="right" shows it as a side panel; size="wide" gives a centred dialog room for a table.
  */
 export default function Dialog({
   open,
@@ -18,6 +18,7 @@ export default function Dialog({
   title,
   description,
   side,
+  size,
   children,
   footer,
   initialFocusRef,
@@ -74,7 +75,7 @@ export default function Dialog({
   const panelClass =
     side === "right"
       ? "ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-xl"
-      : "m-auto flex max-h-[90vh] w-full max-w-lg flex-col rounded-card bg-white shadow-xl";
+      : `m-auto flex max-h-[90vh] w-full ${size === "wide" ? "max-w-5xl" : "max-w-lg"} flex-col rounded-card bg-white shadow-xl`;
 
   return createPortal(
     <div

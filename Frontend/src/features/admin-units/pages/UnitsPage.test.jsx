@@ -21,6 +21,7 @@ const DEPARTMENTS = [
     name: "Contribution Processing",
     isActive: true,
     hod: person("p-hod", "test.hod", "Test HOD"),
+    admin: null,
     units: [
       {
         id: "u-cm",
@@ -29,7 +30,6 @@ const DEPARTMENTS = [
         name: "Contribution Matching",
         isActive: true,
         head: person("p-hou", "test.hou", "Test HOU"),
-        deputy: null,
         memberCount: 3,
       },
       {
@@ -39,7 +39,6 @@ const DEPARTMENTS = [
         name: "Refund",
         isActive: true,
         head: person("p-hou2", "test.hou2", "Test HOU2"),
-        deputy: null,
         memberCount: 3,
       },
     ],
@@ -50,6 +49,7 @@ const DEPARTMENTS = [
     name: "Old Department",
     isActive: false,
     hod: null,
+    admin: null,
     units: [],
   },
 ];
@@ -63,7 +63,6 @@ const MEMBERS = [
     staffNo: null,
     staffCategory: 2,
     isHead: true,
-    isDeputy: false,
     accountActive: true,
     joinedAt: "2026-11-02T10:00:00Z",
     lastAssignedAt: null,
@@ -76,7 +75,6 @@ const MEMBERS = [
     staffNo: "AP-001",
     staffCategory: 1,
     isHead: false,
-    isDeputy: false,
     accountActive: true,
     joinedAt: "2026-11-02T10:00:00Z",
     lastAssignedAt: null,
@@ -264,6 +262,68 @@ describe("Units", () => {
     expect(removed).toBe("p-cw1");
     await waitFor(() =>
       expect(screen.getByTestId("categories-p-cw1")).toHaveTextContent("0"),
+    );
+  });
+});
+
+describe("Department Admin", () => {
+  it("is chosen from the heads of the department's units; the API's refusal shows in the dialog", async () => {
+    const user = userEvent.setup();
+    const sent = [];
+    let answer = [
+      400,
+      {
+        message: "The person must head an active unit in that department.",
+      },
+    ];
+    renderAt("/admin/units", {
+      "PUT /api/admin/departments/:departmentId/admin": (config) => {
+        sent.push([config.pathParams.departmentId, config.body]);
+        return answer;
+      },
+    });
+    const card = (
+      await screen.findByRole("heading", { name: /Contribution Processing/ })
+    ).closest("section");
+    expect(card).toHaveTextContent("Department Admin: None");
+    await user.click(
+      within(card).getByRole("button", { name: "Department Admin" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Department Admin of Contribution Processing",
+    });
+    expect(
+      within(dialog)
+        .getAllByRole("radio")
+        .map((radio) => radio.closest("label").textContent),
+    ).toEqual([
+      "Test HOUHead of Contribution Matching",
+      "Test HOU2Head of Refund",
+      "No Department Admin",
+    ]);
+    await user.click(within(dialog).getByRole("radio", { name: /Test HOU2/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "must head an active unit in that department",
+    );
+    expect(sent).toEqual([["d-cp", { userId: "p-hou2" }]]);
+
+    answer = [200, { message: "Department Admin set." }];
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(
+      await screen.findByText("Department Admin set."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the current Department Admin", async () => {
+    renderAt("/admin/units", {
+      "GET /api/admin/departments": () => [
+        200,
+        [{ ...DEPARTMENTS[0], admin: person("p-hou", "test.hou", "Test HOU") }],
+      ],
+    });
+    expect(await screen.findByTestId("department-admin")).toHaveTextContent(
+      "Test HOU",
     );
   });
 });

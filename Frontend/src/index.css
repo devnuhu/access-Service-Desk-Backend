@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Access Desk theme: the colours of the Access Desk emails. */
+/* Access Service Desk theme: the colours of the Access Service Desk emails. */
 @theme {
   --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
@@ -13,17 +13,24 @@
   --color-brand-green: #8dc63f;
   --color-brand-green-light: #eef7e2;
   --color-brand-green-ink: #3f6b0f;
+  /* Small green text on white or the page (eyebrows): 5.1:1 or more. */
+  --color-brand-green-text: #457512;
 
   --color-ink: #0b1f3a;
   --color-body: #3d4a5c;
-  --color-muted: #6b7a90;
+  /* 5:1 on white and on the page colour, so small grey text stays readable. */
+  --color-muted: #5d6b80;
   --color-line: #e3e8ef;
-  --color-page: #f4f6fa;
+  --color-page: #f5f7fb;
+  /* The sidebar: one step cooler than the page; muted text 4.8:1, navy 9.9:1 on it. */
+  --color-sidebar: #eef2f8;
 
   --color-danger: #b42318;
   --color-danger-light: #fdecea;
 
-  --radius-card: 6px;
+  /* Cards and tables 12px; buttons and fields 8px (rounded-lg). */
+  --radius-card: 12px;
+  --shadow-card: 0 1px 2px rgba(11, 31, 58, 0.04);
 
   /* Sign-in page: light brand panel and the white form panel lying on top of it. */
   --color-login-sky: #eef5fd;

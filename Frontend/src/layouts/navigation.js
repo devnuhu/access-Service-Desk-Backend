@@ -1,39 +1,40 @@
 import {
   BarChart3,
+  Building,
   Building2,
   CalendarDays,
+  CalendarOff,
   FileText,
   House,
+  LayoutDashboard,
   Inbox,
   ListTree,
   Mail,
   MapPin,
+  MessageSquareText,
   Network,
   UsersRound,
   Users,
 } from "lucide-react";
-import { hasAnyRole, ROLES } from "@/shared/lib/roles";
+import { hasAnyRole, REPORT_ROLES, ROLES } from "@/shared/lib/roles";
 
-const { HeadOfUnit, HOD, SuperAdmin } = ROLES;
+const { SuperAdmin } = ROLES;
 
-/** One section per department in org/me, titled with the department's name from data (rule 14). */
-function departmentSection(department) {
-  const items = [];
-  if (department.isHod || department.units.some((unit) => unit.isMember)) {
-    items.push({
+/** HOD and Department Admin: their department's items (rule 14: its name from data, never hard-coded). */
+function departmentItems(department) {
+  const items = [
+    {
       label: "Work queue",
       icon: Inbox,
       to: `/departments/${department.id}/tickets`,
+    },
+  ];
+  for (const unit of department.units.filter((u) => u.isHead)) {
+    items.push({
+      label: `${unit.name} availability`,
+      icon: UsersRound,
+      to: `/availability/units/${unit.id}`,
     });
-  }
-  for (const unit of department.units) {
-    if (unit.isHead || unit.isDeputy) {
-      items.push({
-        label: `${unit.name} availability`,
-        icon: UsersRound,
-        to: `/availability/units/${unit.id}`,
-      });
-    }
   }
   if (department.isHod) {
     items.push({
@@ -42,7 +43,70 @@ function departmentSection(department) {
       to: `/availability/departments/${department.id}`,
     });
   }
-  return { id: `department-${department.id}`, title: department.name, items };
+  return items;
+}
+
+/**
+ * The menu groups for one department of org/me. The HOD and the Department Admin oversee the whole
+ * department: one group titled with the department. Case workers and heads work in a unit: one
+ * group per unit, titled with the unit and the department as its subtitle (a person is in at most
+ * one unit per department, so the department's Work queue is that unit's).
+ */
+function departmentSections(department) {
+  if (department.isHod || department.isAdmin) {
+    return [
+      {
+        id: `department-${department.id}`,
+        title: department.name,
+        items: departmentItems(department),
+      },
+    ];
+  }
+  return department.units
+    .filter((unit) => unit.isMember || unit.isHead)
+    .map((unit) => ({
+      id: `unit-${unit.id}`,
+      title: unit.name,
+      subtitle: department.name,
+      items: [
+        // The head runs the unit: categories, team and skills, replies, availability.
+        ...(unit.isHead
+          ? [
+              {
+                label: "My unit",
+                icon: Building,
+                to: `/units/${unit.id}`,
+              },
+            ]
+          : []),
+        {
+          label: "Work queue",
+          icon: Inbox,
+          to: `/departments/${department.id}/tickets`,
+        },
+      ],
+    }));
+}
+
+/** My requests and My availability: in the menu for case workers and requesters, else in the account menu. */
+function personalItems(departments) {
+  return [
+    { label: "My requests", icon: FileText, to: "/tickets" },
+    ...(departments.some((d) => d.units.some((unit) => unit.isMember))
+      ? [{ label: "My availability", icon: CalendarDays, to: "/availability" }]
+      : []),
+  ];
+}
+
+/**
+ * Who leads what (org/me): "oversee" for an HOD or Department Admin (Super Admin keeps the usual
+ * menu plus Administration), "head" for a unit head, otherwise null.
+ */
+function leadership(departments) {
+  if (departments.some((d) => d.isHod || d.isAdmin)) return "oversee";
+  if (departments.some((d) => d.units.some((unit) => unit.isHead)))
+    return "head";
+  return null;
 }
 
 /**
@@ -50,36 +114,40 @@ function departmentSection(department) {
  * Department sections come from GET /api/org/me; a Super Admin who is in no department gets one
  * section per active department (GET /api/org/departments) with "Department availability".
  *
+ * Case workers and heads get a group per unit (titled with the unit, the department below); the
+ * HOD and Department Admin a group per department. A head's Home is "Unit dashboard". Heads, HODs
+ * and Department Admins have My requests and My availability in the account menu (`accountLinks`)
+ * instead; Raise a ticket stays on Home.
+ *
  * @param {{ roles?: string[] }} user
  * @param {{ departments: any[] } | undefined} org  GET /api/org/me
  * @param {any[] | undefined} allDepartments  GET /api/org/departments (Super Admin only)
- * @returns {{ id: string, title: string | null, items: { label: string, icon: any, to?: string, comingSoon?: boolean }[] }[]}
+ * A section without a menu heading has a `label` for the page eyebrow and the breadcrumb; a unit
+ * group has a `subtitle` (its department).
+ *
+ * @returns {{ id: string, title: string | null, subtitle?: string, label?: string, items: { label: string, icon: any, to?: string, comingSoon?: boolean }[] }[]}
  */
 export function buildNavigation(user, org, allDepartments) {
   const departments = org?.departments ?? [];
+  const leads = hasAnyRole(user, [SuperAdmin]) ? null : leadership(departments);
   const sections = [
     {
       id: "main",
       title: null,
+      label: "Access Service Desk",
       items: [
-        { label: "Home", icon: House, to: "/" },
-        { label: "My requests", icon: FileText, to: "/tickets" },
-        ...(departments.length
-          ? [
-              {
-                label: "My availability",
-                icon: CalendarDays,
-                to: "/availability",
-              },
-            ]
-          : []),
+        {
+          label: leads === "head" ? "Unit dashboard" : "Home",
+          icon: leads === "head" ? LayoutDashboard : House,
+          to: "/",
+        },
+        ...(leads ? [] : personalItems(departments)),
       ],
     },
   ];
 
   for (const department of departments) {
-    const section = departmentSection(department);
-    if (section.items.length) sections.push(section);
+    sections.push(...departmentSections(department));
   }
 
   if (!departments.length && hasAnyRole(user, [SuperAdmin])) {
@@ -103,11 +171,12 @@ export function buildNavigation(user, org, allDepartments) {
     }
   }
 
-  if (hasAnyRole(user, [HeadOfUnit, HOD, SuperAdmin])) {
+  if (hasAnyRole(user, REPORT_ROLES)) {
     sections.push({
       id: "insight",
       title: null,
-      items: [{ label: "Reports", icon: BarChart3, comingSoon: true }],
+      label: "Insight",
+      items: [{ label: "Reports", icon: BarChart3, to: "/reports" }],
     });
   }
 
@@ -120,10 +189,31 @@ export function buildNavigation(user, org, allDepartments) {
         { label: "Units", icon: Network, to: "/admin/units" },
         { label: "Categories", icon: ListTree, to: "/admin/categories" },
         { label: "Locations", icon: MapPin, to: "/admin/locations" },
+        { label: "Holidays", icon: CalendarOff, to: "/admin/holidays" },
+        {
+          label: "Shared replies",
+          icon: MessageSquareText,
+          to: "/admin/replies",
+        },
         { label: "Email", icon: Mail, to: "/admin/email" },
       ],
     });
   }
 
   return sections;
+}
+
+/**
+ * The account menu's links: My requests and My availability when the sidebar leaves them out
+ * (heads and HODs), so nothing is lost.
+ */
+export function accountLinks(user, org) {
+  const shown = new Set(
+    buildNavigation(user, org)
+      .flatMap((section) => section.items)
+      .map((item) => item.to),
+  );
+  return personalItems(org?.departments ?? []).filter(
+    (item) => !shown.has(item.to),
+  );
 }

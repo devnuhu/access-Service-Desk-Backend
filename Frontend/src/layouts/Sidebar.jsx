@@ -1,7 +1,7 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useMyOrganisation, useOrgDepartments } from "@/features/org";
-import { hasAnyRole, ROLES } from "@/shared/lib/roles";
-import { buildNavigation } from "./navigation.js";
+import { ChevronDown } from "lucide-react";
+import { useNavigationSections } from "./useNavigation.js";
 
 const EXACT = new Set(["/", "/availability"]);
 
@@ -11,11 +11,11 @@ function Item({ item, onNavigate }) {
     return (
       <span
         aria-disabled="true"
-        className="flex cursor-not-allowed items-center gap-3 rounded-[6px] px-3 py-2 text-sm text-muted"
+        className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3 py-2.5 text-[15px] text-muted"
       >
-        <Icon aria-hidden="true" size={18} />
+        <Icon aria-hidden="true" size={19} strokeWidth={1.75} />
         <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-page px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+        <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
           Coming soon
         </span>
       </span>
@@ -28,16 +28,61 @@ function Item({ item, onNavigate }) {
       end={EXACT.has(item.to)}
       onClick={onNavigate}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm font-medium ${
+        `group flex items-start gap-3 rounded-lg px-3 py-2.5 text-[15px] leading-snug transition-colors ${
           isActive
-            ? "bg-brand-navy-light text-brand-navy shadow-[inset_3px_0_0_var(--color-brand-orange)]"
-            : "text-body hover:bg-page hover:text-ink"
+            ? "bg-white font-semibold text-brand-navy shadow-[inset_3px_0_0_var(--color-brand-orange),0_1px_2px_rgba(11,31,58,0.06)]"
+            : "text-ink hover:bg-white/70 hover:text-brand-navy"
         }`
       }
     >
-      <Icon aria-hidden="true" size={18} />
-      {item.label}
+      <Icon
+        aria-hidden="true"
+        size={19}
+        strokeWidth={1.75}
+        className="mt-px shrink-0 text-muted group-hover:text-brand-navy group-aria-[current=page]:text-brand-orange"
+      />
+      <span className="min-w-0 break-words">{item.label}</span>
     </NavLink>
+  );
+}
+
+/** A titled section folds away with its heading (open by default). */
+function Section({ section, onNavigate }) {
+  const [open, setOpen] = useState(true);
+  const listId = `nav-${section.id}`;
+  return (
+    <div>
+      {section.title && (
+        <h2>
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls={listId}
+            className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-[11px] leading-snug font-semibold tracking-[0.14em] text-muted uppercase hover:text-ink"
+          >
+            <span className="min-w-0 break-words">{section.title}</span>
+            <ChevronDown
+              aria-hidden="true"
+              size={16}
+              className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+            />
+          </button>
+        </h2>
+      )}
+      {section.title && section.subtitle && (
+        <p className="px-3 text-xs leading-snug text-muted">
+          {section.subtitle}
+        </p>
+      )}
+      <ul id={listId} hidden={!open} className="mt-1 space-y-1">
+        {section.items.map((item) => (
+          <li key={item.label}>
+            <Item item={item} onNavigate={onNavigate} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -46,29 +91,11 @@ function Item({ item, onNavigate }) {
  * for the user; the server decides access.
  */
 export default function Sidebar({ user, onNavigate }) {
-  const org = useMyOrganisation();
-  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
-  const all = useOrgDepartments({
-    enabled: isSuperAdmin && org.isSuccess && !org.data.departments.length,
-  });
-  const sections = buildNavigation(user, org.data, all.data);
+  const sections = useNavigationSections(user);
   return (
-    <nav aria-label="Main" className="flex flex-col gap-5 p-3">
+    <nav aria-label="Main" className="flex flex-col gap-6 px-4 py-5">
       {sections.map((section) => (
-        <div key={section.id}>
-          {section.title && (
-            <h2 className="px-3 pb-1.5 text-[11px] font-semibold tracking-[0.12em] text-muted uppercase">
-              {section.title}
-            </h2>
-          )}
-          <ul className="space-y-0.5">
-            {section.items.map((item) => (
-              <li key={item.label}>
-                <Item item={item} onNavigate={onNavigate} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Section key={section.id} section={section} onNavigate={onNavigate} />
       ))}
     </nav>
   );

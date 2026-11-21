@@ -62,7 +62,7 @@ export default function AddFromDirectoryDialog({ open, onClose, onAdded }) {
           onChange={(event) => setText(event.target.value)}
           maxLength={256}
           placeholder="Name, login name or email"
-          className="h-10 flex-1 rounded-[6px] border border-line px-3 text-sm text-ink"
+          className="h-10 flex-1 rounded-lg border border-line px-3 text-sm text-ink"
         />
         <Button type="submit" variant="secondary" disabled={!text.trim()}>
           <Search aria-hidden="true" size={16} />
@@ -76,7 +76,7 @@ export default function AddFromDirectoryDialog({ open, onClose, onAdded }) {
         ) : search.isError ? (
           <p
             role="alert"
-            className="rounded-[6px] border border-brand-orange/40 bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
+            className="rounded-lg border border-brand-orange/40 bg-brand-orange-light px-3 py-2 text-sm text-brand-orange-ink"
           >
             {search.error.message}
           </p>

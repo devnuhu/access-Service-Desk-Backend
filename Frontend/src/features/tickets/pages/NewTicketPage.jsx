@@ -22,6 +22,7 @@ import {
   RichTextEditor,
   Spinner,
   useToast,
+  PageHeader,
 } from "@/shared/ui";
 import CategoryCombobox from "../components/CategoryCombobox.jsx";
 import CcField from "../components/CcField.jsx";
@@ -88,7 +89,7 @@ function clearDraft(key) {
 }
 
 const inputClass = (invalid) =>
-  `mt-1 h-10 w-full rounded-[6px] border bg-white px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
+  `mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
 
 function FieldError({ id, message }) {
   if (!message) return null;
@@ -325,13 +326,10 @@ function TicketForm({ user, departments }) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Raise a ticket</h1>
-        <p className="mt-1 text-sm text-muted">
-          Choose a category and describe what you need. You can follow it under
-          My requests.
-        </p>
-      </div>
+      <PageHeader
+        title="Raise a ticket"
+        description="Choose a category and describe what you need. You can follow it under My requests."
+      />
 
       <Card className="p-5 sm:p-6">
         <form
@@ -344,7 +342,7 @@ function TicketForm({ user, departments }) {
           {failure && (
             <p
               role="alert"
-              className="rounded-[6px] border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+              className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
             >
               {failure}
             </p>
@@ -576,7 +574,7 @@ function TicketForm({ user, departments }) {
           {isSuperAdmin && (
             <fieldset
               data-field="requesterUserId"
-              className="rounded-[6px] border border-line p-4"
+              className="rounded-lg border border-line p-4"
             >
               <legend className="px-1 text-sm font-semibold text-ink">
                 Super Admin
@@ -602,7 +600,7 @@ function TicketForm({ user, departments }) {
               {form.raiseFor && (
                 <div className="mt-3">
                   {form.requester ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-[6px] bg-page px-3 py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-page px-3 py-2">
                       <div className="text-sm">
                         <span className="font-semibold text-ink">
                           For{" "}

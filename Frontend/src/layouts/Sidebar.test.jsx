@@ -15,7 +15,6 @@ const RF = { id: "u-rf", code: "RF", name: "Refund" };
 const unit = (base, flags = {}) => ({
   ...base,
   isHead: false,
-  isDeputy: false,
   isMember: false,
   ...flags,
 });
@@ -26,6 +25,7 @@ const HOU_ORG = {
     {
       ...CP,
       isHod: false,
+      isAdmin: false,
       units: [unit(CM, { isHead: true, isMember: true })],
     },
   ],
@@ -41,46 +41,125 @@ function renderSidebar(roles, org, departments = []) {
   return api;
 }
 
+/** The menu's link names, in order. */
+const linkNames = () =>
+  screen.getAllByRole("link").map((link) => link.textContent);
+
 const section = (title) =>
   screen.getByRole("heading", { name: title }).closest("div");
 
 describe("Sidebar from org/me", () => {
-  it("test.hou sees Contribution Processing with Contribution Matching availability", async () => {
+  it("a Head of Unit gets a group titled with the unit, the department below it", async () => {
     renderSidebar(["Requester", "CaseWorker", "HeadOfUnit"], HOU_ORG);
     expect(
-      await screen.findByRole("heading", { name: "Contribution Processing" }),
+      await screen.findByRole("heading", { name: "Contribution Matching" }),
     ).toBeInTheDocument();
-    const cp = section("Contribution Processing");
+    const group = section("Contribution Matching");
     expect(
-      within(cp).getByRole("link", { name: "Work queue" }),
+      within(group).getByText("Contribution Processing"),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole("link", { name: "Work queue" }),
     ).toHaveAttribute("href", "/departments/d-cp/tickets");
     expect(
-      within(cp).getByRole("link", {
-        name: "Contribution Matching availability",
-      }),
-    ).toHaveAttribute("href", "/availability/units/u-cm");
+      within(group).getByRole("link", { name: "My unit" }),
+    ).toHaveAttribute("href", "/units/u-cm");
+    expect(linkNames()).toEqual([
+      "Unit dashboard",
+      "My unit",
+      "Work queue",
+      "Reports",
+    ]);
     expect(
-      within(cp).queryByText("Department availability"),
+      screen.queryByRole("heading", { name: "Contribution Processing" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("link", { name: "My availability" }),
-    ).toHaveAttribute("href", "/availability");
-    expect(screen.getByText("Reports")).toBeInTheDocument();
     expect(screen.queryByText("Administration")).not.toBeInTheDocument();
   });
 
-  it("an HOD gets Department availability and the Work queue (department staff)", async () => {
+  it("an HOD keeps the department group: Work queue and Department availability, no My requests", async () => {
     renderSidebar(["Requester", "HOD"], {
-      departments: [{ ...CP, isHod: true, units: [] }],
+      departments: [{ ...CP, isHod: true, isAdmin: false, units: [] }],
     });
-    const link = await screen.findByRole("link", {
-      name: "Department availability",
+    expect(
+      await screen.findByRole("heading", { name: "Contribution Processing" }),
+    ).toBeInTheDocument();
+    const group = section("Contribution Processing");
+    expect(
+      within(group).getByRole("link", { name: "Department availability" }),
+    ).toHaveAttribute("href", "/availability/departments/d-cp");
+    expect(linkNames()).toEqual([
+      "Home",
+      "Work queue",
+      "Department availability",
+      "Reports",
+    ]);
+  });
+
+  it("a case worker sees their unit as the group, with My requests and My availability (no My unit)", async () => {
+    renderSidebar(["Requester", "CaseWorker"], {
+      departments: [
+        {
+          ...CP,
+          isHod: false,
+          isAdmin: false,
+          units: [unit(RF, { isMember: true })],
+        },
+      ],
     });
-    expect(link).toHaveAttribute("href", "/availability/departments/d-cp");
-    expect(screen.getByRole("link", { name: "Work queue" })).toHaveAttribute(
-      "href",
-      "/departments/d-cp/tickets",
-    );
+    expect(
+      await screen.findByRole("heading", { name: "Refund" }),
+    ).toBeInTheDocument();
+    expect(
+      within(section("Refund")).getByText("Contribution Processing"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Contribution Processing" }),
+    ).not.toBeInTheDocument();
+    expect(linkNames()).toEqual([
+      "Home",
+      "My requests",
+      "My availability",
+      "Work queue",
+    ]);
+  });
+
+  it("someone in units of two departments gets one group per unit", async () => {
+    renderSidebar(["Requester", "CaseWorker"], {
+      departments: [
+        {
+          ...CP,
+          isHod: false,
+          isAdmin: false,
+          units: [unit(RF, { isMember: true })],
+        },
+        {
+          id: "d-bp",
+          code: "BP",
+          name: "Benefit Processing",
+          isHod: false,
+          isAdmin: false,
+          units: [
+            unit(
+              { id: "u-pw", code: "PW", name: "Programmed Withdrawal" },
+              {
+                isMember: true,
+              },
+            ),
+          ],
+        },
+      ],
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Programmed Withdrawal" }),
+    ).toBeInTheDocument();
+    expect(
+      within(section("Programmed Withdrawal")).getByRole("link", {
+        name: "Work queue",
+      }),
+    ).toHaveAttribute("href", "/departments/d-bp/tickets");
+    expect(
+      within(section("Refund")).getByRole("link", { name: "Work queue" }),
+    ).toHaveAttribute("href", "/departments/d-cp/tickets");
   });
 
   it("a requester with no departments has no module section and no My availability", async () => {
@@ -138,16 +217,27 @@ describe("Sidebar from org/me", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("My requests is a link for everyone; coming-soon items are disabled, not links", async () => {
-    renderSidebar(["Requester", "HeadOfUnit"], HOU_ORG);
+  it("a Department Admin gets Reports", async () => {
+    renderSidebar(["Requester", "DepartmentAdmin"], { departments: [] });
+    expect(
+      await screen.findByRole("link", { name: "Reports" }),
+    ).toHaveAttribute("href", "/reports");
+  });
+
+  it("a Case Worker has no Reports", async () => {
+    renderSidebar(["Requester", "CaseWorker"], {
+      departments: [
+        {
+          ...CP,
+          isHod: false,
+          isAdmin: false,
+          units: [unit(RF, { isMember: true })],
+        },
+      ],
+    });
     expect(
       await screen.findByRole("link", { name: "My requests" }),
-    ).toHaveAttribute("href", "/tickets");
-    expect(
-      screen.queryByRole("link", { name: /Reports/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Reports").closest("[aria-disabled]"),
-    ).toHaveAttribute("aria-disabled", "true");
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Reports")).not.toBeInTheDocument();
   });
 });

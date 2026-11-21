@@ -12,14 +12,15 @@
  */
 
 const DEFAULT_MESSAGES = {
-  network: "Access Desk cannot be reached right now. Try again shortly.",
+  network:
+    "Access Service Desk cannot be reached right now. Try again shortly.",
   unauthorized: "Your session has ended. Sign in again.",
   forbidden: "You do not have access to this.",
   notFound: "This record was not found, or you do not have access to it.",
   conflict: "This change has already been made.",
   validation: "Some details are not valid. Check the form and try again.",
   rateLimited: "Too many attempts. Wait a minute and try again.",
-  server: "Access Desk cannot be reached right now. Try again shortly.",
+  server: "Access Service Desk cannot be reached right now. Try again shortly.",
   http: "The request failed.",
 };
 

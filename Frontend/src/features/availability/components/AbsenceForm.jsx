@@ -34,7 +34,7 @@ const schema = z
 const FIELDS = ["startDate", "endDate", "note", "kind"];
 
 const inputClass = (invalid) =>
-  `mt-1 h-10 w-full rounded-[6px] border bg-white px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
+  `mt-1 h-10 w-full rounded-lg border bg-white px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
 
 /**
  * Record leave or out of office, for yourself (no userId) or for someone you manage (userId).
@@ -100,7 +100,7 @@ export default function AbsenceForm({
       {formError && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-[6px] border border-danger/30 bg-danger-light px-3 py-2.5 text-sm text-danger"
+          className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-light px-3 py-2.5 text-sm text-danger"
         >
           <CircleAlert
             aria-hidden="true"

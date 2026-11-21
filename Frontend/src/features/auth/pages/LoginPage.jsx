@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 const UNREACHABLE =
-  "Access Desk cannot be reached right now. Try again shortly.";
+  "Access Service Desk cannot be reached right now. Try again shortly.";
 
 function signInError(error) {
   if (error?.kind === "rateLimited") return error.message;
@@ -27,7 +27,7 @@ function signInError(error) {
 }
 
 const inputClass =
-  "block h-11 w-full rounded-[6px] border bg-white pr-3 pl-10 text-sm text-ink placeholder:text-muted focus:border-brand-navy focus:outline-2 focus:outline-offset-0 focus:outline-brand-orange";
+  "block h-11 w-full rounded-lg border bg-white pr-3 pl-10 text-sm text-ink placeholder:text-muted focus:border-brand-navy focus:outline-2 focus:outline-offset-0 focus:outline-brand-orange";
 
 export default function LoginPage() {
   const queryClient = useQueryClient();
@@ -97,7 +97,7 @@ export default function LoginPage() {
                   ref={errorRef}
                   role="alert"
                   tabIndex={-1}
-                  className="flex items-start gap-2 rounded-[6px] border border-danger/30 bg-danger-light px-3 py-2.5 text-sm text-danger"
+                  className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-light px-3 py-2.5 text-sm text-danger"
                 >
                   <CircleAlert
                     aria-hidden="true"

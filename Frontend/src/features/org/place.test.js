@@ -8,13 +8,13 @@ const org = {
       code: "CP",
       name: "Contribution Processing",
       isHod: false,
+      isAdmin: false,
       units: [
         {
           id: "u-cm",
           code: "CM",
           name: "Contribution Matching",
           isHead: true,
-          isDeputy: false,
           isMember: true,
         },
       ],

@@ -16,6 +16,7 @@ export default function CategoryCombobox({
 }) {
   const listId = useId();
   const inputRef = useRef(null);
+  const closeTimer = useRef(null);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [active, setActive] = useState(0);
@@ -83,17 +84,24 @@ export default function CategoryCombobox({
           setActive(0);
           setOpen(true);
         }}
-        onFocus={() => setOpen(false)}
-        onClick={() => setOpen(true)}
+        onFocus={() => {
+          clearTimeout(closeTimer.current);
+          setOpen(false);
+        }}
+        onClick={() => {
+          clearTimeout(closeTimer.current);
+          setOpen(true);
+        }}
         onKeyDown={onKeyDown}
         onBlur={() => {
-          // Let a click on an option land first.
-          setTimeout(() => {
+          // Let a click on an option land first. Coming back before it fires cancels it, or it
+          // would close the list just opened.
+          closeTimer.current = setTimeout(() => {
             setOpen(false);
             setText("");
           }, 150);
         }}
-        className={`h-10 w-full rounded-[6px] border bg-white pr-9 pl-3 text-sm text-ink placeholder:text-muted ${invalid ? "border-danger" : "border-line"} ${chosen && open ? "placeholder:text-ink" : ""}`}
+        className={`h-10 w-full rounded-lg border bg-white pr-9 pl-3 text-sm text-ink placeholder:text-muted ${invalid ? "border-danger" : "border-line"} ${chosen && open ? "placeholder:text-ink" : ""}`}
       />
       <button
         type="button"
@@ -114,7 +122,7 @@ export default function CategoryCombobox({
           id={listId}
           role="listbox"
           aria-label="Categories"
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-[6px] border border-line bg-white py-1 shadow-lg"
+          className="absolute z-30 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-line bg-white py-1 shadow-lg"
         >
           {matches.length === 0 ? (
             <li className="px-3 py-2 text-sm text-muted">

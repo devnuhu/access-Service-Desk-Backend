@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { ShieldOff } from "lucide-react";
-import { MessageCard, Spinner } from "@/shared/ui";
+import { MessageCard, PageHeader, Spinner } from "@/shared/ui";
 import UnitAvailabilityCard from "../components/UnitAvailabilityCard.jsx";
 import {
   useDepartmentAvailability,
@@ -32,7 +32,10 @@ export function UnitAvailabilityPage() {
   if (unit.isError) return <Refused error={unit.error} />;
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">{unit.data.name} availability</h1>
+      <PageHeader
+        title={`${unit.data.name} availability`}
+        description="Who is in today, who is away, and who covers their work."
+      />
       <UnitAvailabilityCard unit={unit.data} />
     </div>
   );
@@ -51,13 +54,10 @@ export function DepartmentAvailabilityPage() {
   const total = units.data.reduce((sum, unit) => sum + unit.memberCount, 0);
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Department availability</h1>
-        <p className="mt-1 text-sm text-muted">
-          {available} of {total} available today across {units.data.length}{" "}
-          {units.data.length === 1 ? "unit" : "units"}.
-        </p>
-      </div>
+      <PageHeader
+        title="Department availability"
+        description={`${available} of ${total} available today across ${units.data.length} ${units.data.length === 1 ? "unit" : "units"}.`}
+      />
       {units.data.length === 0 ? (
         <p className="text-sm text-muted">No active units.</p>
       ) : (

@@ -20,7 +20,7 @@ const schema = z.object({
 });
 
 const inputClass = (invalid) =>
-  `mt-1 h-10 w-full rounded-[6px] border px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
+  `mt-1 h-10 w-full rounded-lg border px-3 text-sm text-ink ${invalid ? "border-danger" : "border-line"}`;
 
 /**
  * Code and name, for a new department or unit. The code is upper-cased as it is typed and cannot be

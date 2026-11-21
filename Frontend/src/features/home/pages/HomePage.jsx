@@ -1,23 +1,66 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   Building2,
   ClipboardList,
-  FileText,
-  Hourglass,
-  Inbox,
-  Play,
   ShieldCheck,
   TriangleAlert,
   UserCog,
   Users,
-  UserCheck,
 } from "lucide-react";
 import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
-import { describePlaces, useMyOrganisation } from "@/features/org";
-import { RaiseTicketLink, STATUS, useTicketList } from "@/features/tickets";
+import {
+  describePlaces,
+  headedUnits,
+  memberUnits,
+  oversees,
+  useMyOrganisation,
+} from "@/features/org";
+import { RaiseTicketLink } from "@/features/tickets";
 import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
-import { Card, RoleChips } from "@/shared/ui";
+import { Card, PageHeader, RoleChips, Spinner } from "@/shared/ui";
+import Dashboard from "../components/Dashboard.jsx";
+import DepartmentOverview from "../components/DepartmentOverview.jsx";
+import MemberHome from "../components/MemberHome.jsx";
+import UnitDashboard from "../components/UnitDashboard.jsx";
+
+/**
+ * A head's home is their unit dashboard; a head of several units switches with ?unit= (the first
+ * unit when none is asked).
+ */
+function HeadHome({ units }) {
+  const [params, setParams] = useSearchParams();
+  const asked = params.get("unit");
+  const unit = units.find((u) => u.id === asked) ?? units[0];
+  return (
+    <UnitDashboard
+      key={unit.id}
+      unitId={unit.id}
+      own
+      actions={<RaiseTicketLink />}
+    >
+      {units.length > 1 && (
+        <div
+          role="group"
+          aria-label="Your units"
+          className="mt-4 inline-flex flex-wrap gap-1 rounded-lg border border-line bg-white p-1"
+        >
+          {units.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              aria-pressed={u.id === unit.id}
+              onClick={() => setParams({ unit: u.id }, { replace: true })}
+              className={`rounded-md px-3 py-1.5 text-sm font-semibold ${u.id === unit.id ? "bg-brand-navy text-white" : "text-body hover:bg-page"}`}
+            >
+              {u.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </UnitDashboard>
+  );
+}
 
 /** One line per role (BRD Section 4). Platform wording: no department names. */
 const ROLE_CARDS = {
@@ -43,132 +86,113 @@ const ROLE_CARDS = {
   },
   [ROLES.SuperAdmin]: {
     icon: ShieldCheck,
-    text: "Manage people and roles, and keep Access Desk set up and running.",
+    text: "Manage people and roles, and keep Access Service Desk set up and running.",
   },
 };
 
-function CountCard({ icon: Icon, title, count, to, linkText, testId }) {
-  return (
-    <li>
-      <Card as="div" className="flex h-full items-center gap-4 px-5 py-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-navy-light text-brand-navy">
-          <Icon aria-hidden="true" size={18} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">{title}</h3>
-          <p className="text-2xl font-semibold text-ink" data-testid={testId}>
-            {count ?? "—"}
-          </p>
-        </div>
-        <Link
-          to={to}
-          className="text-sm font-semibold whitespace-nowrap text-brand-navy hover:underline"
-        >
-          {linkText} <span className="sr-only">({title})</span>
-        </Link>
-      </Card>
-    </li>
-  );
-}
-
-/** A count needs no rows: the smallest page, and read its total. */
-const ONE_ROW_OF = (query) => ({ ...query, page: 1, pageSize: 1 });
-
-function MyOpenRequests() {
-  const open = useTicketList(ONE_ROW_OF({ view: "mine", open: true }));
-  return (
-    <CountCard
-      icon={FileText}
-      title="My open requests"
-      count={open.data?.total ?? null}
-      to="/tickets"
-      linkText="My requests"
-      testId="count-my-open"
-    />
-  );
-}
-
-/** A case worker's three cards (view=assigned); each opens the Work queue already filtered. */
-function MyWork({ departmentId }) {
-  const mine = { view: "assigned", departmentId };
-  const open = useTicketList(ONE_ROW_OF({ ...mine, open: true }));
-  const waiting = useTicketList(ONE_ROW_OF({ ...mine, waitingToStart: true }));
-  const pending = useTicketList(
-    ONE_ROW_OF({ ...mine, status: STATUS.Pending }),
-  );
-  const list = (filter) =>
-    `/departments/${departmentId}/tickets?tab=assigned&${filter}`;
-  return (
-    <>
-      <CountCard
-        icon={UserCheck}
-        title="Assigned to me"
-        count={open.data?.total ?? null}
-        to={list("status=open")}
-        linkText="Work queue"
-        testId="count-assigned"
-      />
-      <CountCard
-        icon={Play}
-        title="Waiting to start"
-        count={waiting.data?.total ?? null}
-        to={list("status=open&waiting=1")}
-        linkText="Work queue"
-        testId="count-waiting"
-      />
-      <CountCard
-        icon={Hourglass}
-        title="Pending"
-        count={pending.data?.total ?? null}
-        to={list(`status=${STATUS.Pending}`)}
-        linkText="Work queue"
-        testId="count-pending"
-      />
-    </>
-  );
-}
-
-function NewInUnit({ department, unit }) {
-  const list = useTicketList({
-    view: "department",
-    departmentId: department.id,
-    unitId: unit.id,
-    status: STATUS.New,
-    page: 1,
-    pageSize: 1,
-  });
-  return (
-    <CountCard
-      icon={Inbox}
-      title={`New in ${unit.name}`}
-      count={list.data?.total ?? null}
-      to={`/departments/${department.id}/tickets`}
-      linkText="Work queue"
-      testId={`count-new-${unit.id}`}
-    />
-  );
-}
-
+/**
+ * Home by what the person leads (org/me): an HOD, Department Admin or Super Admin oversees, and
+ * gets the department overview (no My work: requesting stays on the Raise a ticket button); a unit
+ * head gets their unit dashboard; a case worker their unit home (MemberHome); everyone else (a
+ * requester) My work and what their roles can do.
+ */
 export default function HomePage() {
   const { user } = useSession();
+  const orgQuery = useMyOrganisation();
+  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
+  if (orgQuery.isLoading)
+    return (
+      <div className="py-10 text-center text-muted">
+        <Spinner label="Loading…" />
+      </div>
+    );
+  const org = orgQuery.data;
+  if (oversees(org, isSuperAdmin)) return <OverviewHome />;
+  const units = headedUnits(org);
+  if (units.length) return <HeadHome units={units} />;
+  const worksIn = memberUnits(org);
+  if (worksIn.length) return <MemberHome units={worksIn} />;
+  return <WorkHome org={org} />;
+}
+
+function Welcome({ user, children }) {
+  return (
+    <PageHeader
+      title={`Welcome, ${firstNameOf(user)}`}
+      crumb="Home"
+      description={
+        [user.department, user.jobTitle].filter(Boolean).join(" · ") ||
+        "Access Pensions"
+      }
+    >
+      {children}
+    </PageHeader>
+  );
+}
+
+function CoverWarning({ enabled }) {
+  const { data: coverWarnings } = useCoverWarnings({ enabled });
+  if (!enabled || !coverWarnings?.length) return null;
+  return (
+    <section
+      aria-labelledby="home-cover"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand-orange bg-brand-orange-light px-5 py-4"
+    >
+      <div className="flex gap-3">
+        <TriangleAlert
+          aria-hidden="true"
+          size={20}
+          className="mt-0.5 shrink-0 text-brand-orange-ink"
+        />
+        <div>
+          <h2
+            id="home-cover"
+            className="text-sm font-semibold text-brand-orange-ink"
+          >
+            Categories needing cover
+          </h2>
+          <p className="mt-0.5 text-sm text-ink">
+            {coverTitle(coverWarnings.length)}.
+          </p>
+        </div>
+      </div>
+      <Link
+        to="/admin/categories"
+        className="text-sm font-semibold text-brand-navy hover:underline"
+      >
+        Open Categories
+      </Link>
+    </section>
+  );
+}
+
+/** HOD, Department Admin, Super Admin: the overview of every unit they oversee. */
+function OverviewHome() {
+  const { user } = useSession();
+  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
+  return (
+    <div className="space-y-6">
+      <Welcome user={user}>
+        <RoleChips roles={sortRoles(user.roles)} className="mt-3" />
+      </Welcome>
+      <CoverWarning enabled={isSuperAdmin} />
+      <DepartmentOverview actions={<RaiseTicketLink />} />
+    </div>
+  );
+}
+
+function WorkHome({ org }) {
+  const { user } = useSession();
   const roles = sortRoles(user.roles);
-  const { data: org } = useMyOrganisation();
-  // A case worker is a member of a unit; their queue opens on "Assigned to me".
+  // A unit member's Work queue opens on "Assigned to me": the My work tiles link there.
   const memberDepartment = org?.departments.find((department) =>
     department.units.some((unit) => unit.isMember),
   );
   const places = describePlaces(org);
-  const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
-  const { data: coverWarnings } = useCoverWarnings({ enabled: isSuperAdmin });
 
   return (
     <div className="space-y-6">
-      <Card className="px-6 py-5">
-        <h1 className="text-2xl font-semibold">Welcome, {firstNameOf(user)}</h1>
-        <p className="mt-1 text-sm text-muted">
-          {[user.department, user.jobTitle].filter(Boolean).join(" · ") ||
-            "Access Pensions"}
-        </p>
+      <Welcome user={user}>
         <RoleChips roles={roles} className="mt-3" />
         {places.length > 0 && (
           <ul
@@ -180,59 +204,12 @@ export default function HomePage() {
             ))}
           </ul>
         )}
-      </Card>
+      </Welcome>
 
-      <section aria-labelledby="home-requests">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="home-requests" className="text-base font-semibold">
-            Requests
-          </h2>
-          <RaiseTicketLink />
-        </div>
-        <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MyOpenRequests />
-          {memberDepartment && <MyWork departmentId={memberDepartment.id} />}
-          {(org?.departments ?? []).flatMap((department) =>
-            department.units
-              .filter((unit) => unit.isMember)
-              .map((unit) => (
-                <NewInUnit key={unit.id} department={department} unit={unit} />
-              )),
-          )}
-        </ul>
-      </section>
-
-      {isSuperAdmin && coverWarnings?.length > 0 && (
-        <section
-          aria-labelledby="home-cover"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-brand-orange bg-brand-orange-light px-5 py-4"
-        >
-          <div className="flex gap-3">
-            <TriangleAlert
-              aria-hidden="true"
-              size={20}
-              className="mt-0.5 shrink-0 text-brand-orange-ink"
-            />
-            <div>
-              <h2
-                id="home-cover"
-                className="text-sm font-semibold text-brand-orange-ink"
-              >
-                Categories needing cover
-              </h2>
-              <p className="mt-0.5 text-sm text-ink">
-                {coverTitle(coverWarnings.length)}.
-              </p>
-            </div>
-          </div>
-          <Link
-            to="/admin/categories"
-            className="text-sm font-semibold text-brand-navy hover:underline"
-          >
-            Open Categories
-          </Link>
-        </section>
-      )}
+      <Dashboard
+        departmentId={memberDepartment?.id}
+        actions={<RaiseTicketLink />}
+      />
 
       <section aria-labelledby="home-roles">
         <h2 id="home-roles" className="text-base font-semibold">

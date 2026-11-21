@@ -24,7 +24,7 @@ export default function RequireRole({ roles, children }) {
     return (
       <MessageCard
         icon={CloudOff}
-        title="Access Desk cannot be reached"
+        title="Access Service Desk cannot be reached"
         linkTo={null}
       >
         <p>{error?.message ?? "Try again shortly."}</p>

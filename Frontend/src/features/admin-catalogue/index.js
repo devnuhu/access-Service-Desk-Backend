@@ -7,3 +7,6 @@ export {
   useCoverWarnings,
   useUnitSkills,
 } from "./hooks/useCatalogueAdmin.js";
+export { default as SkillsGrid } from "./components/SkillsGrid.jsx";
+export { default as CoverBanner } from "./components/CoverBanner.jsx";
+export { isShortOfCover, skillsModel } from "./skills.js";

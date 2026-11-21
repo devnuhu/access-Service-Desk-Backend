@@ -4,4 +4,4 @@ export { default as TicketPage } from "./pages/TicketPage.jsx";
 export { default as WorkQueuePage } from "./pages/WorkQueuePage.jsx";
 export { default as RaiseTicketLink } from "./components/RaiseTicketLink.jsx";
 export { STATUS } from "./api/endpoints.js";
-export { ticketKeys, useTicketList } from "./hooks/useTickets.js";
+export { ticketKeys, usePool, useTicketList } from "./hooks/useTickets.js";

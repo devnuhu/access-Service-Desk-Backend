@@ -565,19 +565,20 @@ function lineOf(source, name, route) {
  * "| GET | `/api/x` | Policy: HR_Access | Action | Note |" rows of endpoint-inventory.md.
  * A row may name several routes ("`/api/tickets/{id}`, `/api/tickets/by-reference/{ref}`"), one
  * row each; a later one may name only its last part (`/resume`). A route may show its query
- * ("/api/admin/categories?departmentId="): the path is compared without it. "Same as above" in the access column takes the access of the row above.
+ * ("/api/admin/categories?departmentId="): the path is compared without it. A row may list
+ * several methods ("GET, POST"), one row each. See INHERITS for access that takes the row above's.
  */
 export function parseInventory(markdown) {
   const rows = [];
   let previous = null;
   for (const line of markdown.split(/\r?\n/)) {
     const match = line.match(
-      /^\|\s*(GET|POST|PUT|PATCH|DELETE)\s*\|\s*((?:`[^`]+`[\s,]*)+)\|\s*([^|]+?)\s*\|/,
+      /^\|\s*((?:GET|POST|PUT|PATCH|DELETE)(?:\s*,\s*(?:GET|POST|PUT|PATCH|DELETE))*)\s*\|\s*((?:`[^`]+`[\s,]*)+)\|\s*([^|]+?)\s*\|/,
     );
     if (!match) continue;
-    const access =
-      /^same as above\b/i.test(match[3]) && previous ? previous : match[3];
+    const access = INHERITS.test(match[3]) && previous ? previous : match[3];
     previous = access;
+    const methods = match[1].split(",").map((method) => method.trim());
     let first = null;
     for (const [, route] of match[2].matchAll(/`([^`]+)`/g)) {
       const full = route.split("?")[0];
@@ -585,25 +586,45 @@ export function parseInventory(markdown) {
         ? full
         : first.replace(/\/[^/]+$/, full);
       first ??= path;
-      rows.push({ method: match[1], path, access });
+      for (const method of methods) rows.push({ method, path, access });
     }
   }
   return rows;
 }
 
 /**
- * Plain-language "Who" phrases of docs/api/endpoint-inventory.md, by role. A phrase such as
- * "unit head or deputy" names the role the server's organisation check is about (Head of Unit).
+ * Access text that takes the row above's: "same", "same as above ...", "same people as above",
+ * and "the owner" (an owner is always one of the people the row above lets in; the service
+ * checks the ownership).
+ */
+const INHERITS = /^(same|same as above\b.*|same people as above|the owner)$/i;
+
+/**
+ * Plain-language "Who" phrases of docs/api/endpoint-inventory.md, by role. "unit head" (and any
+ * phrase that starts with it, such as older wording that adds another post) names the role the
+ * server's organisation check is about: Head of Unit.
  */
 const WHO_PHRASES = {
   "super admin": "SuperAdmin",
   "head of unit": "HeadOfUnit",
-  "unit head or deputy": "HeadOfUnit",
+  "unit head": "HeadOfUnit",
+  "unit heads": "HeadOfUnit",
   hod: "HOD",
   "hod of its department": "HOD",
+  "department admin": "DepartmentAdmin",
   "case worker": "CaseWorker",
   requester: "Requester",
+  // A department-wide read for its staff: unit members and heads, the HOD and the Admin.
+  "staff of that department": [
+    "CaseWorker",
+    "HeadOfUnit",
+    "HOD",
+    "DepartmentAdmin",
+  ],
 };
+const whoPhrase = (phrase) =>
+  WHO_PHRASES[phrase] ??
+  (phrase.startsWith("unit head ") ? "HeadOfUnit" : undefined);
 
 /**
  * Inventory access text to the table's form: a role list, "signedIn" or "anonymous".
@@ -611,7 +632,7 @@ const WHO_PHRASES = {
  * "anyone ..." (anonymous), "signed in ..." and "same people as above" (any signed-in person,
  * the service checks the rest), role phrases separated by commas ("Super Admin, Head of Unit"), and
  * a record's people ("requester, raiser, people copied, ...", "department staff, Super Admin",
- * "holder and unit head/deputy ...": any signed-in person, the service checks the record).
+ * "holder and unit head ...": any signed-in person, the service checks the record).
  */
 export function inventoryAccess(text) {
   if (/^anyone who can see\b/i.test(text)) return "signedIn";
@@ -649,8 +670,8 @@ export function inventoryAccess(text) {
     phrases.some((phrase) => recordPeople.some((word) => phrase.includes(word)))
   )
     return "signedIn";
-  if (phrases.every((phrase) => WHO_PHRASES[phrase]))
-    return [...new Set(phrases.map((phrase) => WHO_PHRASES[phrase]))];
+  if (phrases.every((phrase) => whoPhrase(phrase)))
+    return [...new Set(phrases.flatMap((phrase) => whoPhrase(phrase)))];
   return `unrecognised access "${text}"`;
 }
 
@@ -856,10 +877,10 @@ async function realOrgId(scope, fetchJson) {
   const mine = (await fetchJson("/api/org/me", {})).body?.departments ?? [];
   const all = (await fetchJson("/api/org/departments", {})).body ?? [];
   const hod = mine.find((department) => department.isHod);
-  if (scope === "department") return hod?.id ?? all[0]?.id;
+  if (scope === "department") return hod?.id ?? mine[0]?.id ?? all[0]?.id;
   const led = mine
     .flatMap((department) => department.units)
-    .find((unit) => unit.isHead || unit.isDeputy);
+    .find((unit) => unit.isHead);
   const department = all.find((d) => d.id === hod?.id) ?? all[0];
   return led?.id ?? department?.units[0]?.id;
 }
@@ -886,6 +907,13 @@ async function planRequest(entry, allowed, fetchJson) {
         };
       query[param] = value;
     }
+  }
+  // A required organisation id in the query: the person's own department or unit (see realOrgId).
+  if (entry.queryOrgScope) {
+    const { scope, param } = entry.queryOrgScope;
+    const value = await realOrgId(scope, fetchJson);
+    if (!value) return { skip: `needs a ${scope} (none found)` };
+    query[param] = value;
   }
   const hasParams = /\{[^}]+\}/.test(entry.path);
   if (!hasParams) return { path: entry.path, query };

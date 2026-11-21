@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useBlocker, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
 import { useOrgDepartments } from "@/features/org";
 import {
   Button,
@@ -10,6 +9,7 @@ import {
   MessageCard,
   Spinner,
   useToast,
+  PageHeader,
 } from "@/shared/ui";
 import CoverBanner from "../components/CoverBanner.jsx";
 import SkillsGrid from "../components/SkillsGrid.jsx";
@@ -127,46 +127,17 @@ export default function SkillsMatrixPage() {
 
   return (
     <div className="space-y-4 pb-20">
-      <nav aria-label="Breadcrumb">
-        <ol className="flex flex-wrap items-center gap-1 text-sm text-muted">
-          <li>
-            <Link
-              to="/admin/units"
-              className="font-semibold text-brand-navy hover:underline"
-            >
-              Units
-            </Link>
-          </li>
-          {department && (
-            <>
-              <ChevronRight aria-hidden="true" size={14} />
-              <li>{department.name}</li>
-            </>
-          )}
-          <ChevronRight aria-hidden="true" size={14} />
-          <li>
-            <Link
-              to={`/admin/units/${unitId}`}
-              className="font-semibold text-brand-navy hover:underline"
-            >
-              {unitName}
-            </Link>
-          </li>
-          <ChevronRight aria-hidden="true" size={14} />
-          <li aria-current="page" className="text-ink">
-            Skills
-          </li>
-        </ol>
-      </nav>
-
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">{unitName}: skills matrix</h1>
-          <p className="mt-1 text-sm text-muted">
-            Tick the categories each member handles. Each active category needs
-            at least two case workers.
-          </p>
-        </div>
+        <PageHeader
+          title={`${unitName}: skills matrix`}
+          crumb="Skills"
+          trail={[
+            { label: "Units", to: "/admin/units" },
+            ...(department ? [{ label: department.name }] : []),
+            { label: unitName, to: `/admin/units/${unitId}` },
+          ]}
+          description="Tick the categories each member handles. Each active category needs at least two case workers."
+        />
         <Link
           to="/admin/categories"
           className="text-sm font-semibold text-brand-navy hover:underline"

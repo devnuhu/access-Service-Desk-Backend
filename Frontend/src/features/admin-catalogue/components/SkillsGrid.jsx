@@ -26,6 +26,9 @@ const personName = (member) => member.fullName || member.userName;
  * @param {(member: any, next: Set<string>) => void} props.onChange
  * @param {Set<string>} props.changed  userIds with unsaved edits
  * @param {string | null} props.failedId  userId whose save failed
+ * @param {boolean} [props.readOnly]  look only (an HOD): cells disabled, no All / None
+ * @param {(member: any) => import("react").ReactNode} [props.noteFor]  extra chips for a person
+ * @param {string} [props.changedLabel]  the chip on a changed row ("Changed", or "Saving…")
  */
 export default function SkillsGrid({
   categories,
@@ -36,6 +39,9 @@ export default function SkillsGrid({
   onChange,
   changed,
   failedId,
+  readOnly = false,
+  noteFor,
+  changedLabel = "Changed",
 }) {
   const [active, setActive] = useState({ row: 0, col: 0 });
   const cells = useRef(new Map());
@@ -148,31 +154,34 @@ export default function SkillsGrid({
                         {!member.accountActive && (
                           <Chip tone="red">Blocked</Chip>
                         )}
+                        {noteFor?.(member)}
                         {isChanged && (
                           <Chip tone="orange" data-testid="row-changed">
-                            {isFailed ? "Not saved" : "Changed"}
+                            {isFailed ? "Not saved" : changedLabel}
                           </Chip>
                         )}
                       </span>
                     </span>
-                    <span className="flex shrink-0 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setAll(member, true)}
-                        className="rounded px-1.5 py-0.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy-light"
-                        aria-label={`Tick every category for ${personName(member)}`}
-                      >
-                        All
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAll(member, false)}
-                        className="rounded px-1.5 py-0.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy-light"
-                        aria-label={`Clear every category for ${personName(member)}`}
-                      >
-                        None
-                      </button>
-                    </span>
+                    {!readOnly && (
+                      <span className="flex shrink-0 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setAll(member, true)}
+                          className="rounded px-1.5 py-0.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy-light"
+                          aria-label={`Tick every category for ${personName(member)}`}
+                        >
+                          All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAll(member, false)}
+                          className="rounded px-1.5 py-0.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy-light"
+                          aria-label={`Clear every category for ${personName(member)}`}
+                        >
+                          None
+                        </button>
+                      </span>
+                    )}
                   </span>
                 </th>
                 {categories.map((category, col) => {
@@ -193,6 +202,7 @@ export default function SkillsGrid({
                         }}
                         tabIndex={isActiveCell ? 0 : -1}
                         checked={checked}
+                        disabled={readOnly}
                         aria-disabled={locked ? "true" : undefined}
                         aria-label={`${category.name} for ${personName(member)}`}
                         title={
@@ -205,7 +215,7 @@ export default function SkillsGrid({
                         onChange={() => toggle(member, category.id)}
                         onFocus={() => setActive({ row, col })}
                         onKeyDown={(event) => onKeyDown(event, row, col)}
-                        className={`h-4 w-4 accent-brand-navy [scroll-margin:5rem_1rem_3rem_17rem] ${locked ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
+                        className={`h-4 w-4 accent-brand-navy [scroll-margin:5rem_1rem_3rem_17rem] ${readOnly ? "cursor-default" : locked ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
                       />
                     </td>
                   );

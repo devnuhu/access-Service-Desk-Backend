@@ -8,6 +8,7 @@ import {
   Dialog,
   Spinner,
   useToast,
+  PageHeader,
 } from "@/shared/ui";
 import {
   useAdminLocations,
@@ -80,7 +81,7 @@ function NameDialog({ location, onClose, onSave }) {
           }}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={error ? "location-name-error" : undefined}
-          className={`mt-1 h-10 w-full rounded-[6px] border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
+          className={`mt-1 h-10 w-full rounded-lg border px-3 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
         />
         {error && (
           <p
@@ -169,13 +170,10 @@ export default function LocationsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Locations</h1>
-          <p className="mt-1 text-sm text-muted">
-            Where people work. Everyone chooses one on the ticket form; their
-            last one is chosen for them next time.
-          </p>
-        </div>
+        <PageHeader
+          title="Locations"
+          description="Where people work. Everyone chooses one on the ticket form; their last one is chosen for them next time."
+        />
         <Button onClick={() => setDialog({ add: true })}>
           <Plus aria-hidden="true" size={16} />
           Add location
@@ -197,18 +195,18 @@ export default function LocationsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-page text-xs font-semibold text-muted uppercase">
+              <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
                 <tr>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Name
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Order
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     Status
                   </th>
-                  <th scope="col" className="px-5 py-2.5">
+                  <th scope="col" className="px-5 py-4">
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>

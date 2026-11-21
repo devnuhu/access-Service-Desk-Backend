@@ -28,7 +28,6 @@ describe("availability schemas", () => {
           fullName: null,
           staffCategory: 1,
           isHead: false,
-          isDeputy: false,
           accountActive: true,
           availableNow: true,
           current: null,

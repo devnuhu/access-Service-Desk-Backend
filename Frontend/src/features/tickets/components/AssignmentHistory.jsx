@@ -58,6 +58,9 @@ function ScoreTable({ scores }) {
 function Entry({ entry }) {
   const [open, setOpen] = useState(false);
   const auto = entry.method === ASSIGNMENT_METHOD.Auto;
+  const picked = entry.method === ASSIGNMENT_METHOD.Picked;
+  // A pick is taken by the person it goes to.
+  const picker = entry.by ?? entry.to;
   const movedUnit = entry.fromUnitName !== entry.toUnitName;
   const unit = (name) => (movedUnit && name ? ` (${name})` : "");
 
@@ -68,13 +71,15 @@ function Entry({ entry }) {
     >
       <span
         aria-hidden="true"
-        className={`absolute top-1 -left-[5px] h-2 w-2 rounded-full ${auto ? "bg-brand-navy" : "bg-brand-orange"}`}
+        className={`absolute top-1 -left-[5px] h-2 w-2 rounded-full ${auto ? "bg-brand-navy" : picked ? "bg-brand-green" : "bg-brand-orange"}`}
       />
       <p className="text-xs text-muted">{formatWat(entry.at)}</p>
       <p className="text-sm font-semibold text-ink">
         {auto
           ? "Auto"
-          : `Reassigned by ${entry.by ? personName(entry.by) : "someone"}`}
+          : picked
+            ? `Picked by ${personName(picker)}`
+            : `Reassigned by ${entry.by ? personName(entry.by) : "someone"}`}
       </p>
       <p className="text-sm text-body">
         {entry.from ? (
@@ -88,7 +93,11 @@ function Entry({ entry }) {
         )}
       </p>
       <p className="text-sm text-body">
-        {auto ? autoReasonText(entry.reason) : `“${entry.reason}”`}
+        {auto
+          ? autoReasonText(entry.reason)
+          : picked
+            ? entry.reason
+            : `“${entry.reason}”`}
       </p>
       {auto && entry.scores.length > 0 && (
         <>

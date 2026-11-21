@@ -10,7 +10,7 @@ import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { Spinner } from "@/shared/ui";
 
 /**
- * Guards the team availability pages with the organisation data: the head or deputy of the unit,
+ * Guards the team availability pages with the organisation data: the head of the unit,
  * the HOD of its department, or a Super Admin. Everyone else gets the no-access page. The server
  * still decides (rule 2); a 403 from it is shown on the page.
  */

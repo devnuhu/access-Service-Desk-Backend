@@ -418,15 +418,12 @@ const cell = (categoryName, personName) =>
   screen.getByRole("checkbox", { name: `${categoryName} for ${personName}` });
 
 describe("Skills matrix", () => {
-  it("shows members, chips, breadcrumb, warnings and counts", async () => {
+  // The trail (Units > department > unit > Skills) is drawn by the app layout: Layout.test.jsx.
+  it("shows members, chips, warnings and counts", async () => {
     renderMatrix();
     expect(
       await screen.findByRole("heading", { name: "Refund: skills matrix" }),
     ).toBeInTheDocument();
-    const crumbs = screen.getByRole("navigation", { name: "Breadcrumb" });
-    expect(crumbs).toHaveTextContent(
-      "Units›Contribution Processing›Refund›Skills".replaceAll("›", ""),
-    );
     const hou = screen.getByTestId("row-p-hou2");
     expect(within(hou).getByText("Head of Unit")).toBeInTheDocument();
     expect(

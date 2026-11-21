@@ -78,7 +78,7 @@ export default function FilePicker({
           setOver(false);
           if (!disabled) add(event.dataTransfer?.files ?? []);
         }}
-        className={`mt-1 flex flex-col items-center gap-2 rounded-[6px] border border-dashed px-4 py-5 text-center sm:flex-row sm:justify-between sm:text-left ${
+        className={`mt-1 flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-5 text-center sm:flex-row sm:justify-between sm:text-left ${
           over
             ? "border-brand-navy bg-brand-navy-light"
             : error
@@ -113,7 +113,7 @@ export default function FilePicker({
           disabled={disabled || full}
           aria-describedby={describedBy}
           onClick={() => inputRef.current?.click()}
-          className="inline-flex h-9 items-center gap-1.5 rounded-[6px] border border-brand-navy bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-brand-navy-light disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-brand-navy bg-white px-3 text-sm font-semibold text-brand-navy hover:bg-brand-navy-light disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Paperclip aria-hidden="true" size={15} />
           Choose files
@@ -142,7 +142,7 @@ export default function FilePicker({
       {files.length > 0 && (
         <ul
           aria-label="Chosen files"
-          className="mt-2 divide-y divide-line rounded-[6px] border border-line"
+          className="mt-2 divide-y divide-line rounded-lg border border-line"
         >
           {files.map((file, index) => {
             const Icon = iconFor(file.name);
