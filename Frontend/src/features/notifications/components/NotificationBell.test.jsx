@@ -3,6 +3,7 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryObserver } from "@tanstack/react-query";
 import { useSession } from "@/features/auth";
+import { BRAND } from "@/shared/brand";
 import { MY_CATEGORIES_KEY } from "@/features/catalogue";
 import { useMyOrganisation } from "@/features/org";
 import { ticketKeys } from "@/features/tickets";
@@ -34,7 +35,7 @@ vi.mock("../api/hub.js", () => ({
 const item = (overrides) => ({
   id: "n-1",
   title: "Welcome",
-  message: "Access Desk is ready.",
+  message: `${BRAND.name} is ready.`,
   type: 0,
   category: 0,
   relatedEntityType: null,
@@ -189,7 +190,7 @@ describe("NotificationBell", () => {
       hub.handlers.ReceiveNotification(
         item({
           id: "n-access",
-          title: "Your Access Desk access changed",
+          title: `Your ${BRAND.name} access changed`,
           message: "You now have the Case Worker role.",
           relatedEntityType: "User",
           relatedEntityId: "u-1",
@@ -283,7 +284,7 @@ describe("NotificationBell", () => {
         hub.handlers.ReceiveNotification(
           item({
             id,
-            title: "Your Access Desk access changed",
+            title: `Your ${BRAND.name} access changed`,
             message: "Your place in the organisation changed.",
             relatedEntityType: "User",
             relatedEntityId: "u-1",

@@ -4,6 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import { ArrowRight, CircleAlert, Lock, ShieldCheck, User } from "lucide-react";
+import { BRAND } from "@/shared/brand";
+import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
 import { zodResolver } from "@/shared/lib/zodResolver";
 import { Button } from "@/shared/ui";
 import useSession from "../hooks/useSession.js";
@@ -15,8 +17,7 @@ const schema = z.object({
   password: z.string().min(1, "Enter your password."),
 });
 
-const UNREACHABLE =
-  "Access Service Desk cannot be reached right now. Try again shortly.";
+const UNREACHABLE = `${BRAND.name} cannot be reached right now. Try again shortly.`;
 
 function signInError(error) {
   if (error?.kind === "rateLimited") return error.message;
@@ -38,6 +39,8 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const errorRef = useRef(null);
+
+  useDocumentTitle("Sign in");
 
   const {
     register,

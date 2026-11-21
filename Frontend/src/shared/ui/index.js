@@ -11,7 +11,7 @@ export { default as ToastProvider } from "./toast/ToastProvider.jsx";
 export { useToast } from "./toast/toastContext.js";
 export { default as BrandLockup } from "./brand/BrandLockup.jsx";
 export { default as CompanyLogo } from "./brand/CompanyLogo.jsx";
-export { default as Wordmark } from "./brand/Wordmark.jsx";
+export { default as BrandMark } from "./brand/BrandMark.jsx";
 export { default as FilePicker } from "./FilePicker.jsx";
 export { default as RichTextEditor } from "./RichTextEditor.jsx";
 export { default as RichTextView } from "./RichTextView.jsx";

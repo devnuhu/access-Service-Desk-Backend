@@ -1,3 +1,4 @@
+import { BRAND } from "@/shared/brand";
 import { useMyOrganisation, useOrgDepartments } from "@/features/org";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { buildNavigation } from "./navigation.js";
@@ -42,17 +43,14 @@ export function describePlace(place, header) {
   const trail = header?.trail;
   if (!place) {
     return {
-      eyebrow: "Access Service Desk",
-      crumbs: [
-        { label: "Access Service Desk" },
-        ...(title ? [{ label: title }] : []),
-      ],
+      eyebrow: BRAND.name,
+      crumbs: [{ label: BRAND.name }, ...(title ? [{ label: title }] : [])],
     };
   }
   const { section, item, exact } = place;
   // A unit's items in the main list (one-unit staff) keep the unit as their root.
   const root = {
-    label: item.crumbRoot ?? sectionLabel(section) ?? "Access Service Desk",
+    label: item.crumbRoot ?? sectionLabel(section) ?? BRAND.name,
   };
   if (trail?.length)
     return {

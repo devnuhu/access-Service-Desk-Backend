@@ -1,5 +1,6 @@
 import { Check, Clock, Plus } from "lucide-react";
-import { CompanyLogo } from "@/shared/ui";
+import { BRAND } from "@/shared/brand";
+import { BrandLockup, CompanyLogo } from "@/shared/ui";
 import ServiceDeskIllustration from "./ServiceDeskIllustration.jsx";
 
 const POINTS = [
@@ -20,20 +21,22 @@ const POINTS = [
   },
 ];
 
-/** Company logo, divider, then the Access Service Desk wordmark (light background). */
+/**
+ * The Servio lockup, then the caption and the descriptor (small), then the company: "by" and its
+ * logo, small. On a light background.
+ */
 function LogoRow() {
   return (
-    <div className="flex items-center gap-4">
-      <CompanyLogo height={32} className="border border-login-badge-line" />
-      <span aria-hidden="true" className="h-10 w-px bg-login-divider" />
-      <span className="flex flex-col leading-none whitespace-nowrap">
-        <span className="text-[11px] font-semibold tracking-[0.32em] text-login-unit uppercase">
-          Access
-        </span>
-        <span className="mt-1 text-[22px] font-bold tracking-tight text-brand-navy lg:text-2xl">
-          Service <span className="text-brand-green-text">Desk</span>
-        </span>
-      </span>
+    <div data-testid="login-brand">
+      <BrandLockup size="lg" />
+      <p className="mt-3 text-base font-semibold text-servio-navy">
+        {BRAND.caption}
+      </p>
+      <p className="mt-0.5 text-xs text-login-unit">{BRAND.descriptor}</p>
+      <p className="mt-3 flex items-center gap-2 text-xs text-login-legal">
+        by
+        <CompanyLogo height={18} badge={false} />
+      </p>
     </div>
   );
 }

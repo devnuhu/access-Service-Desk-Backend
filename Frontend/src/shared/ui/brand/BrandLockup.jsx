@@ -1,20 +1,37 @@
-import CompanyLogo from "./CompanyLogo.jsx";
-import Wordmark from "./Wordmark.jsx";
+import { BRAND } from "@/shared/brand";
+import BrandMark from "./BrandMark.jsx";
 
-/** Company logo, a thin divider, then the Access Service Desk wordmark (tone: "light" on navy, "dark" on white). */
-export default function BrandLockup({
-  logoHeight = 36,
-  size = "md",
-  tone = "light",
-}) {
+const SIZES = {
+  sm: { mark: 26, text: "text-xl" },
+  md: { mark: 32, text: "text-2xl" },
+  lg: { mark: 44, text: "text-[2.1rem]" },
+};
+
+/**
+ * The Servio lockup: the mark and the lowercase wordmark "servio" (a logo; in running text the name
+ * is "Servio"). tone "dark" sits on light backgrounds (navy word, colour mark); "light" on dark.
+ * The lockup carries the accessible name once.
+ */
+export default function BrandLockup({ size = "md", tone = "dark" }) {
+  const s = SIZES[size] ?? SIZES.md;
+  const onDark = tone === "light";
   return (
-    <span className="inline-flex items-center gap-4">
-      <CompanyLogo height={logoHeight} badge={tone !== "dark"} />
+    <span
+      role="img"
+      aria-label={BRAND.name}
+      className="inline-flex items-center gap-2.5"
+    >
+      <BrandMark
+        size={s.mark}
+        variant={onDark ? "light" : "color"}
+        decorative
+      />
       <span
         aria-hidden="true"
-        className={`h-9 w-px self-center ${tone === "dark" ? "bg-line" : "bg-white/30"}`}
-      />
-      <Wordmark size={size} tone={tone} />
+        className={`font-brand leading-none font-extrabold tracking-[-0.03em] ${s.text} ${onDark ? "text-white" : "text-servio-navy"}`}
+      >
+        {BRAND.name.toLowerCase()}
+      </span>
     </span>
   );
 }

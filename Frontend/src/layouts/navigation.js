@@ -16,6 +16,7 @@ import {
   UsersRound,
   Users,
 } from "lucide-react";
+import { BRAND } from "@/shared/brand";
 import { hasAnyRole, REPORT_ROLES, ROLES } from "@/shared/lib/roles";
 
 const { SuperAdmin } = ROLES;
@@ -141,7 +142,7 @@ export function buildNavigation(user, org, allDepartments) {
     {
       id: "main",
       title: null,
-      label: "Access Service Desk",
+      label: BRAND.name,
       items: [
         {
           label: leads === "head" ? "Unit dashboard" : "Home",

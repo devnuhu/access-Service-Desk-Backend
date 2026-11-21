@@ -17,6 +17,7 @@ import {
   useMyOrganisation,
 } from "@/features/org";
 import { RaiseTicketLink } from "@/features/tickets";
+import { BRAND } from "@/shared/brand";
 import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
 import { Card, PageHeader, RoleChips, Spinner } from "@/shared/ui";
 import Dashboard from "../components/Dashboard.jsx";
@@ -86,7 +87,7 @@ const ROLE_CARDS = {
   },
   [ROLES.SuperAdmin]: {
     icon: ShieldCheck,
-    text: "Manage people and roles, and keep Access Service Desk set up and running.",
+    text: `Manage people and roles, and keep ${BRAND.name} set up and running.`,
   },
 };
 

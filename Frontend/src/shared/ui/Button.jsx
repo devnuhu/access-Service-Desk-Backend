@@ -1,7 +1,7 @@
 import Spinner from "./Spinner.jsx";
 
 const VARIANTS = {
-  // Navy with a 3px orange bottom edge, as in the Access Service Desk emails.
+  // Navy with a 3px orange bottom edge, as in the app's emails.
   primary:
     "bg-brand-navy text-white border-b-[3px] border-brand-orange hover:bg-brand-navy-dark disabled:bg-brand-navy/60",
   secondary:

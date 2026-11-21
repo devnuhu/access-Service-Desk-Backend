@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { House, Inbox, MapPin, Network } from "lucide-react";
+import { BRAND } from "@/shared/brand";
 import { PageContext, PageHeader } from "@/shared/ui";
 import { describePlace, findPlace } from "./useNavigation.js";
 
@@ -8,7 +9,7 @@ const SECTIONS = [
   {
     id: "main",
     title: null,
-    label: "Access Service Desk",
+    label: BRAND.name,
     items: [
       { label: "Home", icon: House, to: "/" },
       { label: "My requests", icon: Inbox, to: "/tickets" },
@@ -34,7 +35,7 @@ describe("page place: eyebrow and breadcrumbs", () => {
       crumbs: [{ label: "Administration" }, { label: "Locations" }],
     });
     expect(trail("/", { title: "Home" }).crumbs).toEqual([
-      { label: "Access Service Desk" },
+      { label: BRAND.name },
       { label: "Home" },
     ]);
   });
@@ -45,7 +46,7 @@ describe("page place: eyebrow and breadcrumbs", () => {
     ).toEqual({
       eyebrow: "My requests",
       crumbs: [
-        { label: "Access Service Desk" },
+        { label: BRAND.name },
         { label: "My requests", to: "/tickets" },
         { label: "CP-2026-000001" },
       ],
@@ -58,7 +59,7 @@ describe("page place: eyebrow and breadcrumbs", () => {
       {
         id: "main",
         title: null,
-        label: "Access Service Desk",
+        label: BRAND.name,
         items: [
           { label: "Home", to: "/" },
           {

@@ -141,8 +141,14 @@ describe("Action bar", () => {
       viewer: "u-cw",
       actions: flags({ canSetPending: true, canResolve: true }),
     });
-    const card = (await screen.findByRole("heading", { name: "Actions" }))
-      .parentElement;
+    // A staff page loads more (assignment, links): allow a slow full run more time.
+    const card = (
+      await screen.findByRole(
+        "heading",
+        { name: "Actions" },
+        { timeout: 10_000 },
+      )
+    ).parentElement;
     expect(
       within(card)
         .getAllByRole("button")

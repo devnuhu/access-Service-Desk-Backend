@@ -1,3 +1,4 @@
+import { BRAND } from "@/shared/brand";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -40,7 +41,7 @@ function StatusCard() {
     <Card>
       <CardHeader
         title="Status"
-        description="Which provider sends Access Service Desk email, and whether it is ready."
+        description={`Which provider sends ${BRAND.name} email, and whether it is ready.`}
       />
       <div className="px-5 py-3">
         {status.isLoading ? (
@@ -109,7 +110,7 @@ function TestCard() {
     <Card>
       <CardHeader
         title="Send a test email"
-        description="Sends one message with the Access Service Desk layout."
+        description={`Sends one message with the ${BRAND.name} layout.`}
       />
       <form
         className="space-y-3 px-5 py-4"
@@ -183,7 +184,7 @@ export default function EmailPage() {
     <div className="space-y-4">
       <PageHeader
         title="Email"
-        description="Check that Access Service Desk can send email."
+        description={`Check that ${BRAND.name} can send email.`}
       />
       <div className="grid gap-4 xl:grid-cols-2">
         <StatusCard />

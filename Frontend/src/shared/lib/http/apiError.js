@@ -1,7 +1,8 @@
+import { BRAND } from "../../brand.js";
 /**
  * One error shape for every failed API call.
  *
- * Bodies the Service Desk API sends on failure:
+ * Bodies the API sends on failure:
  * - { message } or { message, errors: { field: "text" } }   admin, directory and email controllers
  * - ApiResponse { statusCode, message, errors: string[] }   AuthController
  * - { statusCode: 403, message: "Security check failed..." }  CSRF middleware
@@ -12,15 +13,14 @@
  */
 
 const DEFAULT_MESSAGES = {
-  network:
-    "Access Service Desk cannot be reached right now. Try again shortly.",
+  network: `${BRAND.name} cannot be reached right now. Try again shortly.`,
   unauthorized: "Your session has ended. Sign in again.",
   forbidden: "You do not have access to this.",
   notFound: "This record was not found, or you do not have access to it.",
   conflict: "This change has already been made.",
   validation: "Some details are not valid. Check the form and try again.",
   rateLimited: "Too many attempts. Wait a minute and try again.",
-  server: "Access Service Desk cannot be reached right now. Try again shortly.",
+  server: `${BRAND.name} cannot be reached right now. Try again shortly.`,
   http: "The request failed.",
 };
 

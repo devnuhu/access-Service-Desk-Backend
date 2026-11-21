@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BRAND } from "../../brand.js";
 import { ApiError, isCsrfFailure, toApiError } from "./apiError.js";
 
 const httpError = (status, data) => ({ response: { status, data } });
@@ -87,7 +88,7 @@ describe("toApiError", () => {
     expect(error.kind).toBe("network");
     expect(error.status).toBeNull();
     expect(error.message).toBe(
-      "Access Service Desk cannot be reached right now. Try again shortly.",
+      `${BRAND.name} cannot be reached right now. Try again shortly.`,
     );
   });
 });

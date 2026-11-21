@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
-/* Access Service Desk theme: the colours of the Access Service Desk emails. */
+/* The app's theme: the colours of its emails, and the Servio brand (logo, login, favicon). */
 @theme {
   --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* The wordmark only; the UI font when the brand font cannot load. */
+  --font-brand:
+    "Plus Jakarta Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Servio: on light backgrounds, then on dark. */
+  --color-servio-navy: #0b3b78;
+  --color-servio-orange: #e07b00;
+  --color-servio-green: #4c8a1e;
+  --color-servio-orange-on-dark: #ff9a1f;
+  --color-servio-green-on-dark: #7bc043;
+  --color-servio-navy-deep: #0a2a57;
 
   --color-brand-navy: #003883;
   --color-brand-navy-dark: #002556;

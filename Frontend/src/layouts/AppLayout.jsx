@@ -3,7 +3,9 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { ChevronRight, Menu, X } from "lucide-react";
 import { NotificationBell } from "@/features/notifications";
 import { useSession } from "@/features/auth";
-import { BrandLockup, PageContext, Wordmark } from "@/shared/ui";
+import { BRAND } from "@/shared/brand";
+import useDocumentTitle from "@/shared/hooks/useDocumentTitle";
+import { BrandLockup, PageContext } from "@/shared/ui";
 import Sidebar from "./Sidebar.jsx";
 import UserMenu from "./UserMenu.jsx";
 import {
@@ -74,6 +76,9 @@ export default function AppLayout() {
     [place.eyebrow],
   );
 
+  // The browser tab: "Servio" on Home, "<Page> · Servio" elsewhere.
+  useDocumentTitle(pathname === "/" ? null : (header?.title ?? null));
+
   useEffect(() => {
     if (!menuOpen) return undefined;
     const onKey = (event) => event.key === "Escape" && setMenuOpen(false);
@@ -106,16 +111,25 @@ export default function AppLayout() {
         <div
           className={`flex ${BAR} shrink-0 items-center border-b border-line px-5`}
         >
-          <Link to="/" onClick={() => setMenuOpen(false)} aria-label="Home">
-            <BrandLockup logoHeight={28} tone="dark" />
+          <Link
+            to="/"
+            onClick={() => setMenuOpen(false)}
+            aria-label={`${BRAND.name} home`}
+          >
+            <BrandLockup />
           </Link>
         </div>
         <div className="flex-1 overflow-y-auto">
           <Sidebar user={user} onNavigate={() => setMenuOpen(false)} />
         </div>
-        <p className="shrink-0 border-t border-line px-5 py-4 text-xs text-muted">
-          © {new Date().getFullYear()} Access Pensions. All rights reserved.
-        </p>
+        <div className="shrink-0 space-y-0.5 border-t border-line px-5 py-4 text-xs text-muted">
+          <p>
+            {BRAND.name} · {BRAND.descriptor}
+          </p>
+          <p>
+            © {new Date().getFullYear()} {BRAND.company}. All rights reserved.
+          </p>
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -137,7 +151,7 @@ export default function AppLayout() {
             )}
           </button>
           <span className="md:hidden">
-            <Wordmark tone="dark" />
+            <BrandLockup size="sm" />
           </span>
           <div className="min-w-0 flex-1">
             <Breadcrumbs crumbs={place.crumbs} />

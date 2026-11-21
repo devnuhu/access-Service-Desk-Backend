@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
+import { BRAND } from "@/shared/brand";
 import { clearCsrfToken, getCsrfToken } from "@/shared/lib/http";
 import { installFakeApi } from "@/test/fakeApi";
 import {
@@ -64,6 +65,19 @@ const signedOut = {
 afterEach(() => clearCsrfToken());
 
 describe("LoginPage", () => {
+  it("shows the Servio lockup, the caption and the descriptor, and titles the tab", async () => {
+    renderLogin("/login", signedOut);
+    const brand = await screen.findByTestId("login-brand");
+    expect(
+      within(brand).getByRole("img", { name: BRAND.name }),
+    ).toHaveTextContent(BRAND.name.toLowerCase());
+    expect(within(brand).getByText(BRAND.caption)).toBeInTheDocument();
+    expect(within(brand).getByText(BRAND.descriptor)).toBeInTheDocument();
+    // The company stays, small: "by" and its logo.
+    expect(within(brand).getByAltText(BRAND.company)).toBeInTheDocument();
+    expect(document.title).toBe(`Sign in · ${BRAND.name}`);
+  });
+
   it("focuses the username field and requires both fields", async () => {
     renderLogin("/login", signedOut);
     const username = await screen.findByLabelText("Username");

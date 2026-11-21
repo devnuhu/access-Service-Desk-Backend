@@ -1,3 +1,4 @@
+import { BRAND } from "@/shared/brand";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { CloudOff } from "lucide-react";
 import { Button, MessageCard, Spinner } from "@/shared/ui";
@@ -24,7 +25,7 @@ export default function RequireRole({ roles, children }) {
     return (
       <MessageCard
         icon={CloudOff}
-        title="Access Service Desk cannot be reached"
+        title={`${BRAND.name} cannot be reached`}
         linkTo={null}
       >
         <p>{error?.message ?? "Try again shortly."}</p>
