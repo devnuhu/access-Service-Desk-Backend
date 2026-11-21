@@ -231,6 +231,10 @@ describe("Work queue", () => {
     expect(
       screen.getByText("Tickets for Contribution Matching."),
     ).toBeInTheDocument();
+    // Above the title: the unit, then its department.
+    expect(screen.getByTestId("unit-eyebrow")).toHaveTextContent(
+      "Contribution Matching · Contribution Processing",
+    );
     // All open means all open tickets of their own unit.
     await user.click(screen.getByRole("tab", { name: "All open" }));
     await waitFor(() =>

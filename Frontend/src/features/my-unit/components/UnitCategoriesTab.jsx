@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { ChevronRight, Info } from "lucide-react";
 import { PriorityChip } from "@/features/catalogue";
+import { TemplateEditorDialog } from "@/features/category-templates";
 import { Card, Chip, Spinner } from "@/shared/ui";
 import { useMyUnitSkills, useUnitCategories } from "../hooks/useMyUnit.js";
 
@@ -11,10 +12,14 @@ const th =
  * The unit's categories (its functions), read only: the Super Admin creates and edits them. A row
  * opens to show who handles it (from the skills matrix).
  */
-export default function UnitCategoriesTab({ unitId }) {
+export default function UnitCategoriesTab({
+  unitId,
+  canEditTemplates = false,
+}) {
   const categories = useUnitCategories(unitId);
   const skills = useMyUnitSkills(unitId);
   const [open, setOpen] = useState(null);
+  const [editing, setEditing] = useState(null);
 
   const handlers = (categoryId) =>
     (skills.data?.members ?? []).filter((m) =>
@@ -27,6 +32,8 @@ export default function UnitCategoriesTab({ unitId }) {
         <Info aria-hidden="true" size={16} className="text-brand-navy" />
         Categories are set by the Super Admin. Who handles each one is set in
         Team and skills.
+        {canEditTemplates &&
+          " You can give each one a template: the text requesters start from."}
       </p>
       <Card className="overflow-x-auto">
         {categories.isLoading ? (
@@ -60,6 +67,11 @@ export default function UnitCategoriesTab({ unitId }) {
                 <th scope="col" className={th}>
                   Handled by
                 </th>
+                {canEditTemplates && (
+                  <th scope="col" className={th}>
+                    <span className="sr-only">Template</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -113,10 +125,25 @@ export default function UnitCategoriesTab({ unitId }) {
                           )}
                         </span>
                       </td>
+                      {canEditTemplates && (
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setEditing(category)}
+                            aria-label={`Template of ${category.name}`}
+                            className="inline-flex h-8 items-center rounded-lg border border-line bg-white px-3 text-sm font-semibold text-brand-navy hover:border-brand-navy"
+                          >
+                            Template
+                          </button>
+                        </td>
+                      )}
                     </tr>
                     {expanded && (
                       <tr id={`handlers-${category.id}`} className="bg-page/50">
-                        <td colSpan={4} className="px-4 py-3 pl-10">
+                        <td
+                          colSpan={canEditTemplates ? 5 : 4}
+                          className="px-4 py-3 pl-10"
+                        >
                           {skills.isLoading ? (
                             <Spinner label="Loading…" />
                           ) : people.length ? (
@@ -151,6 +178,12 @@ export default function UnitCategoriesTab({ unitId }) {
           </table>
         )}
       </Card>
+      {editing && (
+        <TemplateEditorDialog
+          category={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

@@ -18,3 +18,4 @@ export { default as RichTextView } from "./RichTextView.jsx";
 export { default as Switch } from "./Switch.jsx";
 export { default as PageHeader } from "./PageHeader.jsx";
 export { PageContext, usePageContext } from "./pageContext.js";
+export { default as UnitEyebrow } from "./UnitEyebrow.jsx";

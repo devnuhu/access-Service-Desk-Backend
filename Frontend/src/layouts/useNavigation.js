@@ -50,7 +50,10 @@ export function describePlace(place, header) {
     };
   }
   const { section, item, exact } = place;
-  const root = { label: sectionLabel(section) ?? "Access Service Desk" };
+  // A unit's items in the main list (one-unit staff) keep the unit as their root.
+  const root = {
+    label: item.crumbRoot ?? sectionLabel(section) ?? "Access Service Desk",
+  };
   if (trail?.length)
     return {
       eyebrow: exact ? root.label : item.label,

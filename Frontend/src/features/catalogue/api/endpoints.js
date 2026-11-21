@@ -65,3 +65,19 @@ export const listCatalogue = defineEndpoint({
     }),
   ),
 });
+
+/**
+ * Suggested subject and description per category, for the raise form: only categories a requester
+ * can choose that have a template, placeholders already filled in for the signed-in person.
+ */
+export const listCatalogueTemplates = defineEndpoint({
+  method: "GET",
+  path: "/api/catalogue/templates",
+  response: list(
+    z.object({
+      categoryId: z.string(),
+      subject: z.string().nullable(),
+      descriptionHtml: z.string().nullable(),
+    }),
+  ),
+});

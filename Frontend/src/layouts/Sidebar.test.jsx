@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { installFakeApi } from "@/test/fakeApi";
 import {
   createTestQueryClient,
@@ -49,31 +50,33 @@ const section = (title) =>
   screen.getByRole("heading", { name: title }).closest("div");
 
 describe("Sidebar from org/me", () => {
-  it("a Head of Unit gets a group titled with the unit, the department below it", async () => {
+  it("a head of one unit gets no group: all five head items are in the main list", async () => {
     renderSidebar(["Requester", "CaseWorker", "HeadOfUnit"], HOU_ORG);
     expect(
-      await screen.findByRole("heading", { name: "Contribution Matching" }),
-    ).toBeInTheDocument();
-    const group = section("Contribution Matching");
-    expect(
-      within(group).getByText("Contribution Processing"),
-    ).toBeInTheDocument();
-    expect(
-      within(group).getByRole("link", { name: "Work queue" }),
-    ).toHaveAttribute("href", "/departments/d-cp/tickets");
-    expect(
-      within(group).getByRole("link", { name: "My unit" }),
+      await screen.findByRole("link", { name: "My unit" }),
     ).toHaveAttribute("href", "/units/u-cm");
     expect(linkNames()).toEqual([
       "Unit dashboard",
-      "My unit",
       "Work queue",
+      "Team availability",
+      "My unit",
       "Reports",
     ]);
+    expect(screen.getByRole("link", { name: "Work queue" })).toHaveAttribute(
+      "href",
+      "/departments/d-cp/tickets",
+    );
     expect(
-      screen.queryByRole("heading", { name: "Contribution Processing" }),
+      screen.getByRole("link", { name: "Team availability" }),
+    ).toHaveAttribute("href", "/availability/units/u-cm");
+    // No group header and nothing to fold.
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { expanded: true }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Administration")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Contribution Processing"),
+    ).not.toBeInTheDocument();
   });
 
   it("an HOD keeps the department group: Work queue and Department availability, no My requests", async () => {
@@ -95,7 +98,8 @@ describe("Sidebar from org/me", () => {
     ]);
   });
 
-  it("a case worker sees their unit as the group, with My requests and My availability (no My unit)", async () => {
+  it("a case worker of one unit gets no group: Work queue is a top-level link to the unit's queue", async () => {
+    const user = userEvent.setup();
     renderSidebar(["Requester", "CaseWorker"], {
       departments: [
         {
@@ -106,21 +110,58 @@ describe("Sidebar from org/me", () => {
         },
       ],
     });
-    expect(
-      await screen.findByRole("heading", { name: "Refund" }),
-    ).toBeInTheDocument();
-    expect(
-      within(section("Refund")).getByText("Contribution Processing"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Contribution Processing" }),
-    ).not.toBeInTheDocument();
+    const queue = await screen.findByRole("link", { name: "Work queue" });
     expect(linkNames()).toEqual([
       "Home",
       "My requests",
       "My availability",
       "Work queue",
     ]);
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(screen.queryByText("Refund")).not.toBeInTheDocument();
+    await user.click(queue);
+    expect(queue).toHaveAttribute("aria-current", "page");
+    expect(queue).toHaveAttribute("href", "/departments/d-cp/tickets");
+  });
+
+  it("a head of two units keeps one group per unit", async () => {
+    renderSidebar(["Requester", "CaseWorker", "HeadOfUnit"], {
+      departments: [
+        {
+          ...CP,
+          isHod: false,
+          isAdmin: false,
+          units: [unit(CM, { isHead: true, isMember: true })],
+        },
+        {
+          id: "d-bp",
+          code: "BP",
+          name: "Benefit Processing",
+          isHod: false,
+          isAdmin: false,
+          units: [
+            unit(
+              { id: "u-pw", code: "PW", name: "Programmed Withdrawal" },
+              { isHead: true, isMember: true },
+            ),
+          ],
+        },
+      ],
+    });
+    expect(
+      await screen.findByRole("heading", { name: "Contribution Matching" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Programmed Withdrawal" }),
+    ).toBeInTheDocument();
+    expect(
+      within(section("Programmed Withdrawal")).getByText("Benefit Processing"),
+    ).toBeInTheDocument();
+    expect(
+      within(section("Contribution Matching")).getByRole("link", {
+        name: "My unit",
+      }),
+    ).toHaveAttribute("href", "/units/u-cm");
   });
 
   it("someone in units of two departments gets one group per unit", async () => {

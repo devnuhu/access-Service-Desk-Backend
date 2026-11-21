@@ -14,6 +14,7 @@ import {
   MessageCard,
   PageHeader,
   Spinner,
+  UnitEyebrow,
 } from "@/shared/ui";
 import { formatDueWat, formatWatClock, relativeText } from "@/shared/lib/time";
 import { useUnitDashboard } from "../hooks/useDashboard.js";
@@ -469,8 +470,15 @@ export default function UnitDashboard({
     <div className="space-y-6">
       <PageHeader
         title={dashboard.unitName}
-        eyebrow={eyebrow ?? "Unit dashboard"}
-        description={`${dashboard.departmentName} · Updated ${formatWatClock(dashboard.generatedAt)}`}
+        eyebrow={
+          eyebrow ?? (
+            <UnitEyebrow
+              unitName={dashboard.unitName}
+              departmentName={dashboard.departmentName}
+            />
+          )
+        }
+        description={`Unit dashboard · Updated ${formatWatClock(dashboard.generatedAt)}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Link to={`/units/${dashboard.unitId}`} className={quietLink}>

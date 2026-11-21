@@ -169,8 +169,12 @@ describe("Unit dashboard (Head of Unit)", () => {
       "Past deadline",
     ]);
     expect(
-      screen.getByText("Contribution Processing · Updated 10:05"),
+      screen.getByText("Unit dashboard · Updated 10:05"),
     ).toBeInTheDocument();
+    // The line above the title: the unit, then its department.
+    expect(screen.getByTestId("unit-eyebrow")).toHaveTextContent(
+      "Contribution Matching · Contribution Processing",
+    );
 
     // Needs attention: each count opens the unit's filtered list.
     const queue = "/departments/d-cp/tickets?tab=department&unit=u-cm";

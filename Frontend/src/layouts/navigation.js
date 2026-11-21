@@ -69,9 +69,19 @@ function departmentSections(department) {
       title: unit.name,
       subtitle: department.name,
       items: [
-        // The head runs the unit: categories, team and skills, replies, availability.
+        {
+          label: "Work queue",
+          icon: Inbox,
+          to: `/departments/${department.id}/tickets`,
+        },
+        // The head runs the unit: who is in, and its categories, skills and replies.
         ...(unit.isHead
           ? [
+              {
+                label: "Team availability",
+                icon: UsersRound,
+                to: `/availability/units/${unit.id}`,
+              },
               {
                 label: "My unit",
                 icon: Building,
@@ -79,11 +89,6 @@ function departmentSections(department) {
               },
             ]
           : []),
-        {
-          label: "Work queue",
-          icon: Inbox,
-          to: `/departments/${department.id}/tickets`,
-        },
       ],
     }));
 }
@@ -115,7 +120,9 @@ function leadership(departments) {
  * section per active department (GET /api/org/departments) with "Department availability".
  *
  * Case workers and heads get a group per unit (titled with the unit, the department below); the
- * HOD and Department Admin a group per department. A head's Home is "Unit dashboard". Heads, HODs
+ * HOD and Department Admin a group per department. Someone in exactly one unit with no department
+ * role (and not a Super Admin) gets no group: its items join the main list, each keeping the unit
+ * as the root of its breadcrumb (`crumbRoot`); the page header names the unit and department. A head's Home is "Unit dashboard". Heads, HODs
  * and Department Admins have My requests and My availability in the account menu (`accountLinks`)
  * instead; Raise a ticket stays on Home.
  *
@@ -125,7 +132,7 @@ function leadership(departments) {
  * A section without a menu heading has a `label` for the page eyebrow and the breadcrumb; a unit
  * group has a `subtitle` (its department).
  *
- * @returns {{ id: string, title: string | null, subtitle?: string, label?: string, items: { label: string, icon: any, to?: string, comingSoon?: boolean }[] }[]}
+ * @returns {{ id: string, title: string | null, subtitle?: string, label?: string, items: { label: string, icon: any, to?: string, comingSoon?: boolean, crumbRoot?: string }[] }[]}
  */
 export function buildNavigation(user, org, allDepartments) {
   const departments = org?.departments ?? [];
@@ -146,8 +153,23 @@ export function buildNavigation(user, org, allDepartments) {
     },
   ];
 
-  for (const department of departments) {
-    sections.push(...departmentSections(department));
+  const groups = departments.flatMap(departmentSections);
+  const isSuperAdmin = hasAnyRole(user, [SuperAdmin]);
+  const oneUnit =
+    !isSuperAdmin &&
+    leads !== "oversee" &&
+    groups.length === 1 &&
+    groups[0].id.startsWith("unit-");
+  if (oneUnit) {
+    // One unit: the group header would only repeat what the page header says.
+    sections[0].items.push(
+      ...groups[0].items.map((item) => ({
+        ...item,
+        crumbRoot: groups[0].title,
+      })),
+    );
+  } else {
+    sections.push(...groups);
   }
 
   if (!departments.length && hasAnyRole(user, [SuperAdmin])) {

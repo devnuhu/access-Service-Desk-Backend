@@ -12,4 +12,5 @@ export {
   leadsUnit,
   memberUnits,
   oversees,
+  unitPlace,
 } from "./place.js";

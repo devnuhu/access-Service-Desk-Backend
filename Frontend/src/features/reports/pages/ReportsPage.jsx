@@ -2,7 +2,19 @@ import { useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Filter, ShieldOff } from "lucide-react";
 import { useSession } from "@/features/auth";
-import { Card, MessageCard, useToast, PageHeader } from "@/shared/ui";
+import {
+  headedUnits,
+  oversees,
+  unitPlace,
+  useMyOrganisation,
+} from "@/features/org";
+import {
+  Card,
+  MessageCard,
+  useToast,
+  PageHeader,
+  UnitEyebrow,
+} from "@/shared/ui";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { formatWat } from "@/shared/lib/time";
 import ReadyMadeReports from "../components/ReadyMadeReports.jsx";
@@ -34,7 +46,15 @@ export default function ReportsPage() {
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "schedules" ? "schedules" : "saved";
   const unitId = params.get("unit");
-  const unitName = useLocation().state?.unitName ?? "one unit";
+  const org = useMyOrganisation();
+  // The unit these reports are about: the one asked for, or the only unit a head runs.
+  const headed = headedUnits(org.data);
+  const pageUnitId =
+    unitId ??
+    (headed.length === 1 && !oversees(org.data, false) ? headed[0].id : null);
+  const place = pageUnitId ? unitPlace(org.data, pageUnitId) : null;
+  const unitName =
+    useLocation().state?.unitName ?? place?.unitName ?? "one unit";
   // Ready-made reports for the chosen unit only.
   const forUnit = (definition) =>
     unitId ? { ...definition, unitIds: [unitId] } : definition;
@@ -143,6 +163,14 @@ export default function ReportsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
+        eyebrow={
+          place?.unitName ? (
+            <UnitEyebrow
+              unitName={place.unitName}
+              departmentName={place.departmentName}
+            />
+          ) : undefined
+        }
         title="Reports"
         description="Ready-made reports, your saved reports and the ones shared with you. Shows only what you are allowed to see."
       />

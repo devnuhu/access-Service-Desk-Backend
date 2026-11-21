@@ -343,3 +343,83 @@ describe("Copy colleagues (CC) for everyone", () => {
     expect(sent).toContain("u-x");
   });
 });
+
+const TEMPLATES = [
+  {
+    categoryId: "c-ar",
+    subject: "Reconcile the account of Amaka Obi",
+    descriptionHtml: "<p>Employer code: </p>",
+  },
+  {
+    categoryId: "c-uc",
+    subject: "Unmatched contribution",
+    descriptionHtml: "<p>Amount received: </p>",
+  },
+];
+
+describe("Raise a ticket: templates", () => {
+  const description = () => document.getElementById("ticket-description");
+
+  async function renderWithTemplates() {
+    const view = renderForm({
+      routes: { "GET /api/catalogue/templates": () => [200, TEMPLATES] },
+    });
+    await waitFor(() =>
+      expect(
+        view.queryClient.getQueryData(["catalogue", "templates"]),
+      ).toBeTruthy(),
+    );
+    await waitFor(() => expect(description()).not.toBeNull());
+    return view;
+  }
+
+  it("fills empty fields from the category's template and swaps an untouched one on switching", async () => {
+    const user = userEvent.setup();
+    await renderWithTemplates();
+    const subject = screen.getByLabelText("Subject");
+
+    await chooseCategory(user, "Account Reconciliation");
+    expect(subject).toHaveValue("Reconcile the account of Amaka Obi");
+    await waitFor(() =>
+      expect(description()).toHaveTextContent("Employer code:"),
+    );
+    expect(screen.getByTestId("template-hint")).toHaveTextContent(
+      "Suggested by Contribution Processing: edit as needed.",
+    );
+
+    // Nothing was touched: the other category's template replaces it.
+    await chooseCategory(user, "Unmatched contribution");
+    expect(subject).toHaveValue("Unmatched contribution");
+    await waitFor(() =>
+      expect(description()).toHaveTextContent("Amount received:"),
+    );
+    expect(description()).not.toHaveTextContent("Employer code:");
+  });
+
+  it("never overwrites what the requester typed, before or after the suggestion", async () => {
+    const user = userEvent.setup();
+    await renderWithTemplates();
+    const subject = screen.getByLabelText("Subject");
+
+    // Typed first: the subject stays, the empty description gets the suggestion.
+    await user.type(subject, "Balance is wrong");
+    await chooseCategory(user, "Account Reconciliation");
+    expect(subject).toHaveValue("Balance is wrong");
+    await waitFor(() =>
+      expect(description()).toHaveTextContent("Employer code:"),
+    );
+
+    // Switching keeps the typed subject; the untouched description follows the category.
+    await chooseCategory(user, "Unmatched contribution");
+    expect(subject).toHaveValue("Balance is wrong");
+    await waitFor(() =>
+      expect(description()).toHaveTextContent("Amount received:"),
+    );
+
+    // Edited after the suggestion: it is theirs now.
+    await user.clear(subject);
+    await user.type(subject, "Unmatched for March");
+    await chooseCategory(user, "Account Reconciliation");
+    expect(subject).toHaveValue("Unmatched for March");
+  });
+});

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, Grid3x3, Plus } from "lucide-react";
 import { PriorityChip } from "@/features/catalogue";
+import { TemplateEditorDialog } from "@/features/category-templates";
 import { useOrgDepartments } from "@/features/org";
 import {
   Button,
@@ -343,6 +344,14 @@ export default function CategoriesPage() {
                           </Button>
                           <Button
                             size="sm"
+                            variant="secondary"
+                            onClick={() => setDialog({ template: category })}
+                            aria-label={`Template of ${category.name}`}
+                          >
+                            Template
+                          </Button>
+                          <Button
+                            size="sm"
                             variant={category.isActive ? "danger" : "secondary"}
                             className="whitespace-nowrap"
                             onClick={() => setDialog({ toggle: category })}
@@ -366,6 +375,12 @@ export default function CategoriesPage() {
           units={units}
           onClose={() => setDialog(null)}
           onSave={add}
+        />
+      )}
+      {dialog?.template && (
+        <TemplateEditorDialog
+          category={dialog.template}
+          onClose={() => setDialog(null)}
         />
       )}
       {dialog?.edit && (

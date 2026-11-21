@@ -33,6 +33,7 @@ import {
 } from "../src/features/admin-catalogue/api/endpoints.js";
 import {
   listCatalogue,
+  listCatalogueTemplates,
   listMyCategories,
 } from "../src/features/catalogue/api/endpoints.js";
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
@@ -235,6 +236,17 @@ export const ACCESS_TABLE = [
     probe: {},
     schema: listMyCategories.response,
   }),
+  // Templates: the raise form's suggestions for everyone; a category's own template for the
+  // Super Admin, the head of its unit and the Department Admin (the service decides; others 403)
+  get("/api/catalogue/templates", SIGNED_IN, {
+    probe: {},
+    schema: listCatalogueTemplates.response,
+  }),
+  get("/api/categories/{categoryId}/template", UNIT_LIBRARY, {
+    skipAlways: true,
+    skip: "allowed for the head of the category's unit, its Department Admin and Super Admin; needs a category id",
+  }),
+  write("PUT", "/api/categories/{categoryId}/template", UNIT_LIBRARY),
   get("/api/admin/categories", SUPER, {
     probe: {},
     schema: listCategories.response,

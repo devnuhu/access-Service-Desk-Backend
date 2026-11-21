@@ -212,7 +212,9 @@ describe("My unit (head)", () => {
         name: "Contribution Matching",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Contribution Processing")).toBeInTheDocument();
+    expect(screen.getByTestId("unit-eyebrow")).toHaveTextContent(
+      "Contribution Matching · Contribution Processing",
+    );
     await waitFor(() =>
       expect(tabNames()).toEqual([
         "Overview",
@@ -249,7 +251,7 @@ describe("My unit (head)", () => {
     ).toBeInTheDocument();
 
     await user.click(
-      within(row).getByRole("button", { name: /Unmatched contribution/ }),
+      within(row).getByRole("button", { name: /^Unmatched contribution/ }),
     );
     const who = await screen.findByRole("list", {
       name: "Who handles Unmatched contribution",
@@ -362,5 +364,126 @@ describe("My unit (anyone else)", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+});
+
+describe("My unit: category templates", () => {
+  it("the head edits a category's template: 400 messages show under the field, then it saves", async () => {
+    const user = userEvent.setup();
+    const sent = [];
+    let refuse = true;
+    renderUnit({
+      tab: "?tab=categories",
+      routes: {
+        "GET /api/categories/:categoryId/template": ({ pathParams }) => [
+          200,
+          {
+            categoryId: pathParams.categoryId,
+            categoryName: "Unmatched contribution",
+            subject: null,
+            descriptionHtml: null,
+          },
+        ],
+        "PUT /api/categories/:categoryId/template": ({ body, pathParams }) => {
+          sent.push([pathParams.categoryId, body]);
+          if (refuse) {
+            refuse = false;
+            return [
+              400,
+              {
+                message: "{{ticket.reference}} cannot be used in a template.",
+                errors: {
+                  subject: "{{ticket.reference}} cannot be used in a template.",
+                },
+              },
+            ];
+          }
+          return [
+            200,
+            {
+              categoryId: pathParams.categoryId,
+              categoryName: "Unmatched contribution",
+              ...body,
+            },
+          ];
+        },
+      },
+    });
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Template of Unmatched contribution",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Template: Unmatched contribution",
+    });
+    const subject = await within(dialog).findByLabelText("Subject");
+    // Braces are special to user-event's keyboard: paste the text instead.
+    await user.click(subject);
+    await user.paste("Money for {{ticket.reference}}");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save template" }),
+    );
+    await waitFor(() =>
+      expect(subject).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(subject).toHaveAccessibleDescription(
+      "{{ticket.reference}} cannot be used in a template.",
+    );
+
+    await user.clear(subject);
+    await user.paste("Money for {{requester.name}}");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Save template" }),
+    );
+    expect(await screen.findByText("Template saved")).toBeInTheDocument();
+    expect(sent.at(-1)).toEqual([
+      "c-1",
+      { subject: "Money for {{requester.name}}", descriptionHtml: null },
+    ]);
+  });
+
+  it("the HOD does not get the Template action", async () => {
+    renderUnit({
+      org: hodOrg,
+      roles: ["Requester", "HOD"],
+      tab: "?tab=categories",
+      routes: {
+        "GET /api/units/:unitId/canned-replies": () => [
+          403,
+          { message: "No." },
+        ],
+      },
+    });
+    await screen.findByTestId("category-Unmatched contribution");
+    expect(
+      screen.queryByRole("button", { name: /^Template of/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a head looking at another unit does not get it either", async () => {
+    renderUnit({
+      tab: "?tab=categories",
+      org: {
+        departments: [
+          {
+            ...headOrg.departments[0],
+            units: [
+              {
+                id: "u-rf",
+                code: "RF",
+                name: "Refund",
+                isHead: true,
+                isMember: true,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    await screen.findByTestId("category-Unmatched contribution");
+    expect(
+      screen.queryByRole("button", { name: /^Template of/ }),
+    ).not.toBeInTheDocument();
   });
 });

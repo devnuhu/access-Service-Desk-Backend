@@ -78,3 +78,17 @@ export function memberUnits(org) {
       })),
   );
 }
+
+/**
+ * Where a unit sits, from org/me: { unitName, departmentName }, or null when org/me does not list
+ * it. `departmentId` finds the department alone (an HOD sees its units elsewhere).
+ */
+export function unitPlace(org, unitId, departmentId) {
+  for (const department of org?.departments ?? []) {
+    const unit = department.units.find((u) => u.id === unitId);
+    if (unit) return { unitName: unit.name, departmentName: department.name };
+    if (departmentId && department.id === departmentId)
+      return { unitName: null, departmentName: department.name };
+  }
+  return null;
+}

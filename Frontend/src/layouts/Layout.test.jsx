@@ -53,6 +53,29 @@ describe("page place: eyebrow and breadcrumbs", () => {
     expect(findPlace(SECTIONS, "/somewhere")).toBeNull();
   });
 
+  it("a unit item in the main list (one-unit staff) keeps the unit as the breadcrumb root", () => {
+    const sections = [
+      {
+        id: "main",
+        title: null,
+        label: "Access Service Desk",
+        items: [
+          { label: "Home", to: "/" },
+          {
+            label: "Work queue",
+            to: "/departments/d-cp/tickets",
+            crumbRoot: "Fund Unit",
+          },
+        ],
+      },
+    ];
+    expect(
+      describePlace(findPlace(sections, "/departments/d-cp/tickets"), {
+        title: "Fund Unit work queue",
+      }).crumbs,
+    ).toEqual([{ label: "Fund Unit" }, { label: "Fund Unit work queue" }]);
+  });
+
   it("a page's own trail replaces the middle part", () => {
     expect(
       trail("/admin/units/u-rf/skills", {

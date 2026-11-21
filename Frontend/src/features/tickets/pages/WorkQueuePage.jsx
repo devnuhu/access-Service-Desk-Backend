@@ -10,7 +10,7 @@ import {
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { parseUtc } from "@/shared/lib/time";
-import { Card, PageHeader, Spinner } from "@/shared/ui";
+import { Card, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import { STATUS, STATUS_LABELS, TICKET_SORT } from "../api/endpoints.js";
 import BulkActions from "../components/BulkActions.jsx";
 import PoolTable from "../components/PoolTable.jsx";
@@ -282,7 +282,9 @@ function WorkQueue({
       {member ? (
         <PageHeader
           title={`${ownUnit.name} work queue`}
-          eyebrow={ownUnit.name}
+          eyebrow={
+            <UnitEyebrow unitName={ownUnit.name} departmentName={name} />
+          }
           description={`Tickets for ${ownUnit.name}.`}
         />
       ) : (

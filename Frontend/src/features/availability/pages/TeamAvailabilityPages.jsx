@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { ShieldOff } from "lucide-react";
-import { MessageCard, PageHeader, Spinner } from "@/shared/ui";
+import { unitPlace, useMyOrganisation } from "@/features/org";
+import { MessageCard, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import UnitAvailabilityCard from "../components/UnitAvailabilityCard.jsx";
 import {
   useDepartmentAvailability,
@@ -28,11 +29,19 @@ function Refused({ error }) {
 export function UnitAvailabilityPage() {
   const { unitId } = useParams();
   const unit = useUnitAvailability(unitId);
+  const org = useMyOrganisation();
   if (unit.isLoading) return <Loading />;
   if (unit.isError) return <Refused error={unit.error} />;
+  const place = unitPlace(org.data, unitId, unit.data.departmentId);
   return (
     <div className="space-y-4">
       <PageHeader
+        eyebrow={
+          <UnitEyebrow
+            unitName={unit.data.name}
+            departmentName={place?.departmentName}
+          />
+        }
         title={`${unit.data.name} availability`}
         description="Who is in today, who is away, and who covers their work."
       />

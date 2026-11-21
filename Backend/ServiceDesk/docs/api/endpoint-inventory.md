@@ -83,6 +83,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/{id}/confirm`, `/reopen` | the requester (or who raised it) | Resolved -> Closed; Resolved -> Reopened `{ reason }` |
 | POST | `/api/tickets/{id}/cancel` | requester (New/Assigned), Super Admin (any open) | `{ reason }` |
 | POST | `/api/tickets/{id}/escalate` | the assignee | Ask the unit's head for help `{ reason }` (5 to 1000 characters, kept as an internal note) |
+| GET | `/api/catalogue/templates` | signed in | Suggested subject and description for the raise form: categories requesters can choose that have one, placeholders filled in for me |
+| GET, PUT | `/api/categories/{id}/template` | unit heads, Department Admin, Super Admin | A category's template to edit (placeholders not filled in); save `{ subject, descriptionHtml }`, both empty removes it (the head of its unit only; others 403) |
 | GET | `/api/catalogue/mine` | signed in | The categories I handle, per unit |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |

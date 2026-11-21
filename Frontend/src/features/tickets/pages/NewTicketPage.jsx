@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { searchPeople } from "@/features/admin-people";
 import { useSession } from "@/features/auth";
 import { searchColleagues } from "@/features/people";
-import { PRIORITY, PRIORITY_LABELS, useCatalogue } from "@/features/catalogue";
+import {
+  PRIORITY,
+  PRIORITY_LABELS,
+  useCatalogue,
+  useCatalogueTemplates,
+} from "@/features/catalogue";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { fieldError } from "@/shared/lib/http";
 import {
@@ -146,6 +151,41 @@ function TicketForm({ user, departments }) {
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [checking, setChecking] = useState(false);
   const [duplicates, setDuplicates] = useState({ key: "", matches: [] });
+
+  // Templates: a category may suggest a subject and a description. They go into a field only when
+  // it is empty, or still holds the previous suggestion untouched; once the person edits a field,
+  // it is theirs. `suggested` is the text we put in (null when the field is the person's own).
+  const templates = useCatalogueTemplates();
+  const [suggested, setSuggested] = useState({
+    subject: null,
+    descriptionHtml: null,
+  });
+  const templateFor = (categoryId) =>
+    templates.data?.find((t) => t.categoryId === categoryId) ?? null;
+  const suggestFor = (categoryId) => {
+    const template = categoryId ? templateFor(categoryId) : null;
+    const changes = {};
+    const next = { ...suggested };
+    const subjectIsOurs =
+      !form.subject.trim() ||
+      (suggested.subject !== null && form.subject === suggested.subject);
+    if (subjectIsOurs) {
+      changes.subject = template?.subject ?? "";
+      next.subject = template?.subject || null;
+    }
+    const descriptionIsOurs =
+      isRichTextEmpty(form.descriptionHtml) ||
+      (suggested.descriptionHtml !== null &&
+        form.descriptionHtml === suggested.descriptionHtml);
+    if (descriptionIsOurs) {
+      changes.descriptionHtml = template?.descriptionHtml ?? "";
+      next.descriptionHtml = template?.descriptionHtml || null;
+    }
+    setSuggested(next);
+    return changes;
+  };
+  const chooseCategory = (categoryId, extra = {}) =>
+    set({ ...extra, categoryId, ...suggestFor(categoryId) });
 
   // A change clears the errors of the fields it touches (and of any field named in alsoClear).
   const set = (changes, ...alsoClear) => {
@@ -361,7 +401,7 @@ function TicketForm({ user, departments }) {
                   id="ticket-department"
                   value={department?.departmentId ?? ""}
                   onChange={(event) =>
-                    set({ departmentId: event.target.value, categoryId: "" })
+                    chooseCategory("", { departmentId: event.target.value })
                   }
                   className={inputClass(false)}
                 >
@@ -389,7 +429,7 @@ function TicketForm({ user, departments }) {
                 id="ticket-category"
                 categories={categories}
                 value={form.categoryId}
-                onChange={(categoryId) => set({ categoryId })}
+                onChange={(categoryId) => chooseCategory(categoryId)}
                 invalid={Boolean(errors.categoryId)}
                 describedBy={describe(
                   category?.description && "ticket-category-description",
@@ -544,6 +584,18 @@ function TicketForm({ user, departments }) {
               id="ticket-description-error"
               message={errors.descriptionHtml}
             />
+            {((suggested.subject !== null &&
+              form.subject === suggested.subject) ||
+              (suggested.descriptionHtml !== null &&
+                form.descriptionHtml === suggested.descriptionHtml)) && (
+              <p
+                data-testid="template-hint"
+                className="mt-1 text-xs text-muted"
+              >
+                Suggested by {department?.name ?? "the department"}: edit as
+                needed.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">

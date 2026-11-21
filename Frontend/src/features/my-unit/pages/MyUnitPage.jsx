@@ -6,7 +6,7 @@ import { ReplyLibrary, useReplyLibrary } from "@/features/canned-replies";
 import { UnitDashboard, useUnitDashboard } from "@/features/home";
 import { useMyOrganisation } from "@/features/org";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
-import { MessageCard, PageHeader, Spinner } from "@/shared/ui";
+import { MessageCard, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import TeamSkillsTab from "../components/TeamSkillsTab.jsx";
 import UnitCategoriesTab from "../components/UnitCategoriesTab.jsx";
 
@@ -93,8 +93,14 @@ export default function MyUnitPage() {
       <PageHeader
         title={unitName}
         crumb={label}
-        eyebrow={isHead ? "My unit" : "Unit"}
-        description={departmentName}
+        eyebrow={
+          <UnitEyebrow unitName={unitName} departmentName={departmentName} />
+        }
+        description={
+          isHead
+            ? "My unit: categories, team and skills, saved replies and availability."
+            : "The unit's categories, team and skills, saved replies and availability."
+        }
       />
 
       <div
@@ -127,7 +133,9 @@ export default function MyUnitPage() {
         {tab === "overview" && (
           <UnitDashboard unitId={unitId} own={isHead} embedded />
         )}
-        {tab === "categories" && <UnitCategoriesTab unitId={unitId} />}
+        {tab === "categories" && (
+          <UnitCategoriesTab unitId={unitId} canEditTemplates={editable} />
+        )}
         {tab === "team" && <TeamSkillsTab unitId={unitId} canEdit={editable} />}
         {tab === "replies" && (
           <ReplyLibrary
