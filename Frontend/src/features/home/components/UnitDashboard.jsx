@@ -488,6 +488,7 @@ export default function UnitDashboard({
   unitId,
   own = false,
   embedded = false,
+  back,
   eyebrow,
   actions,
   children,
@@ -544,6 +545,7 @@ export default function UnitDashboard({
   return (
     <div className="space-y-6">
       <PageHeader
+        back={back}
         title={dashboard.unitName}
         eyebrow={
           eyebrow ?? (

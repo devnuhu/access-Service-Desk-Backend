@@ -367,6 +367,7 @@ function TicketForm({ user, departments }) {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/tickets"
         title="Raise a ticket"
         description="Choose a category and describe what you need. You can follow it under My requests."
       />

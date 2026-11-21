@@ -118,6 +118,7 @@ export default function UnitPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
+          back="/admin/units"
           title={
             <span className="flex flex-wrap items-center gap-3">
               {unit.name}

@@ -7,5 +7,5 @@ import UnitDashboard from "../components/UnitDashboard.jsx";
  */
 export default function UnitDashboardPage() {
   const { unitId } = useParams();
-  return <UnitDashboard key={unitId} unitId={unitId} />;
+  return <UnitDashboard key={unitId} unitId={unitId} back="/" />;
 }

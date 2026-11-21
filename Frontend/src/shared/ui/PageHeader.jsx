@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import BackLink from "./BackLink.jsx";
 import { usePageContext } from "./pageContext.js";
 
 /**
@@ -7,6 +8,7 @@ import { usePageContext } from "./pageContext.js";
  * The title also ends the breadcrumb trail in the top bar (`crumb` when the title is not text);
  * `trail` ([{ label, to? }]) replaces the part between the menu section and the title when the
  * page sits deeper than the menu knows (a unit's skills: Units > department > unit).
+ * `back` (a path) adds "Back" above it: to the previous page in the app, or to that path.
  */
 export default function PageHeader({
   title,
@@ -15,6 +17,7 @@ export default function PageHeader({
   eyebrow,
   description,
   actions,
+  back,
   children,
 }) {
   const page = usePageContext();
@@ -36,6 +39,7 @@ export default function PageHeader({
   return (
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
       <div className="min-w-0">
+        {back && <BackLink to={back} />}
         {kicker && (
           <p className="flex items-center gap-2.5 text-xs font-bold tracking-[0.14em] text-brand-green-text uppercase">
             <span

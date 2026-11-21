@@ -129,6 +129,7 @@ export default function SkillsMatrixPage() {
     <div className="space-y-4 pb-20">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
+          back={`/admin/units/${unitId}`}
           title={`${unitName}: skills matrix`}
           crumb="Skills"
           trail={[

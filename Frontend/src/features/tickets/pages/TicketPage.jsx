@@ -84,6 +84,11 @@ export default function TicketPage() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back={
+          ticket.isStaffView
+            ? `/departments/${ticket.departmentId}/tickets`
+            : "/tickets"
+        }
         title={<span className="break-words">{ticket.subject}</span>}
         crumb={ticket.reference}
         eyebrow={ticket.reference}

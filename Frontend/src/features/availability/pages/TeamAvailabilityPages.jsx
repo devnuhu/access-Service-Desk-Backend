@@ -36,6 +36,7 @@ export function UnitAvailabilityPage() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/"
         eyebrow={
           <UnitEyebrow
             unitName={unit.data.name}
