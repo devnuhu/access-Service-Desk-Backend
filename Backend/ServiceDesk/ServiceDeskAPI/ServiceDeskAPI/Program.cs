@@ -201,6 +201,7 @@ namespace ServiceDeskAPI
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Assignment.AssignmentOptions>().BindConfiguration("Assignment");
             builder.Services.AddSingleton<IAssignmentSignal, ServiceDeskAPI.Infrastructure.Assignment.AssignmentSignal>();
 builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.IHolidayService, ServiceDeskAPI.Infrastructure.Sla.HolidayService>();
+builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.ICannedReplyService, ServiceDeskAPI.Infrastructure.Tickets.CannedReplyService>();
 builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.HolidayLoader>();
             builder.Services.AddScoped<IAssignmentService, ServiceDeskAPI.Infrastructure.Assignment.AssignmentService>();
             builder.Services.AddScoped<IWorkflowService, ServiceDeskAPI.Infrastructure.Tickets.WorkflowService>();

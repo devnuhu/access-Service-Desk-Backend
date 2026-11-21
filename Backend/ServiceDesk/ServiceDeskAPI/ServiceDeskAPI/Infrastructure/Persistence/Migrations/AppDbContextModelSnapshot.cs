@@ -238,6 +238,44 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.CannedReply", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BodyHtml")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitId", "Title")
+                        .IsUnique();
+
+                    b.ToTable("CannedReplies", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1768,6 +1806,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.CannedReply", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Category", b =>

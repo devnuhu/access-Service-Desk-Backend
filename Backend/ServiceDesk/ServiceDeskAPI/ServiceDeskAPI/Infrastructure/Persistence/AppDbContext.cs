@@ -30,6 +30,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Holiday> Holidays => Set<Holiday>();
+        public DbSet<CannedReply> CannedReplies => Set<CannedReply>();
         public DbSet<Ticket> Tickets => Set<Ticket>();
         public DbSet<TicketWatcher> TicketWatchers => Set<TicketWatcher>();
         public DbSet<TicketComment> TicketComments => Set<TicketComment>();
@@ -127,6 +128,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
 
         private static void ConfigureTickets(ModelBuilder builder)
         {
+            builder.Entity<CannedReply>(e =>
+            {
+                e.ToTable("CannedReplies");
+                e.HasKey(c => c.Id);
+                e.Property(c => c.Title).HasMaxLength(100).IsRequired();
+                e.Property(c => c.BodyHtml).IsRequired();
+                e.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Cascade);
+                e.HasIndex(c => new { c.UnitId, c.Title }).IsUnique().HasFilter(null);
+            });
+
             builder.Entity<Holiday>(e =>
             {
                 e.ToTable("Holidays");
