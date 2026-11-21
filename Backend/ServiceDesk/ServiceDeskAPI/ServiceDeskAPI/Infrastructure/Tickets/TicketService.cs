@@ -120,7 +120,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     NotificationType.Success, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
                 foreach (var userId in cc)
                     _notifications.Stage(userId, "You were copied on " + ticket.Reference,
-                        Name(requester) + " copied you on a " + category.Name + " request. You can follow it in Access Desk.",
+                        Name(requester) + " copied you on a " + category.Name + " request. You can follow it in " + ServiceDeskAPI.Infrastructure.AppBrand.Name + ".",
                         NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
 
                 await _db.SaveChangesAsync();

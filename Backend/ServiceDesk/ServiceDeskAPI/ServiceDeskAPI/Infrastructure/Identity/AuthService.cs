@@ -148,7 +148,7 @@ namespace ServiceDeskAPI.Infrastructure.Identity
 
                 var roles = await RoleAssignments.GetActiveRoleNamesAsync(_dbContext, user.Id);
                 if (roles.Count == 0)
-                    return (false, "Your account has no role. Contact the Service Desk administrator.", null);
+                    return (false, "Your account has no role. Contact the " + ServiceDeskAPI.Infrastructure.AppBrand.Name + " administrator.", null);
 
                 // 4. Tokens
                 var response = await IssueTokensAsync(user, roles, ad.FirstName, ad.LastName);
@@ -198,7 +198,7 @@ namespace ServiceDeskAPI.Infrastructure.Identity
 
                 var roles = await RoleAssignments.GetActiveRoleNamesAsync(_dbContext, user.Id);
                 if (roles.Count == 0)
-                    return (false, "Your account has no role. Contact the Service Desk administrator.", null);
+                    return (false, "Your account has no role. Contact the " + ServiceDeskAPI.Infrastructure.AppBrand.Name + " administrator.", null);
 
                 // Rotation: the old token is spent, a new one is issued (saved together)
                 record.IsRevoked = true;
@@ -456,7 +456,7 @@ namespace ServiceDeskAPI.Infrastructure.Identity
 
             var roles = await RoleAssignments.GetActiveRoleNamesAsync(_dbContext, testUser.Id);
             if (roles.Count == 0)
-                return (true, false, "Your account has no role. Contact the Service Desk administrator.", null);
+                return (true, false, "Your account has no role. Contact the " + ServiceDeskAPI.Infrastructure.AppBrand.Name + " administrator.", null);
 
             testUser.LastLoginAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(testUser);

@@ -11,5 +11,5 @@ public class HealthController : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(HealthDto), StatusCodes.Status200OK)]
-    public IActionResult Get() => Ok(new HealthDto("ok", "Access Desk"));
+    public IActionResult Get() => Ok(new HealthDto("ok", ServiceDeskAPI.Infrastructure.AppBrand.Name));
 }

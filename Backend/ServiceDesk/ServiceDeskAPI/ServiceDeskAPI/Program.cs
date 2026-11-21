@@ -138,7 +138,7 @@ namespace ServiceDeskAPI
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
-                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = "Access Desk API", Version = "v1" });
+                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo { Title = ServiceDeskAPI.Infrastructure.AppBrand.Name + " API", Version = "v1" });
                 // Dates without a time (leave days) are plain "yyyy-MM-dd" strings
                 options.MapType<DateOnly>(() => new Microsoft.OpenApi.Models.OpenApiSchema { Type = "string", Format = "date" });
                 // Mark nullable fields (string?, nested objects that can be null) as nullable in the contract

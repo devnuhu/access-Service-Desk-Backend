@@ -13,7 +13,7 @@ namespace ServiceDeskAPI.Infrastructure.Email
         /// <summary>Signs the emails and is the default sender name.</summary>
         public string TeamName { get; init; } = "Contribution Processing";
         /// <summary>The application name: the header wordmark (last word in the secondary colour) and the sign-off.</summary>
-        public string AppName { get; init; } = "Access Desk";
+        public string AppName { get; init; } = ServiceDeskAPI.Infrastructure.AppBrand.Name;
         /// <summary>Public address of the logo image (PNG). Empty means a text wordmark.</summary>
         public string LogoUrl { get; init; } = string.Empty;
         public string PrimaryColor { get; init; } = "#003883";

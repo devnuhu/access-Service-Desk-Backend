@@ -10,11 +10,11 @@ namespace ServiceDeskAPI.Tests.Email
         private static readonly EmailBrand Brand = new();
 
         [Fact]
-        public void The_header_shows_the_Access_Desk_wordmark_in_the_company_colours()
+        public void The_header_shows_the_Servio_wordmark_in_the_company_colours()
         {
             var html = EmailTemplates.Test("Test Super Admin", Brand).Html;
 
-            Assert.Contains("Access <span style=\"color:#8DC63F;\">Desk</span>", html);
+            Assert.Contains(">Servio</td>", html);
             Assert.Contains("#003883", html);
             Assert.Contains("#FF8200", html);
             Assert.DoesNotContain("People Hub", html);
@@ -39,7 +39,7 @@ namespace ServiceDeskAPI.Tests.Email
 
             Assert.Contains("[ACTION REQUIRED]", text);
             Assert.Contains("https://desk.test/tickets/1", text);
-            Assert.StartsWith("ACCESS DESK", text);
+            Assert.StartsWith("SERVIO", text);
         }
 
         [Fact]

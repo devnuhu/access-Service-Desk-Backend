@@ -105,7 +105,7 @@ namespace ServiceDeskAPI.Tests.Organisation
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             Assert.True(await db.UnitMembers.AnyAsync(m => m.UserId == person && !m.IsActive && m.LeftAt != null)); // history kept
             Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityType == "UnitMember" && a.Module == Domain.Enums.AuditModule.Units));
-            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == person && n.Title == "Your Access Desk access changed"));
+            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == person && n.Title == "Your Servio access changed"));
         }
 
         [Fact]
