@@ -16,6 +16,7 @@ import Ago from "../components/Ago.jsx";
 import AssignmentPanel from "../components/AssignmentPanel.jsx";
 import DueTime from "../components/DueTime.jsx";
 import EscalatedBadge from "../components/EscalatedBadge.jsx";
+import LinkedTickets, { MergedBanner } from "../components/LinkedTickets.jsx";
 import SlaBadge from "../components/SlaBadge.jsx";
 import AttachmentList from "../components/AttachmentList.jsx";
 import PickCard from "../components/PickCard.jsx";
@@ -123,6 +124,7 @@ export default function TicketPage() {
         </p>
       </PageHeader>
 
+      {ticket.isStaffView && <MergedBanner ticket={ticket} />}
       <StatusCallout
         ticket={ticket}
         actions={actions.data}
@@ -243,6 +245,7 @@ export default function TicketPage() {
             />
           )}
           {ticket.isStaffView && <AssignmentPanel ticket={ticket} />}
+          {ticket.isStaffView && <LinkedTickets ticket={ticket} />}
         </aside>
       </div>
     </div>

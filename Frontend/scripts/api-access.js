@@ -380,6 +380,14 @@ export const ACCESS_TABLE = [
   write("POST", "/api/tickets/bulk/reassign", SIGNED_IN),
   write("POST", "/api/tickets/bulk/resolve", SIGNED_IN),
   write("POST", "/api/tickets/{ticketId}/read", SIGNED_IN),
+  // Linked tickets and merge: staff for the ticket (others 404 by design)
+  get("/api/tickets/{ticketId}/links", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the ticket's staff and Super Admin; anyone else gets 404 by design",
+  }),
+  write("POST", "/api/tickets/{ticketId}/links", SIGNED_IN),
+  write("DELETE", "/api/tickets/{ticketId}/links/{linkId}", SIGNED_IN),
+  write("POST", "/api/tickets/{ticketId}/merge", SIGNED_IN),
   get("/api/tickets/{ticketId}/assignments", SIGNED_IN, {
     skipAlways: true,
     skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",

@@ -582,3 +582,56 @@ export const deleteSavedView = defineEndpoint({
   path: "/api/views/{viewId}",
   response: messageSchema,
 });
+
+// Linked tickets (staff for the ticket; anyone else 404). relation, seen from this ticket:
+// related, duplicateOf, hasDuplicate, mergedInto, hasMerged.
+const linkSchema = z.object({
+  id: z.string(),
+  relation: z.string(),
+  ticket: z.object({
+    id: z.string(),
+    reference: z.string(),
+    /** Null when I am not staff for that other ticket: show the reference and status only. */
+    subject: z.string().nullable(),
+    status: z.number().int(),
+  }),
+  createdAt: z.string(),
+  /** False for a merge: it cannot be undone here. */
+  canRemove: z.boolean(),
+});
+
+export const listTicketLinks = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/links",
+  response: list(linkSchema),
+});
+
+/** relation: related (default) or duplicateOf. 400 field reference/relation, 404 no such ticket I work on, 409 already linked. */
+export const addTicketLink = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/links",
+  body: z.object({ reference: z.string(), relation: z.string() }),
+  response: linkSchema,
+});
+
+/** 400 for a merge. */
+export const removeTicketLink = defineEndpoint({
+  method: "DELETE",
+  path: "/api/tickets/{ticketId}/links/{linkId}",
+  response: messageSchema,
+});
+
+/**
+ * Merge this ticket (the duplicate) into the one to keep: it closes for good, nothing is deleted.
+ * copyRequester copies this ticket's requester on the kept one. 400 field targetReference/reason.
+ */
+export const mergeTicket = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/merge",
+  body: z.object({
+    targetReference: z.string(),
+    reason: z.string(),
+    copyRequester: z.boolean(),
+  }),
+  response: messageSchema,
+});

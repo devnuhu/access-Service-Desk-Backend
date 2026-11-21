@@ -970,3 +970,43 @@ describe("Work queue tools", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("Work queue: merge two tickets", () => {
+  it("offers Merge only for exactly two tickets of one unit, the first into the second", async () => {
+    const user = userEvent.setup();
+    renderQueue(
+      ["Requester", "CaseWorker", "HeadOfUnit"],
+      org([CM({ isHead: true, isMember: true })]),
+      () => [
+        item("CP-2026-000050", 3, { assignee: CW1 }),
+        item("CP-2026-000051", 3, { assignee: CW1 }),
+        item("CP-2026-000052", 3, { assignee: CW1 }),
+      ],
+    );
+    await user.click(
+      await screen.findByRole("checkbox", { name: "Select CP-2026-000050" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select CP-2026-000051" }),
+    );
+    const bar = screen.getByRole("region", { name: "Selected tickets" });
+    await user.click(within(bar).getByRole("button", { name: "Merge" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Merge CP-2026-000050 into another ticket",
+    });
+    expect(
+      within(dialog).getByLabelText("Reference of the ticket to keep"),
+    ).toHaveValue("CP-2026-000051");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    // A third ticket: no Merge.
+    await user.click(
+      screen.getByRole("checkbox", { name: "Select CP-2026-000052" }),
+    );
+    expect(
+      within(
+        screen.getByRole("region", { name: "Selected tickets" }),
+      ).queryByRole("button", { name: "Merge" }),
+    ).not.toBeInTheDocument();
+  });
+});

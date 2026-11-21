@@ -894,3 +894,248 @@ describe("Pick this ticket", () => {
     ).toBeInTheDocument();
   });
 });
+
+const link = (id, relation, reference, overrides = {}) => ({
+  id,
+  relation,
+  ticket: {
+    id: `t-${reference}`,
+    reference,
+    subject: `Subject of ${reference}`,
+    status: 3,
+  },
+  createdAt: "2026-11-20T09:00:00Z",
+  canRemove: !["mergedInto", "hasMerged"].includes(relation),
+  ...overrides,
+});
+
+describe("Linked tickets and merge", () => {
+  it("lists each link with its relation; a merge has no remove; another unit's subject stays hidden", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, staffTicket()],
+      "GET /api/tickets/:ticketId/links": () => [
+        200,
+        [
+          link("l-1", "related", "CP-2026-000011"),
+          link("l-2", "duplicateOf", "CP-2026-000012"),
+          link("l-3", "hasDuplicate", "CP-2026-000013"),
+          link("l-4", "hasMerged", "CP-2026-000014"),
+          link("l-5", "related", "BP-2026-000001", {
+            ticket: {
+              id: "t-bp",
+              reference: "BP-2026-000001",
+              subject: null,
+              status: 2,
+            },
+          }),
+        ],
+      ],
+    });
+    const card = await screen.findByTestId("linked-tickets");
+    const row = async (reference) =>
+      within(card).findByTestId(`link-${reference}`);
+    expect(await row("CP-2026-000011")).toHaveTextContent("Related to");
+    expect(await row("CP-2026-000012")).toHaveTextContent("Duplicate of");
+    expect(await row("CP-2026-000013")).toHaveTextContent("Has duplicate");
+    const merged = await row("CP-2026-000014");
+    expect(merged).toHaveTextContent("Merged here");
+    expect(within(merged).queryByRole("button")).toBeNull();
+    expect(
+      within(await row("CP-2026-000011")).getByRole("link", {
+        name: "CP-2026-000011",
+      }),
+    ).toHaveAttribute("href", "/tickets/CP-2026-000011");
+    expect(
+      within(await row("CP-2026-000011")).getByRole("button", {
+        name: "Remove the link to CP-2026-000011",
+      }),
+    ).toBeInTheDocument();
+    // Not staff for the other ticket: reference and status only.
+    const other = await row("BP-2026-000001");
+    expect(other).not.toHaveTextContent("Subject of");
+  });
+
+  it("shows No linked tickets, and a 409 under the reference when linking", async () => {
+    const user = userEvent.setup();
+    const sent = [];
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, staffTicket()],
+      "GET /api/tickets/:ticketId/links": () => [200, []],
+      "POST /api/tickets/:ticketId/links": ({ body }) => {
+        sent.push(body);
+        return [409, { message: "These tickets are already linked." }];
+      },
+    });
+    const card = await screen.findByTestId("linked-tickets");
+    expect(
+      await within(card).findByText("No linked tickets."),
+    ).toBeInTheDocument();
+    await user.click(within(card).getByRole("button", { name: "Link ticket" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Link CP-2026-000001 to another ticket",
+    });
+    const input = within(dialog).getByLabelText("Ticket reference");
+    await user.type(input, "cp-2026-000011");
+    await user.selectOptions(
+      within(dialog).getByLabelText("CP-2026-000001 is"),
+      "duplicateOf",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Link" }));
+    await waitFor(() => expect(input).toHaveAttribute("aria-invalid", "true"));
+    expect(input).toHaveAccessibleDescription(
+      "These tickets are already linked.",
+    );
+    expect(sent).toEqual([
+      { reference: "CP-2026-000011", relation: "duplicateOf" },
+    ]);
+  });
+
+  it("merge: checks the reason, sends copyRequester only when ticked, then opens the kept ticket", async () => {
+    const user = userEvent.setup();
+    const sent = [];
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": ({ pathParams }) => [
+        200,
+        pathParams.reference === "CP-2026-000099"
+          ? staffTicket({
+              id: "t-99",
+              reference: "CP-2026-000099",
+              subject: "The ticket we keep",
+            })
+          : staffTicket({ status: 3 }),
+      ],
+      "GET /api/tickets/:ticketId/links": () => [200, []],
+      "POST /api/tickets/:ticketId/merge": ({ body, pathParams }) => {
+        sent.push([pathParams.ticketId, body]);
+        return [
+          200,
+          { message: "CP-2026-000001 is merged into CP-2026-000099." },
+        ];
+      },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "More ticket actions" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Merge into another ticket" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Merge CP-2026-000001 into another ticket",
+    });
+    expect(
+      within(dialog).getByText(
+        "CP-2026-000001 will be closed and cannot be reopened. Nothing is deleted.",
+      ),
+    ).toBeInTheDocument();
+    const copy = within(dialog).getByLabelText(
+      "Also copy Rita Requester on that ticket",
+    );
+    expect(copy).not.toBeChecked();
+    await user.type(
+      within(dialog).getByLabelText("Reference of the ticket to keep"),
+      "CP-2026-000099",
+    );
+    // Too short a reason: nothing is sent.
+    const reason = within(dialog).getByLabelText("Why are they merged?");
+    await user.type(reason, "ab");
+    await user.click(within(dialog).getByRole("button", { name: "Merge" }));
+    expect(reason).toHaveAttribute("aria-invalid", "true");
+    expect(sent).toEqual([]);
+
+    await user.type(reason, "c same request");
+    await user.click(within(dialog).getByRole("button", { name: "Merge" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual([
+      "t-1",
+      {
+        targetReference: "CP-2026-000099",
+        reason: "abc same request",
+        copyRequester: false,
+      },
+    ]);
+    expect(
+      await screen.findByText("CP-2026-000001 is merged into CP-2026-000099."),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "The ticket we keep" }),
+    ).toBeInTheDocument();
+  });
+
+  it("merge sends copyRequester true when ticked", async () => {
+    const user = userEvent.setup();
+    const sent = [];
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({ status: 3 }),
+      ],
+      "GET /api/tickets/:ticketId/links": () => [200, []],
+      "POST /api/tickets/:ticketId/merge": ({ body }) => {
+        sent.push(body);
+        return [200, { message: "Merged." }];
+      },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "More ticket actions" }),
+    );
+    await user.click(
+      screen.getByRole("menuitem", { name: "Merge into another ticket" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.type(
+      within(dialog).getByLabelText("Reference of the ticket to keep"),
+      "CP-2026-000099",
+    );
+    await user.type(
+      within(dialog).getByLabelText("Why are they merged?"),
+      "Same request twice",
+    );
+    await user.click(
+      within(dialog).getByLabelText("Also copy Rita Requester on that ticket"),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Merge" }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].copyRequester).toBe(true);
+  });
+
+  it("a closed ticket has no Merge, and shows that it was merged", async () => {
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({ status: 7, canComment: false }),
+      ],
+      "GET /api/tickets/:ticketId/links": () => [
+        200,
+        [link("l-9", "mergedInto", "CP-2026-000099")],
+      ],
+    });
+    const banner = await screen.findByTestId("merged-banner");
+    expect(banner).toHaveTextContent(
+      "This ticket was merged into CP-2026-000099.",
+    );
+    expect(
+      within(banner).getByRole("link", { name: "CP-2026-000099" }),
+    ).toHaveAttribute("href", "/tickets/CP-2026-000099");
+    expect(screen.getByTestId("linked-tickets")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "More ticket actions" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a requester sees no links and no merge (and links are never asked for)", async () => {
+    let asked = false;
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [200, ticket()],
+      "GET /api/tickets/:ticketId/links": () => {
+        asked = true;
+        return [404, { message: "Ticket not found." }];
+      },
+    });
+    await screen.findByRole("heading", { name: "Balance does not agree" });
+    expect(screen.queryByTestId("linked-tickets")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "More ticket actions" }),
+    ).not.toBeInTheDocument();
+    expect(asked).toBe(false);
+  });
+});

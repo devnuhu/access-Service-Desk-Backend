@@ -103,6 +103,9 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET, POST | `/api/views` | signed in | My saved list views (favourites first); save one `{ name, filterJson, isFavourite? }` (409 name already used, at most 30) |
 | PATCH, DELETE | `/api/views/{id}` | signed in (my own; others 404) | Rename, change, star or delete a saved view |
 | POST | `/api/tickets/bulk/pick`, `/acknowledge`, `/reassign`, `/resolve` | signed in (each ticket follows the single action's rules) | The same action on 1 to 50 tickets; always 200 with a result per ticket |
+| GET, POST | `/api/tickets/{id}/links` | department staff, Super Admin (others 404) | Linked tickets (related, duplicate of, merged); link one `{ reference, relation }` (409 already linked) |
+| DELETE | `/api/tickets/{id}/links/{linkId}` | department staff, Super Admin (others 404) | Remove a link (400 for a merge) |
+| POST | `/api/tickets/{id}/merge` | department staff, Super Admin (others 404) | Merge this ticket into the one to keep `{ targetReference, reason, copyRequester }`; it closes for good |
 | POST | `/api/tickets/{id}/read` | anyone who can see the ticket (others 404) | Mark it read for me: clears its unread marker in my lists |
 | GET | `/api/dashboard/summary` | signed in | Home counts: mine (open, waiting, warning, overdue, raised, to confirm) and, for those who oversee units, per-unit counts with a total |
 | GET | `/api/dashboard/unit/{unitId}` | unit heads, HOD, Department Admin, Super Admin | One unit's dashboard (its own head, its department's HOD or Department Admin, Super Admin; others 403): counts, pool by category, team and leave, categories and cover, escalations, tickets past their deadline (404 unknown unit) |

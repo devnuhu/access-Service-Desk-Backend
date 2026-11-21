@@ -1,10 +1,19 @@
 import { useState } from "react";
-import { CheckCircle2, CircleX, Hand, Play, Repeat, X } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleX,
+  Hand,
+  Merge,
+  Play,
+  Repeat,
+  X,
+} from "lucide-react";
 import { Button, Dialog, Spinner, useToast } from "@/shared/ui";
 import { STATUS } from "../api/endpoints.js";
 import { useReassignOptions, useTicketActions } from "../hooks/useTickets.js";
 import { useBulkAction } from "../hooks/useQueueTools.js";
 import { personName, REASON_MAX, REASON_MIN } from "../ticketText.js";
+import MergeDialog from "./MergeDialog.jsx";
 
 export const BULK_MAX = 50;
 const NOTE_MIN = 10;
@@ -285,7 +294,8 @@ function BulkSummaryDialog({ result, onClose }) {
 /**
  * The toolbar for ticked tickets (at most 50 at a time). Shows only the actions that fit the tab
  * and the selected rows: Pick in the pool; Start work and Resolve on Assigned to me; Reassign for
- * those who oversee (`canReassign`). The server still checks each ticket; a ticket it refuses is
+ * those who oversee (`canReassign`); Merge when exactly two tickets of one unit are ticked (the first
+ * into the second). The server still checks each ticket; a ticket it refuses is
  * listed in the summary, never as an error. After a run the selection clears (`onDone`).
  */
 export default function BulkActions({
@@ -305,6 +315,11 @@ export default function BulkActions({
     [STATUS.Assigned, STATUS.Reopened].includes(t.status),
   );
   const resolvable = tickets.filter((t) => t.status === STATUS.InProgress);
+  // Two tickets of one unit can be merged: the first ticked into the second.
+  const mergeable =
+    !pool &&
+    tickets.length === 2 &&
+    tickets[0].unitName === tickets[1].unitName;
 
   const run = async (action, chosen, body = {}) => {
     try {
@@ -374,6 +389,16 @@ export default function BulkActions({
                     ` (${resolvable.length})`}
                 </Button>
               )}
+              {mergeable && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setDialog("merge")}
+                >
+                  <Merge aria-hidden="true" size={14} />
+                  Merge
+                </Button>
+              )}
               {canReassign && !pool && (
                 <Button
                   size="sm"
@@ -410,6 +435,13 @@ export default function BulkActions({
           tickets={resolvable}
           busy={busy}
           onRun={(body) => run("resolve", resolvable, body)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "merge" && (
+        <MergeDialog
+          ticket={tickets[0]}
+          defaultTarget={tickets[1].reference}
           onClose={() => setDialog(null)}
         />
       )}
