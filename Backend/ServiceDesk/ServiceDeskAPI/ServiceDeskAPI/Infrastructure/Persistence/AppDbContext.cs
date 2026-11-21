@@ -31,6 +31,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<CannedReply> CannedReplies => Set<CannedReply>();
+        public DbSet<TicketLink> TicketLinks => Set<TicketLink>();
         public DbSet<SavedView> SavedViews => Set<SavedView>();
         public DbSet<TicketRead> TicketReads => Set<TicketRead>();
         public DbSet<Ticket> Tickets => Set<Ticket>();
@@ -144,6 +145,16 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.ToTable("TicketReads");
                 e.HasKey(r => new { r.TicketId, r.UserId });
                 e.HasIndex(r => r.UserId);
+            });
+
+            builder.Entity<TicketLink>(e =>
+            {
+                e.ToTable("TicketLinks");
+                e.HasKey(l => l.Id);
+                e.HasOne(l => l.Ticket).WithMany().HasForeignKey(l => l.TicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(l => l.RelatedTicket).WithMany().HasForeignKey(l => l.RelatedTicketId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(l => new { l.TicketId, l.RelatedTicketId }).IsUnique();
+                e.HasIndex(l => l.RelatedTicketId);
             });
 
             builder.Entity<CannedReply>(e =>

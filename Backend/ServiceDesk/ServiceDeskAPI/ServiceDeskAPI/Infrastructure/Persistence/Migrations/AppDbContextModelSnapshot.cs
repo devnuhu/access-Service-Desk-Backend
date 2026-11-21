@@ -1448,6 +1448,37 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("TicketComments", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RelatedTicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RelatedTicketId");
+
+                    b.HasIndex("TicketId", "RelatedTicketId")
+                        .IsUnique();
+
+                    b.ToTable("TicketLinks", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketRead", b =>
                 {
                     b.Property<Guid>("TicketId")
@@ -2087,6 +2118,25 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("AuthorUser");
+
+                    b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketLink", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "RelatedTicket")
+                        .WithMany()
+                        .HasForeignKey("RelatedTicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("RelatedTicket");
 
                     b.Navigation("Ticket");
                 });
