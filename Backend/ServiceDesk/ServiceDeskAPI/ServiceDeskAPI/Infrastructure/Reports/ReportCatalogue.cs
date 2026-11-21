@@ -25,7 +25,10 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             new("escalated", "Escalated to head", "number", "Tickets the assignee escalated to the unit head."),
             new("raised", "Raised", "number", "Tickets raised in the period (by raising date, always)."),
             new("resolvedInPeriod", "Resolved in period", "number", "Tickets resolved in the period (by resolving date, always)."),
-            new("closedInPeriod", "Closed in period", "number", "Tickets closed in the period (by closing date, always).")
+            new("closedInPeriod", "Closed in period", "number", "Tickets closed in the period (by closing date, always)."),
+            new("firstResponseMetPercent", "Responded in time %", "percent", "Of the tickets that reached a case worker, the share they acknowledged or answered within the first-response time (4 business hours from when it was assigned to them)."),
+            new("firstResponseMissed", "No response in time", "number", "Tickets where the case worker did not acknowledge or answer within the first-response time. Grouped by person it counts against the person who missed it."),
+            new("reopenedPercent", "Reopened %", "percent", "Share of tickets reopened at least once.")
         };
 
         public static readonly ReportOption[] GroupBys =
@@ -84,7 +87,11 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             Make("R8", "Escalations and reopened tickets", "Tickets escalated to the head or reopened, by unit.",
                 new ReportSpec { Title = "Escalations and reopened tickets", Preset = "last30", GroupBy = "unit", Measures = new() { "count", "escalated", "reopened" }, Chart = "bar" }),
             Make("R9", "Leave and cover", "Who is or was away, and how many open tickets they hold.",
-                new ReportSpec { Title = "Leave and cover", Source = "leave", Mode = "list", Preset = "thisYear", SortBy = "startDate" })
+                new ReportSpec { Title = "Leave and cover", Source = "leave", Mode = "list", Preset = "thisYear", SortBy = "startDate" }),
+            Make("R10", "Team performance", "Each case worker: tickets, resolved, average time to resolve, finished within time, answered in time and reopened.",
+                new ReportSpec { Title = "Team performance", Preset = "last30", GroupBy = "assignee", Measures = new() { "count", "resolved", "avgResolutionHours", "withinSlaPercent", "firstResponseMetPercent", "firstResponseMissed", "reopenedPercent" }, Chart = "table" }),
+            Make("R11", "Unit performance", "Each unit: tickets, resolved, average time to resolve, finished within time, answered in time and reopened.",
+                new ReportSpec { Title = "Unit performance", Preset = "last30", GroupBy = "unit", Measures = new() { "count", "resolved", "avgResolutionHours", "withinSlaPercent", "firstResponseMetPercent", "firstResponseMissed", "reopenedPercent" }, Chart = "table" })
         };
 
         private static BuiltInReportDto Make(string code, string name, string description, ReportSpec definition) =>

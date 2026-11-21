@@ -176,7 +176,7 @@ namespace ServiceDeskAPI.Tests.Tickets
             using var scope = _factory.Services.CreateScope();
             var reports = Reports(scope);
             var codes = ReportCatalogue.BuiltIns();
-            Assert.Equal(9, codes.Count);
+            Assert.Equal(11, codes.Count);
             foreach (var built in codes)
             {
                 var (problem, result) = await reports.RunAsync(built.Definition, Guid.NewGuid(), true);

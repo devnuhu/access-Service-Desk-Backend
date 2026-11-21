@@ -202,7 +202,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 AssigneeName = t.AssigneeUserId == null ? null : t.AssigneeUser!.FullName,
                 AssigneeUserName = t.AssigneeUserId == null ? null : t.AssigneeUser!.UserName,
                 CreatedAt = t.CreatedAt, FirstRespondedAt = t.FirstRespondedAt, ResolvedAt = t.ResolvedAt, ClosedAt = t.ClosedAt, CancelledAt = t.CancelledAt,
-                EscalatedAt = t.EscalatedToHeadAt, ReopenCount = t.ReopenCount, Resolution = (int?)t.ResolutionCode
+                EscalatedAt = t.EscalatedToHeadAt, ReopenCount = t.ReopenCount, Resolution = (int?)t.ResolutionCode,
+                AssignedAt = t.AssignedAt, MissedAt = t.FirstResponseMissedAt, MissedBy = t.FirstResponseMissedByUserId
             }).ToListAsync(cancellationToken);
             var truncated = loaded.Count > MaxTicketRows;
             if (truncated) loaded.RemoveAt(loaded.Count - 1);
@@ -258,13 +259,13 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             var groups = new Dictionary<string, Group>();
             Group Get(string key, string label)
             {
-                if (!groups.TryGetValue(key, out var g)) groups[key] = g = new Group { Key = key, Label = label };
+                if (!groups.TryGetValue(key, out var g)) groups[key] = g = new Group { Key = key, Label = label, ByPerson = groupBy == "assignee" };
                 return g;
             }
             var needRaised = measures.Contains("raised");
             var needResolvedP = measures.Contains("resolvedInPeriod");
             var needClosedP = measures.Contains("closedInPeriod");
-            var total = new Group { Key = "total", Label = "Total" };
+            var total = new Group { Key = "total", Label = "Total", ByPerson = groupBy == "assignee" };
             foreach (var r in all)
             {
                 var cd = DateOf(r);
@@ -341,6 +342,9 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             public bool Breached { get; set; }
             public bool Within { get; set; }
             public double? FirstResponseHours { get; set; }
+            public DateTime? AssignedAt { get; set; }
+            public DateTime? MissedAt { get; set; }
+            public Guid? MissedBy { get; set; }
 
             public bool IsOpen => OpenStatuses.Contains(Status);
             public bool IsDone => Status is TicketStatus.Resolved or TicketStatus.Closed;
@@ -355,6 +359,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             public int Raised;
             public int ResolvedP;
             public int ClosedP;
+            /// <summary>Grouped by person: a missed first response counts against the person who missed it.</summary>
+            public bool ByPerson;
         }
 
         /// <summary>Time used so far (or at the end), like the SLA clock: business minutes since raised, minus time spent Pending or Resolved.</summary>
@@ -451,6 +457,12 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             return list.Count == 0 ? null : Math.Round(list.Average(), 1);
         }
 
+        /// <summary>The first-response time ran out. Grouped by person only the person who missed it is charged; otherwise it counts once per ticket.</summary>
+        private static bool IsResponseMiss(Row r, Group g) => r.MissedAt.HasValue && (!g.ByPerson || r.MissedBy == r.AssigneeId);
+
+        /// <summary>The current holder answered it, after it reached them and in time. An answer given by the previous holder is not theirs.</summary>
+        private static bool IsResponseMet(Row r) =>
+            r.AssigneeId.HasValue && r.FirstRespondedAt.HasValue && r.AssignedAt.HasValue && r.FirstRespondedAt.Value >= r.AssignedAt.Value && !r.MissedAt.HasValue;
         private static object? Measure(string key, Group g)
         {
             var rows = g.Rows;
@@ -470,6 +482,14 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 case "avgResolutionHours": return Avg(done.Select(r => r.UsedMinutes / 60.0));
                 case "avgFirstResponseHours": return Avg(rows.Where(r => r.FirstResponseHours.HasValue).Select(r => r.FirstResponseHours!.Value));
                 case "respondedPercent": var live = rows.Where(r => r.Status != TicketStatus.Cancelled).ToList(); return Pct(live.Count(r => r.FirstRespondedAt.HasValue), live.Count);
+                case "firstResponseMissed": return rows.Count(r => IsResponseMiss(r, g));
+                case "firstResponseMetPercent":
+                    {
+                        var missed = rows.Count(r => IsResponseMiss(r, g));
+                        var met = rows.Count(IsResponseMet);
+                        return Pct(met, met + missed);
+                    }
+                case "reopenedPercent": return Pct(rows.Count(r => r.ReopenCount > 0), rows.Count(r => r.Status != TicketStatus.Cancelled));
                 case "reopened": return rows.Count(r => r.ReopenCount > 0);
                 case "escalated": return rows.Count(r => r.EscalatedAt.HasValue);
                 case "raised": return g.Raised;
