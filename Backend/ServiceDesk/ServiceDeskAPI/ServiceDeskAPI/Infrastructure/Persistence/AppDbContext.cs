@@ -29,6 +29,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
         public DbSet<Location> Locations => Set<Location>();
+        public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<Ticket> Tickets => Set<Ticket>();
         public DbSet<TicketWatcher> TicketWatchers => Set<TicketWatcher>();
         public DbSet<TicketComment> TicketComments => Set<TicketComment>();
@@ -126,6 +127,14 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
 
         private static void ConfigureTickets(ModelBuilder builder)
         {
+            builder.Entity<Holiday>(e =>
+            {
+                e.ToTable("Holidays");
+                e.HasKey(h => h.Id);
+                e.Property(h => h.Name).HasMaxLength(100).IsRequired();
+                e.HasIndex(h => h.Date).IsUnique();
+            });
+
             builder.Entity<Location>(e =>
             {
                 e.ToTable("Locations");

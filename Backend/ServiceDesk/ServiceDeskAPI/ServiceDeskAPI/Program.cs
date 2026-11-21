@@ -200,6 +200,8 @@ namespace ServiceDeskAPI
             // ============ ASSIGNMENT (Step 5): engine, reassignment, and the queue retried every few minutes ============
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Assignment.AssignmentOptions>().BindConfiguration("Assignment");
             builder.Services.AddSingleton<IAssignmentSignal, ServiceDeskAPI.Infrastructure.Assignment.AssignmentSignal>();
+builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.IHolidayService, ServiceDeskAPI.Infrastructure.Sla.HolidayService>();
+builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.HolidayLoader>();
             builder.Services.AddScoped<IAssignmentService, ServiceDeskAPI.Infrastructure.Assignment.AssignmentService>();
             builder.Services.AddScoped<IWorkflowService, ServiceDeskAPI.Infrastructure.Tickets.WorkflowService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Assignment.AssignmentWorker>();

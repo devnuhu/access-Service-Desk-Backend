@@ -660,6 +660,34 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Holiday", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date")
+                        .IsUnique();
+
+                    b.ToTable("Holidays", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.InAppNotification", b =>
                 {
                     b.Property<Guid>("Id")
