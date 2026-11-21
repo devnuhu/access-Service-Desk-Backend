@@ -27,6 +27,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/admin/departments` | Super Admin | New department (code 2-10 of A-Z, 0-9, -; code and name unique) |
 | PATCH | `/api/admin/departments/{id}` | Super Admin | Rename / switch on or off (off only when all its units are off) |
 | PUT | `/api/admin/departments/{id}/hod` | Super Admin | Set or clear the HOD (not a member of a unit in this department) |
+| PUT | `/api/admin/departments/{id}/admin` | Super Admin | Set or clear the Department Admin (must head a unit of the department) |
 | POST | `/api/admin/departments/{id}/units` | Super Admin | New unit in a department |
 | PATCH | `/api/admin/units/{id}` | Super Admin | Rename / switch on or off (off only when it has no members) |
 | PUT | `/api/admin/units/{id}/head` | Super Admin | Set or clear the head (added as a member; the old head stays as an employee) |
@@ -52,6 +53,17 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/admin/locations` | Super Admin | All locations |
 | POST | `/api/admin/locations` | Super Admin | Add a location |
 | PATCH | `/api/admin/locations/{id}` | Super Admin | Rename, reorder, switch on/off (one must stay on) |
+| GET, POST | `/api/admin/holidays?year=` | Super Admin | Company holidays, oldest first (server-settings ones flagged fromConfig); add one `{ date, name }` (409 if the date is already a holiday) |
+| DELETE | `/api/admin/holidays/{id}` | Super Admin | Remove a holiday added here (404 if gone) |
+| GET | `/api/canned-replies/placeholders` | signed in | The placeholders a saved reply may use, with what each becomes |
+| GET | `/api/tickets/{id}/canned-replies` | department staff, Super Admin (others 404) | Saved replies for this ticket (its unit first, then shared), placeholders filled in |
+| GET, POST | `/api/units/{unitId}/canned-replies` | Head of Unit, Department Admin, Super Admin | A unit's library of saved replies; add one `{ title, bodyHtml }` (409 title already used) |
+| GET, POST | `/api/admin/canned-replies` | Super Admin | The shared library; add one |
+| GET | `/api/units/{unitId}/categories` | Head of Unit, HOD, Department Admin, Super Admin | The unit's categories (read only here), with cover |
+| GET | `/api/units/{unitId}/team` | Head of Unit, HOD, Department Admin, Super Admin | The unit's members |
+| GET | `/api/units/{unitId}/skills` | Head of Unit, HOD, Department Admin, Super Admin | The unit's skills matrix and cover warnings |
+| PUT | `/api/units/{unitId}/skills/{userId}` | Head of Unit, Department Admin, Super Admin | One member's whole set of categories (the HOD reads only) |
+| PATCH, DELETE | `/api/canned-replies/{id}` | signed in (the library's keepers; others 403) | Change or remove a saved reply |
 | POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, priority?, subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
 | POST | `/api/tickets/duplicate-check` | signed in | Open tickets in the same category from the last 7 days with the same RSA PIN |
 | GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; status and search filters |
@@ -60,6 +72,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/tickets/{id}/attachments/{attachmentId}` | same as above (internal-note files: staff) | Download (always as a file) |
 | GET | `/api/tickets/{id}/reassign-options` | department staff, Super Admin (requester or CC: 403) | Whether I can reassign it and to whom, with workloads |
 | POST | `/api/tickets/{id}/reassign` | holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department) | Reassign with a reason (5-500); becomes Assigned |
+| GET | `/api/pool` | signed in | The unit pool: New, unassigned tickets in the units I work in (a member: the categories I handle; a head: the whole unit) |
+| POST | `/api/tickets/{id}/pick` | signed in; unit members mapped to the category, or the head | Take a New ticket from the pool (400 unavailable, 409 already taken) |
 | GET | `/api/tickets/{id}/assignments` | department staff, Super Admin | Assignment history with the workloads the engine compared |
 | GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
 | GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes |
@@ -68,6 +82,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/{id}/resolve` | the assignee | `{ code, note }` |
 | POST | `/api/tickets/{id}/confirm`, `/reopen` | the requester (or who raised it) | Resolved -> Closed; Resolved -> Reopened `{ reason }` |
 | POST | `/api/tickets/{id}/cancel` | requester (New/Assigned), Super Admin (any open) | `{ reason }` |
+| POST | `/api/tickets/{id}/escalate` | the assignee | Ask the unit's head for help `{ reason }` (5 to 1000 characters, kept as an internal note) |
 | GET | `/api/catalogue/mine` | signed in | The categories I handle, per unit |
 | GET | `/api/directory/users/search` | Super Admin, Head of Unit | AD staff search (503 when AD is not set up) |
 | POST | `/api/directory/users/ensure` | Super Admin | Add a person from AD before their first sign-in |
@@ -83,4 +98,9 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/reports/saved/{id}/export?format=xlsx\|csv` | same | Download a saved report |
 | GET, POST | `/api/reports/schedules` | same | My scheduled report emails; schedule a saved report (daily on working days, weekly, monthly; Lagos hour; emailed to me only) |
 | PUT, DELETE | `/api/reports/schedules/{id}` | the owner | Change, switch on or off, or delete a schedule. There is no "send now" |
+| GET, POST | `/api/views` | signed in | My saved list views (favourites first); save one `{ name, filterJson, isFavourite? }` (409 name already used, at most 30) |
+| PATCH, DELETE | `/api/views/{id}` | signed in (my own; others 404) | Rename, change, star or delete a saved view |
+| POST | `/api/tickets/bulk/pick`, `/acknowledge`, `/reassign`, `/resolve` | signed in (each ticket follows the single action's rules) | The same action on 1 to 50 tickets; always 200 with a result per ticket |
+| POST | `/api/tickets/{id}/read` | anyone who can see the ticket (others 404) | Mark it read for me: clears its unread marker in my lists |
 | GET | `/api/dashboard/summary` | signed in | Home counts: mine (open, waiting, warning, overdue, raised, to confirm) and, for those who oversee units, per-unit counts with a total |
+| GET | `/api/dashboard/unit/{unitId}` | unit heads, HOD, Department Admin, Super Admin | One unit's dashboard (its own head, its department's HOD or Department Admin, Super Admin; others 403): counts, pool by category, team and leave, categories and cover, escalations, tickets past their deadline (404 unknown unit) |
