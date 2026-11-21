@@ -86,6 +86,16 @@ namespace ServiceDeskAPI.Application.DTOs
         public SlaLevel SlaLevel { get; set; }
         /// <summary>Staff only, and only while the ticket is running (New, Assigned, In progress, Reopened): when the time allowed runs out (UTC). Null otherwise.</summary>
         public DateTime? SlaDueAt { get; set; }
+
+        /// <summary>For the signed-in person: someone else commented since they last opened the ticket, or it was assigned to them and never opened.</summary>
+        public bool Unread { get; set; }
+        /// <summary>Comments typed by people that this person can see (internal notes count for staff only).</summary>
+        public int CommentCount { get; set; }
+        /// <summary>Files on the ticket and its comments that this person can see.</summary>
+        public int AttachmentCount { get; set; }
+        public DateTime? LastCommentAt { get; set; }
+        /// <summary>The last comment this person can see was written by the requester: the ticket is waiting for staff to answer.</summary>
+        public bool LastCommentByRequester { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }

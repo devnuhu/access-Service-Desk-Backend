@@ -236,6 +236,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 foreach (var item in items) { item.EscalatedToHeadAt = null; item.SlaLevel = SlaLevel.OnTrack; }
             foreach (var item in items) if (!OpenStatuses.Contains(item.Status)) item.SlaLevel = SlaLevel.OnTrack;
             await FillSlaDueAsync(items, staffView || viewKey == "assigned");
+            await TicketMarkers.FillAsync(_db, items, actorUserId, staffView || viewKey == "assigned");
             return (null, new TicketPageDto { Items = items, Total = total, Page = page, PageSize = pageSize });
         }
 

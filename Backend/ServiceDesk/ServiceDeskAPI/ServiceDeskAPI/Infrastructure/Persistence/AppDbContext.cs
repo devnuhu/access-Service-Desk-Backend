@@ -31,6 +31,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<CannedReply> CannedReplies => Set<CannedReply>();
+        public DbSet<SavedView> SavedViews => Set<SavedView>();
+        public DbSet<TicketRead> TicketReads => Set<TicketRead>();
         public DbSet<Ticket> Tickets => Set<Ticket>();
         public DbSet<TicketWatcher> TicketWatchers => Set<TicketWatcher>();
         public DbSet<TicketComment> TicketComments => Set<TicketComment>();
@@ -128,6 +130,22 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
 
         private static void ConfigureTickets(ModelBuilder builder)
         {
+            builder.Entity<SavedView>(e =>
+            {
+                e.ToTable("SavedViews");
+                e.HasKey(v => v.Id);
+                e.Property(v => v.Name).HasMaxLength(60).IsRequired();
+                e.Property(v => v.FilterJson).HasMaxLength(2000).IsRequired();
+                e.HasIndex(v => new { v.UserId, v.Name }).IsUnique();
+            });
+
+            builder.Entity<TicketRead>(e =>
+            {
+                e.ToTable("TicketReads");
+                e.HasKey(r => new { r.TicketId, r.UserId });
+                e.HasIndex(r => r.UserId);
+            });
+
             builder.Entity<CannedReply>(e =>
             {
                 e.ToTable("CannedReplies");

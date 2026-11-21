@@ -1106,6 +1106,42 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("SavedReports");
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.SavedView", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilterJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsFavourite")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("SavedViews", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Ticket", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1404,6 +1440,24 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.HasIndex("TicketId", "CreatedAt");
 
                     b.ToTable("TicketComments", (string)null);
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketRead", b =>
+                {
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TicketId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TicketReads", (string)null);
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketSequence", b =>
