@@ -15,7 +15,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
     /// Runs report definitions (Step 9). Rows are read once, inside the person's scope, then grouped in memory with the same business-hours clock
     /// the SLA uses. Scope: Super Admin everything; HOD and Department Admin their department; a unit head their own unit(s).
     /// </summary>
-    public sealed class ReportService : IReportService
+    public sealed class ReportService : IReportService, IReportRunner
     {
         private const int MaxTicketRows = 200000;
         private const int MaxOutputRows = 50000;
@@ -118,9 +118,17 @@ namespace ServiceDeskAPI.Infrastructure.Reports
 
         public async Task<(ReportProblem? Problem, ReportResultDto? Result)> RunAsync(ReportSpec spec, Guid userId, bool isSuperAdmin, CancellationToken cancellationToken = default)
         {
-            spec ??= new ReportSpec();
             var scope = await ScopeAsync(userId, isSuperAdmin);
             if (scope == null) return (NotAllowed, null);
+            return await RunCoreAsync(spec ?? new ReportSpec(), scope, cancellationToken);
+        }
+
+        /// <summary>Runs a definition with no scope check: for code that has already decided who may see what and has narrowed the definition itself (the performance figures). Never exposed directly.</summary>
+        public Task<(ReportProblem? Problem, ReportResultDto? Result)> RunTrustedAsync(ReportSpec spec, CancellationToken cancellationToken = default) =>
+            RunCoreAsync(spec ?? new ReportSpec(), new Scope(true, new List<Guid>(), new List<Guid>()), cancellationToken);
+
+        private async Task<(ReportProblem? Problem, ReportResultDto? Result)> RunCoreAsync(ReportSpec spec, Scope scope, CancellationToken cancellationToken)
+        {
 
             var source = (spec.Source ?? "tickets").Trim().ToLowerInvariant();
             var mode = (spec.Mode ?? "summary").Trim().ToLowerInvariant();
