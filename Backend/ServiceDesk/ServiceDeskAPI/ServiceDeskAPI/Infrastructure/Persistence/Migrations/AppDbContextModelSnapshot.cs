@@ -1148,6 +1148,44 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("SavedViews", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.SlaPolicy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResolutionHours")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResponseHours")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("DepartmentId", "CategoryId", "Priority")
+                        .IsUnique()
+                        .HasFilter("[DepartmentId] IS NOT NULL AND [CategoryId] IS NOT NULL");
+
+                    b.ToTable("SlaPolicies", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Ticket", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2001,6 +2039,19 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("SavedReport");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.SlaPolicy", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.Ticket", b =>

@@ -42,9 +42,10 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);
             var candidates = await query
-                .Select(t => new { t.Id, t.CreatedAt, t.SlaWarnedAt, t.SlaBreachedAt, Hours = t.Category!.TimelineHours })
+                .Select(t => new { t.Id, t.CreatedAt, t.SlaWarnedAt, t.SlaBreachedAt, t.CategoryId, t.DepartmentId, t.Priority })
                 .ToListAsync(cancellationToken);
             if (candidates.Count == 0) return 0;
+            var targets = await SlaTargets.LoadAsync(_db);
 
             var ids = candidates.Select(c => c.Id).ToList();
             var changes = (await _db.TicketStatusChanges.AsNoTracking().Where(c => ids.Contains(c.TicketId)).OrderBy(c => c.At)
@@ -54,7 +55,8 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             var moved = 0;
             foreach (var c in candidates)
             {
-                if (c.Hours <= 0) continue;
+                var hours = targets.ResolutionHours(c.CategoryId, c.DepartmentId, c.Priority);
+                if (hours <= 0) continue;
                 double paused = 0;
                 DateTime? pausedFrom = null;
                 foreach (var ch in changes[c.Id])
@@ -64,7 +66,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
                 }
                 if (pausedFrom.HasValue) paused += clock.BusinessMinutes(pausedFrom.Value, nowUtc);
                 var used = Math.Max(0, clock.BusinessMinutes(c.CreatedAt, nowUtc) - paused);
-                var percent = used / (c.Hours * 60.0) * 100.0;
+                var percent = used / (hours * 60.0) * 100.0;
 
                 var level = percent >= _options.L2Percent ? 3 : percent >= _options.L1Percent ? 2 : percent >= _options.WarnPercent ? 1 : 0;
                 var stored = c.SlaBreachedAt.HasValue ? 2 : c.SlaWarnedAt.HasValue ? 1 : 0; // level 3 tickets are not selected
@@ -74,33 +76,52 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         }
 
                 /// <summary>
-        /// A ticket whose case worker has not acknowledged or answered it within FirstResponseHours (business hours from when it was assigned to them):
-        /// the miss is recorded once against that person, they get a reminder and the unit's head is told. Replies by someone else do not count (see TicketService).
+        /// A ticket nobody has acknowledged or answered within its response target (business hours, by priority, from when it was raised; see SlaTargets).
+        /// With an assignee the miss is recorded once against them (they always get at least an hour after it reached them) and they are reminded; with nobody holding it the
+        /// unit is answerable. The unit's head is told either way. The old setting FirstResponseHours now only switches the check off (0).
         /// </summary>
         private async Task CheckFirstResponseAsync(BusinessClock clock, DateTime nowUtc, CancellationToken ct)
         {
-            var hours = _options.FirstResponseHours;
-            if (hours <= 0) return;
-            var query = _db.Tickets.Where(t => t.AssigneeUserId != null && t.AssignedAt != null && t.FirstRespondedAt == null && t.FirstResponseMissedAt == null
-                && (t.Status == TicketStatus.Assigned || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.Reopened));
+            if (_options.FirstResponseHours <= 0) return;
+            var targets = await SlaTargets.LoadAsync(_db);
+            var query = _db.Tickets.Where(t => t.FirstRespondedAt == null && t.FirstResponseMissedAt == null
+                && (t.Status == TicketStatus.New || t.Status == TicketStatus.Assigned || t.Status == TicketStatus.InProgress || t.Status == TicketStatus.Reopened));
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);
-            var candidates = await query.OrderBy(t => t.AssignedAt).Take(200).ToListAsync(ct);
+            var candidates = await query.OrderBy(t => t.CreatedAt).Take(200).ToListAsync(ct);
 
             var changed = false;
             foreach (var ticket in candidates)
             {
-                var due = clock.AddBusinessMinutes(ticket.AssignedAt!.Value, hours * 60.0);
+                var hours = targets.ResponseHours(ticket.CategoryId, ticket.DepartmentId, ticket.Priority);
+                if (hours <= 0) continue;
+                var due = clock.AddBusinessMinutes(ticket.CreatedAt, hours * 60.0);
+                if (ticket.AssignedAt.HasValue && ticket.AssigneeUserId.HasValue)
+                {
+                    var grace = clock.AddBusinessMinutes(ticket.AssignedAt.Value, Math.Min(hours, 1) * 60.0);
+                    if (grace > due) due = grace;
+                }
                 if (nowUtc <= due) continue;
+
                 ticket.FirstResponseMissedAt = nowUtc;
                 ticket.FirstResponseMissedByUserId = ticket.AssigneeUserId;
                 var heads = await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, ticket.UnitId, DateOnly.FromDateTime(nowUtc.AddHours(_options.UtcOffsetHours)), ct);
-                Tell(ticket.AssigneeUserId!.Value, "Ticket " + ticket.Reference + " needs a first response",
-                    "It was assigned to you more than " + hours + " working hours ago and has not been acknowledged or answered. Please do it now.",
-                    NotificationType.ActionRequired, NotificationCategory.Escalation, ticket);
-                foreach (var head in heads.Where(h => h != ticket.AssigneeUserId).Distinct())
-                    Tell(head, "Ticket " + ticket.Reference + ": no first response",
-                        "The case worker has not responded within " + hours + " working hours.", NotificationType.Warning, NotificationCategory.Escalation, ticket);
+                if (ticket.AssigneeUserId.HasValue)
+                {
+                    Tell(ticket.AssigneeUserId.Value, "Ticket " + ticket.Reference + " needs a first response",
+                        "The first-response time (" + hours + " working hours) has run out and it has not been acknowledged or answered. Please do it now.",
+                        NotificationType.ActionRequired, NotificationCategory.Escalation, ticket);
+                    foreach (var head in heads.Where(h => h != ticket.AssigneeUserId).Distinct())
+                        Tell(head, "Ticket " + ticket.Reference + ": no first response",
+                            "The case worker has not responded within " + hours + " working hours.", NotificationType.Warning, NotificationCategory.Escalation, ticket);
+                }
+                else
+                {
+                    foreach (var head in heads.Distinct())
+                        Tell(head, "Ticket " + ticket.Reference + ": still waiting, no response",
+                            "Nobody has picked it up and the first-response time (" + hours + " working hours) has run out. Assign it or pick it from the pool.",
+                            NotificationType.ActionRequired, NotificationCategory.Escalation, ticket);
+                }
                 changed = true;
             }
             if (!changed) return;

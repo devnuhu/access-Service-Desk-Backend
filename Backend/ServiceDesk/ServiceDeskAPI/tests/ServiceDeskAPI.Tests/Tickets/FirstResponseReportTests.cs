@@ -133,7 +133,7 @@ namespace ServiceDeskAPI.Tests.Tickets
         {
             var lab = await NewLabAsync();
             var id = await RaiseAssignedAsync(lab);
-            await ChangeAsync(id, t => t.AssignedAt = DateTime.UtcNow.AddDays(-7));
+            await ChangeAsync(id, t => { t.CreatedAt = DateTime.UtcNow.AddDays(-7); t.AssignedAt = DateTime.UtcNow.AddDays(-7); });
             await CheckSlaAsync();
 
             var person = await RunAsync(lab, "assignee");

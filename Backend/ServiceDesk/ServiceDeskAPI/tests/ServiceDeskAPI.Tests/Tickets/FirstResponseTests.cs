@@ -124,7 +124,7 @@ namespace ServiceDeskAPI.Tests.Tickets
             await CheckSlaAsync();   // just assigned: nothing is due yet
             Assert.Null((await LoadAsync(id)).FirstResponseMissedAt);
 
-            await ChangeAsync(id, t => t.AssignedAt = DateTime.UtcNow.AddDays(-7));
+            await ChangeAsync(id, t => { t.CreatedAt = DateTime.UtcNow.AddDays(-7); t.AssignedAt = DateTime.UtcNow.AddDays(-7); });
             await CheckSlaAsync();
             var missed = await LoadAsync(id);
             Assert.NotNull(missed.FirstResponseMissedAt);
@@ -149,7 +149,7 @@ namespace ServiceDeskAPI.Tests.Tickets
         {
             var lab = await NewLabAsync();
             var id = await RaiseAssignedAsync(lab);
-            await ChangeAsync(id, t => t.AssignedAt = DateTime.UtcNow.AddDays(-7));
+            await ChangeAsync(id, t => { t.CreatedAt = DateTime.UtcNow.AddDays(-7); t.AssignedAt = DateTime.UtcNow.AddDays(-7); });
             await CheckSlaAsync();
 
             using var scope = _factory.Services.CreateScope();

@@ -28,6 +28,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Absence> Absences => Set<Absence>();
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
+        public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<CannedReply> CannedReplies => Set<CannedReply>();
@@ -155,6 +156,15 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasOne(l => l.RelatedTicket).WithMany().HasForeignKey(l => l.RelatedTicketId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(l => new { l.TicketId, l.RelatedTicketId }).IsUnique();
                 e.HasIndex(l => l.RelatedTicketId);
+            });
+
+            builder.Entity<SlaPolicy>(e =>
+            {
+                e.ToTable("SlaPolicies");
+                e.HasKey(p => p.Id);
+                e.HasOne<Department>().WithMany().HasForeignKey(p => p.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne<Category>().WithMany().HasForeignKey(p => p.CategoryId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(p => new { p.DepartmentId, p.CategoryId, p.Priority }).IsUnique();
             });
 
             builder.Entity<CannedReply>(e =>

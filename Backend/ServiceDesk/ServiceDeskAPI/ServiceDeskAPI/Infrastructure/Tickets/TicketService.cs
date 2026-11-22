@@ -247,7 +247,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var open = items.Where(i => running.Contains(i.Status)).ToList();
             if (open.Count == 0) return;
             var ids = open.Select(i => i.Id).ToList();
-            var hours = await _db.Tickets.AsNoTracking().Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, Hours = t.Category!.TimelineHours }).ToDictionaryAsync(x => x.Id, x => x.Hours);
+            var targets = await ServiceDeskAPI.Infrastructure.Sla.SlaTargets.LoadAsync(_db);
+            var hours = (await _db.Tickets.AsNoTracking().Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, t.CategoryId, t.DepartmentId, t.Priority }).ToListAsync()).ToDictionary(x => x.Id, x => targets.ResolutionHours(x.CategoryId, x.DepartmentId, x.Priority));
             var changes = (await _db.TicketStatusChanges.AsNoTracking().Where(c => ids.Contains(c.TicketId)).OrderBy(c => c.At)
                 .Select(c => new { c.TicketId, c.ToStatus, c.At }).ToListAsync()).ToLookup(c => c.TicketId);
             var clock = ServiceDeskAPI.Infrastructure.Sla.BusinessClock.From(_slaOptions);

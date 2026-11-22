@@ -195,7 +195,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 Id = t.Id, Reference = t.Reference, Subject = t.Subject,
                 DepartmentId = t.DepartmentId, DepartmentName = t.Department!.Name,
                 UnitId = t.UnitId, UnitName = t.Unit!.Name,
-                CategoryId = t.CategoryId, CategoryName = t.Category!.Name, Hours = t.Category.TimelineHours,
+                CategoryId = t.CategoryId, CategoryName = t.Category!.Name,
                 Priority = t.Priority, Status = t.Status,
                 RequesterName = t.RequesterUser!.FullName, RequesterUserName = t.RequesterUser.UserName,
                 AssigneeId = t.AssigneeUserId,
@@ -207,6 +207,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             }).ToListAsync(cancellationToken);
             var truncated = loaded.Count > MaxTicketRows;
             if (truncated) loaded.RemoveAt(loaded.Count - 1);
+            var slaTargets = await ServiceDeskAPI.Infrastructure.Sla.SlaTargets.LoadAsync(_db);
+            foreach (var row in loaded) row.Hours = slaTargets.ResolutionHours(row.CategoryId, row.DepartmentId, row.Priority);
 
             var now = DateTime.UtcNow;
             var clock = BusinessClock.From(_sla);
