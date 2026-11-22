@@ -67,7 +67,23 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 errors["categoryId"] = "Choose one of the listed categories.";
             var location = await _db.Locations.FirstOrDefaultAsync(l => l.Id == request.LocationId && l.IsActive);
             if (location == null) errors["locationId"] = "Choose your location.";
-            var priority = request.Priority ?? category?.DefaultPriority ?? TicketPriority.Medium;
+            TicketImpact? impact = request.Impact;
+            TicketUrgency? urgency = request.Urgency;
+            TicketPriority priority;
+            if (impact.HasValue != urgency.HasValue)
+            {
+                errors[impact.HasValue ? "urgency" : "impact"] = impact.HasValue ? "Say how urgent it is." : "Say who it affects.";
+                priority = category?.DefaultPriority ?? TicketPriority.Medium;
+            }
+            else if (impact.HasValue)
+            {
+                if (!Enum.IsDefined(impact.Value)) errors["impact"] = "Choose who it affects.";
+                if (!Enum.IsDefined(urgency!.Value)) errors["urgency"] = "Choose how urgent it is.";
+                priority = errors.ContainsKey("impact") || errors.ContainsKey("urgency")
+                    ? category?.DefaultPriority ?? TicketPriority.Medium
+                    : await PriorityRules.ResolveAsync(_db, impact.Value, urgency.Value);
+            }
+            else priority = request.Priority ?? category?.DefaultPriority ?? TicketPriority.Medium;
             if (!Enum.IsDefined(priority)) errors["priority"] = "Choose Low, Medium, High or Critical.";
 
             var subject = (request.Subject ?? string.Empty).Trim();
@@ -96,7 +112,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             {
                 Id = Guid.NewGuid(), DepartmentId = category.DepartmentId, UnitId = category.UnitId, CategoryId = category.Id, LocationId = location.Id,
                 RequesterUserId = requesterId, RaisedByUserId = actorUserId, RequesterDepartment = Trim(requester.Department, 200),
-                Subject = subject, DescriptionHtml = html, DescriptionText = text, Priority = priority, Status = TicketStatus.New, CreatedAt = now
+                Subject = subject, DescriptionHtml = html, DescriptionText = text, Priority = priority, Impact = impact, Urgency = urgency, Status = TicketStatus.New, CreatedAt = now
             };
 
             await using var transaction = await _db.Database.BeginTransactionAsync();
@@ -110,7 +126,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 
                 Stage(AuditAction.Created, "Ticket", ticket.Id, ticket.Reference, null, new
                 {
-                    category = category.Name, unit = category.Unit!.Code, priority = priority.ToString(), location = location.Name,
+                    category = category.Name, unit = category.Unit!.Code, priority = priority.ToString(), impact = impact?.ToString(), urgency = urgency?.ToString(), location = location.Name,
                     requester = requester.UserName, onBehalf = requesterId != actorUserId, cc = cc.Count, files = files.Count
                 });
 

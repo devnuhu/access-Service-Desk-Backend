@@ -33,6 +33,10 @@ namespace ServiceDeskAPI.Application.DTOs
         public Guid LocationId { get; set; }
         /// <summary>1 Low, 2 Medium, 3 High, 4 Critical. Left out: the category's default.</summary>
         public TicketPriority? Priority { get; set; }
+        /// <summary>1 Just me, 2 My team, 3 My department, 4 Whole company. Send together with urgency: the priority is then worked out from the priority matrix and any priority sent is ignored.</summary>
+        public TicketImpact? Impact { get; set; }
+        /// <summary>1 It can wait, 2 Soon, 3 Urgent, 4 I cannot work.</summary>
+        public TicketUrgency? Urgency { get; set; }
         public string Subject { get; set; } = string.Empty;
         public string DescriptionHtml { get; set; } = string.Empty;
         /// <summary>Colleagues to copy (FR-2.6).</summary>

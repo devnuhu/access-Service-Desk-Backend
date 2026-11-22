@@ -29,6 +29,7 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<Category> Categories => Set<Category>();
         public DbSet<CategorySkill> CategorySkills => Set<CategorySkill>();
         public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
+        public DbSet<PriorityMatrixCell> PriorityMatrix => Set<PriorityMatrixCell>();
         public DbSet<Location> Locations => Set<Location>();
         public DbSet<Holiday> Holidays => Set<Holiday>();
         public DbSet<CannedReply> CannedReplies => Set<CannedReply>();
@@ -156,6 +157,11 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasOne(l => l.RelatedTicket).WithMany().HasForeignKey(l => l.RelatedTicketId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(l => new { l.TicketId, l.RelatedTicketId }).IsUnique();
                 e.HasIndex(l => l.RelatedTicketId);
+            });
+
+            builder.Entity<PriorityMatrixCell>(e =>
+            {
+                e.HasIndex(c => new { c.Impact, c.Urgency }).IsUnique().HasDatabaseName("IX_PriorityMatrix_Impact_Urgency");
             });
 
             builder.Entity<SlaPolicy>(e =>

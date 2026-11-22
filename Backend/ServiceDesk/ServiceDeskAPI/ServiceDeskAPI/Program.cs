@@ -223,6 +223,7 @@ builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.HolidayLoade
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Digest.DigestWorker>();
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Reports.ReportScheduleOptions>().BindConfiguration("ReportSchedules");
             builder.Services.AddScoped<IReportScheduleService, ServiceDeskAPI.Infrastructure.Reports.ReportScheduleService>();
+            builder.Services.AddScoped<IPriorityService, ServiceDeskAPI.Infrastructure.Tickets.PriorityService>();
             builder.Services.AddScoped<IDashboardService, ServiceDeskAPI.Infrastructure.Dashboard.DashboardService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Reports.ReportScheduleWorker>();
             builder.Services.AddSingleton(TimeProvider.System);

@@ -849,6 +849,36 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.PriorityMatrixCell", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Impact")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Urgency")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Impact", "Urgency")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PriorityMatrix_Impact_Urgency");
+
+                    b.ToTable("PriorityMatrix");
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.RefreshTokenStore", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1254,6 +1284,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("FirstResponseMissedByUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("Impact")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1331,6 +1364,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("UpdatedByUserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Urgency")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

@@ -43,6 +43,10 @@ namespace ServiceDeskAPI.Domain.Entities
         public string DescriptionHtml { get; set; } = string.Empty;
         public string DescriptionText { get; set; } = string.Empty;
         public TicketPriority Priority { get; set; } = TicketPriority.Medium;
+        /// <summary>Who it affects, as the requester answered. Null on tickets raised before impact and urgency existed.</summary>
+        public TicketImpact? Impact { get; set; }
+        /// <summary>How soon it is needed. The priority is worked out from impact and urgency by the priority matrix; a head can change it later.</summary>
+        public TicketUrgency? Urgency { get; set; }
         public TicketStatus Status { get; set; } = TicketStatus.New;
         public Guid? AssigneeUserId { get; set; }
         public User? AssigneeUser { get; set; }
