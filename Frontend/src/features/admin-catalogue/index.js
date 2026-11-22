@@ -4,6 +4,7 @@ export { coverTitle } from "./skills.js";
 export {
   catalogueKeys,
   refreshCatalogue,
+  useCategories,
   useCoverWarnings,
   useUnitSkills,
 } from "./hooks/useCatalogueAdmin.js";

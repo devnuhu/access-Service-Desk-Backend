@@ -22,8 +22,6 @@ import {
   useUpdateCategory,
 } from "../hooks/useCatalogueAdmin.js";
 
-const hoursText = (hours) => `${hours} business hour${hours === 1 ? "" : "s"}`;
-
 /**
  * Groups the department's categories by owning unit: every active unit (even with no categories
  * yet), then any switched-off unit that still owns categories. Categories keep the API's order.
@@ -210,9 +208,6 @@ export default function CategoriesPage() {
                     Name
                   </th>
                   <th scope="col" className="px-3 py-2.5">
-                    Timeline
-                  </th>
-                  <th scope="col" className="px-3 py-2.5">
                     Default priority
                   </th>
                   <th scope="col" className="px-3 py-2.5">
@@ -236,7 +231,7 @@ export default function CategoriesPage() {
                   <tr className="bg-brand-navy-light/50">
                     <th
                       scope="colgroup"
-                      colSpan={7}
+                      colSpan={6}
                       className="px-5 py-2 text-sm font-semibold text-brand-navy"
                     >
                       <span className="flex flex-wrap items-center justify-between gap-2">
@@ -261,7 +256,7 @@ export default function CategoriesPage() {
                   </tr>
                   {group.categories.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-5 py-3 text-sm text-muted">
+                      <td colSpan={6} className="px-5 py-3 text-sm text-muted">
                         No categories yet.
                       </td>
                     </tr>
@@ -307,9 +302,6 @@ export default function CategoriesPage() {
                             {category.description}
                           </span>
                         )}
-                      </td>
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {hoursText(category.timelineHours)}
                       </td>
                       <td className="px-3 py-3">
                         <PriorityChip priority={category.defaultPriority} />

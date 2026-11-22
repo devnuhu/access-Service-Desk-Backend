@@ -258,28 +258,6 @@ export default function CategoryDialog({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
-            id="category-timeline"
-            label="Timeline (business hours)"
-            hint="1 to 720"
-            error={errors.timelineHours}
-          >
-            <input
-              id="category-timeline"
-              type="number"
-              min={1}
-              max={720}
-              step={1}
-              aria-invalid={errors.timelineHours ? "true" : undefined}
-              aria-describedby={describedBy(
-                "category-timeline",
-                errors.timelineHours,
-                true,
-              )}
-              className={`${inputClass(errors.timelineHours)} h-10`}
-              {...register("timelineHours", { valueAsNumber: true })}
-            />
-          </Field>
-          <Field
             id="category-priority"
             label="Default priority"
             error={errors.defaultPriority}

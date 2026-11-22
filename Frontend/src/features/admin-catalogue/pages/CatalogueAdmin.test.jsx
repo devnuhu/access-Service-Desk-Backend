@@ -100,7 +100,8 @@ describe("Categories page", () => {
       within(cm).getByText("Money received but not matched to an RSA."),
     ).toBeInTheDocument();
     expect(within(cm).getByText("Wrong employer code")).toBeInTheDocument();
-    expect(within(cm).getAllByText("24 business hours")).toHaveLength(2);
+    // The timeline no longer drives anything (service levels do): not shown.
+    expect(within(cm).queryByText(/business hours/)).toBeNull();
     expect(within(cm).getAllByText("Medium")).toHaveLength(2);
     expect(within(cm).queryByText("Needs cover")).not.toBeInTheDocument();
     expect(
@@ -167,9 +168,7 @@ describe("Categories page", () => {
       within(dialog).getByLabelText("Name"),
       "Test Category",
     );
-    expect(
-      within(dialog).getByLabelText("Timeline (business hours)"),
-    ).toHaveValue(24);
+    expect(within(dialog).queryByLabelText(/Timeline/)).toBeNull();
     expect(within(dialog).getByLabelText("Default priority")).toHaveValue("2");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Add category" }),

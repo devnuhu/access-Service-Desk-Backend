@@ -58,9 +58,6 @@ export default function UnitCategoriesTab({
                 <th scope="col" className={th}>
                   Category
                 </th>
-                <th scope="col" className={`${th} text-right`}>
-                  Timeline
-                </th>
                 <th scope="col" className={th}>
                   Default priority
                 </th>
@@ -107,9 +104,6 @@ export default function UnitCategoriesTab({
                           </span>
                         </button>
                       </td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
-                        {category.timelineHours} h
-                      </td>
                       <td className="px-4 py-3">
                         <PriorityChip priority={category.defaultPriority} />
                       </td>
@@ -141,7 +135,7 @@ export default function UnitCategoriesTab({
                     {expanded && (
                       <tr id={`handlers-${category.id}`} className="bg-page/50">
                         <td
-                          colSpan={canEditTemplates ? 5 : 4}
+                          colSpan={canEditTemplates ? 4 : 3}
                           className="px-4 py-3 pl-10"
                         >
                           {skills.isLoading ? (

@@ -38,6 +38,7 @@ import {
 } from "../src/features/catalogue/api/endpoints.js";
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
 import { listHolidays } from "../src/features/admin-holidays/api/endpoints.js";
+import { getSlaPolicies } from "../src/features/admin-sla/api/endpoints.js";
 import {
   listPlaceholders,
   listSharedReplies,
@@ -281,6 +282,13 @@ export const ACCESS_TABLE = [
   }),
   write("POST", "/api/admin/holidays", SUPER),
   write("DELETE", "/api/admin/holidays/{holidayId}", SUPER),
+  // Service levels (first response and resolution targets by priority)
+  get("/api/admin/sla-policies", SUPER, {
+    probe: {},
+    schema: getSlaPolicies.response,
+  }),
+  write("PUT", "/api/admin/sla-policies", SUPER),
+  write("DELETE", "/api/admin/sla-policies/{id}", SUPER),
 
   // Saved replies: staff of a ticket read its replies (404 otherwise); a unit's head, the
   // Department Admin and Super Admin keep its library (403 otherwise); Super Admin the shared one

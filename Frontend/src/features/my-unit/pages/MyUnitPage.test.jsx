@@ -234,11 +234,11 @@ describe("My unit (head)", () => {
     ).toBeInTheDocument();
   });
 
-  it("Categories is read only: timeline, priority, people, Needs cover, and who handles a row", async () => {
+  it("Categories is read only: priority, people, Needs cover, and who handles a row (no timeline)", async () => {
     const user = userEvent.setup();
     renderUnit({ tab: "?tab=categories" });
     const row = await screen.findByTestId("category-Unmatched contribution");
-    expect(row).toHaveTextContent("24 h");
+    expect(row).not.toHaveTextContent("24 h");
     expect(row).toHaveTextContent("Medium");
     expect(row).toHaveTextContent("1 person");
     expect(within(row).getByText("Needs cover")).toBeInTheDocument();

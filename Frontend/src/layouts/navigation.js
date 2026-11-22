@@ -13,6 +13,7 @@ import {
   MapPin,
   MessageSquareText,
   Network,
+  Timer,
   UsersRound,
   Users,
 } from "lucide-react";
@@ -213,6 +214,7 @@ export function buildNavigation(user, org, allDepartments) {
         { label: "Categories", icon: ListTree, to: "/admin/categories" },
         { label: "Locations", icon: MapPin, to: "/admin/locations" },
         { label: "Holidays", icon: CalendarOff, to: "/admin/holidays" },
+        { label: "Service levels", icon: Timer, to: "/admin/service-levels" },
         {
           label: "Shared replies",
           icon: MessageSquareText,

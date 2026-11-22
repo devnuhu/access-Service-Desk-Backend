@@ -55,6 +55,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | PATCH | `/api/admin/locations/{id}` | Super Admin | Rename, reorder, switch on/off (one must stay on) |
 | GET, POST | `/api/admin/holidays?year=` | Super Admin | Company holidays, oldest first (server-settings ones flagged fromConfig); add one `{ date, name }` (409 if the date is already a holiday) |
 | DELETE | `/api/admin/holidays/{id}` | Super Admin | Remove a holiday added here (404 if gone) |
+| GET, PUT | `/api/admin/sla-policies` | Super Admin | Service levels: the four default targets (built-in when not saved) and the department and category overrides; save one `{ scope, departmentId?, categoryId?, priority, responseHours, resolutionHours }` |
+| DELETE | `/api/admin/sla-policies/{id}` | Super Admin | Remove a saved level: the level above (or the built-in default) applies again |
 | GET | `/api/canned-replies/placeholders` | signed in | The placeholders a saved reply may use, with what each becomes |
 | GET | `/api/tickets/{id}/canned-replies` | department staff, Super Admin (others 404) | Saved replies for this ticket (its unit first, then shared), placeholders filled in |
 | GET, POST | `/api/units/{unitId}/canned-replies` | Head of Unit, Department Admin, Super Admin | A unit's library of saved replies; add one `{ title, bodyHtml }` (409 title already used) |

@@ -2,6 +2,7 @@ import { Route, Routes } from "react-router-dom";
 import { CategoriesPage, SkillsMatrixPage } from "@/features/admin-catalogue";
 import { EmailPage } from "@/features/admin-email";
 import { HolidaysPage } from "@/features/admin-holidays";
+import { ServiceLevelsPage } from "@/features/admin-sla";
 import { SharedRepliesPage } from "@/features/canned-replies";
 import { LocationsPage } from "@/features/admin-locations";
 import { PeopleRolesPage } from "@/features/admin-people";
@@ -71,6 +72,10 @@ export default function AppRoutes() {
             <Route path="admin/categories" element={<CategoriesPage />} />
             <Route path="admin/locations" element={<LocationsPage />} />
             <Route path="admin/holidays" element={<HolidaysPage />} />
+            <Route
+              path="admin/service-levels"
+              element={<ServiceLevelsPage />}
+            />
             <Route path="admin/replies" element={<SharedRepliesPage />} />
             <Route path="admin/email" element={<EmailPage />} />
           </Route>
