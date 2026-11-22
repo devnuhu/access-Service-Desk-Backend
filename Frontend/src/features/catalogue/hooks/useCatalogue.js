@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import {
+  getPriorityMatrix,
   listCatalogue,
   listCatalogueTemplates,
   listMyCategories,
@@ -32,6 +33,17 @@ export function useCatalogueTemplates() {
   return useQuery({
     queryKey: CATALOGUE_TEMPLATES_KEY,
     queryFn: () => request(listCatalogueTemplates),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export const PRIORITY_MATRIX_KEY = ["catalogue", "priority-matrix"];
+
+/** The impact and urgency questions and the matrix (loaded once, kept a few minutes). */
+export function usePriorityMatrix() {
+  return useQuery({
+    queryKey: PRIORITY_MATRIX_KEY,
+    queryFn: () => request(getPriorityMatrix),
     staleTime: 5 * 60_000,
   });
 }

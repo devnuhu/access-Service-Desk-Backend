@@ -4,10 +4,12 @@ import { searchPeople } from "@/features/admin-people";
 import { useSession } from "@/features/auth";
 import { searchColleagues } from "@/features/people";
 import {
-  PRIORITY,
-  PRIORITY_LABELS,
+  IMPACT_FALLBACK,
+  matrixPriority,
+  URGENCY_FALLBACK,
   useCatalogue,
   useCatalogueTemplates,
+  usePriorityMatrix,
 } from "@/features/catalogue";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { fieldError } from "@/shared/lib/http";
@@ -32,6 +34,7 @@ import {
 import CategoryCombobox from "../components/CategoryCombobox.jsx";
 import CcField from "../components/CcField.jsx";
 import DuplicateBox from "../components/DuplicateBox.jsx";
+import ImpactUrgency from "../components/ImpactUrgency.jsx";
 import {
   checkForDuplicates,
   useCreateTicket,
@@ -45,8 +48,9 @@ const SUBJECT_COUNTER_FROM = 150;
 /** Field order on the page: the first one with a problem gets the focus. */
 const FIELDS = [
   "categoryId",
-  "priority",
   "locationId",
+  "impact",
+  "urgency",
   "subject",
   "descriptionHtml",
   "files",
@@ -57,8 +61,8 @@ const FIELDS = [
 const EMPTY = {
   departmentId: "",
   categoryId: "",
-  priority: PRIORITY.Medium,
-  priorityTouched: false,
+  impact: null,
+  urgency: null,
   locationId: "",
   locationTouched: false,
   subject: "",
@@ -208,9 +212,17 @@ function TicketForm({ user, departments }) {
     (departments.length === 1 ? departments[0] : null);
   const categories = department?.categories ?? [];
   const category = categories.find((c) => c.id === form.categoryId) ?? null;
-  const priority = form.priorityTouched
-    ? form.priority
-    : (category?.defaultPriority ?? PRIORITY.Medium);
+
+  // Impact and urgency: the server works out the priority from the matrix; the form shows what it
+  // will be. Without the matrix, the questions still show (fallback wording) and the line hides.
+  const matrix = usePriorityMatrix();
+  const impacts = matrix.data?.impacts.length
+    ? matrix.data.impacts
+    : IMPACT_FALLBACK;
+  const urgencies = matrix.data?.urgencies.length
+    ? matrix.data.urgencies
+    : URGENCY_FALLBACK;
+  const priority = matrixPriority(matrix.data, form.impact, form.urgency);
 
   // Location: the person's default (their last ticket) until the user picks one. Raising for someone
   // else reloads the choices with forUserId, so the default is theirs.
@@ -281,6 +293,8 @@ function TicketForm({ user, departments }) {
     const found = {};
     if (!form.categoryId || !category) found.categoryId = "Choose a category.";
     if (!locationId) found.locationId = "Choose a location.";
+    if (!form.impact) found.impact = "Choose who this affects.";
+    if (!form.urgency) found.urgency = "Choose how urgent it is.";
     const subject = form.subject.trim();
     if (subject.length < 3 || subject.length > SUBJECT_MAX)
       found.subject = `Use 3 to ${SUBJECT_MAX} characters.`;
@@ -333,7 +347,8 @@ function TicketForm({ user, departments }) {
       const created = await createTicket.mutateAsync({
         categoryId: form.categoryId,
         locationId,
-        priority,
+        impact: form.impact,
+        urgency: form.urgency,
         subject: form.subject.trim(),
         descriptionHtml: form.descriptionHtml,
         ccUserIds: form.cc.map((person) => person.id),
@@ -452,40 +467,6 @@ function TicketForm({ user, departments }) {
               />
             </div>
 
-            <div data-field="priority">
-              <label
-                htmlFor="ticket-priority"
-                className="block text-sm font-semibold text-ink"
-              >
-                Priority
-              </label>
-              <select
-                id="ticket-priority"
-                value={priority}
-                onChange={(event) =>
-                  set({
-                    priority: Number(event.target.value),
-                    priorityTouched: true,
-                  })
-                }
-                aria-invalid={errors.priority ? "true" : undefined}
-                aria-describedby={describe(
-                  errors.priority && "ticket-priority-error",
-                )}
-                className={inputClass(errors.priority)}
-              >
-                {Object.entries(PRIORITY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <FieldError
-                id="ticket-priority-error"
-                message={errors.priority}
-              />
-            </div>
-
             <div data-field="locationId">
               <label
                 htmlFor="ticket-location"
@@ -529,6 +510,16 @@ function TicketForm({ user, departments }) {
               />
             </div>
           </div>
+
+          <ImpactUrgency
+            impacts={impacts}
+            urgencies={urgencies}
+            impact={form.impact}
+            urgency={form.urgency}
+            onChange={(changes) => set(changes)}
+            errors={errors}
+            priority={priority}
+          />
 
           <div data-field="subject">
             <label

@@ -5,6 +5,7 @@ import {
   acknowledgeTicket,
   addComment,
   cancelTicket,
+  changeTicketPriority,
   checkDuplicates,
   confirmTicket,
   escalateTicket,
@@ -17,6 +18,7 @@ import {
   getTicket,
   getTicketActions,
   getTicketByReference,
+  getTicketPriority,
   listAssignments,
   listLocations,
   listTickets,
@@ -42,6 +44,8 @@ export const ticketKeys = {
       : ["tickets", "detail", "id", id],
   locations: (forUserId) => ["tickets", "locations", forUserId ?? "me"],
   actions: (ticketId) => ["tickets", "actions", ticketId],
+  /** Whether I can change the priority, and the requester's answers (staff only). */
+  priority: (ticketId) => ["tickets", "priority", ticketId],
   /** Reassign options and history of one ticket (staff only); under "tickets", so a push refetches them. */
   assignment: (ticketId) => ["tickets", "assignment", ticketId],
   reassignOptions: (ticketId) => ["tickets", "assignment", ticketId, "options"],
@@ -219,5 +223,22 @@ export function useWorkflowAction(ticketId) {
         params: { ticketId },
         ...(body ? { body } : {}),
       }),
+  });
+}
+
+/** For staff: can I change the priority, why not, and what the requester answered. */
+export function useTicketPriority(ticketId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ticketKeys.priority(ticketId),
+    queryFn: () => request(getTicketPriority, { params: { ticketId } }),
+    enabled: Boolean(ticketId) && enabled,
+  });
+}
+
+/** Change the priority; the caller refreshes the ticket queries after. */
+export function useChangePriority(ticketId) {
+  return useMutation({
+    mutationFn: (body) =>
+      request(changeTicketPriority, { params: { ticketId }, body }),
   });
 }

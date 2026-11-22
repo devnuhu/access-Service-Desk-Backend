@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CalendarOff,
   FileText,
+  Grid3x3,
   House,
   LayoutDashboard,
   Inbox,
@@ -215,6 +216,11 @@ export function buildNavigation(user, org, allDepartments) {
         { label: "Locations", icon: MapPin, to: "/admin/locations" },
         { label: "Holidays", icon: CalendarOff, to: "/admin/holidays" },
         { label: "Service levels", icon: Timer, to: "/admin/service-levels" },
+        {
+          label: "Priority matrix",
+          icon: Grid3x3,
+          to: "/admin/priority-matrix",
+        },
         {
           label: "Shared replies",
           icon: MessageSquareText,

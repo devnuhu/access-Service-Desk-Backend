@@ -81,3 +81,63 @@ export const listCatalogueTemplates = defineEndpoint({
     }),
   ),
 });
+
+/** The request form's two questions, used when the matrix cannot be loaded. */
+export const IMPACT_FALLBACK = [
+  { value: 1, label: "Just me", description: "" },
+  { value: 2, label: "My team", description: "" },
+  { value: 3, label: "My department", description: "" },
+  { value: 4, label: "The whole company", description: "" },
+];
+export const URGENCY_FALLBACK = [
+  { value: 1, label: "It can wait", description: "" },
+  { value: 2, label: "Soon", description: "" },
+  { value: 3, label: "Urgent", description: "" },
+  { value: 4, label: "I cannot work", description: "" },
+];
+
+/** The built-in priority of a cell: impact + urgency, 2-3 Low, 4-5 Medium, 6-7 High, 8 Critical. */
+export function defaultPriorityFor(impact, urgency) {
+  const sum = impact + urgency;
+  if (sum >= 8) return PRIORITY.Critical;
+  if (sum >= 6) return PRIORITY.High;
+  if (sum >= 4) return PRIORITY.Medium;
+  return PRIORITY.Low;
+}
+
+/** The priority the matrix gives an impact and urgency pair (null when not both chosen or not found). */
+export function matrixPriority(matrix, impact, urgency) {
+  if (!matrix || !impact || !urgency) return null;
+  return (
+    matrix.cells.find(
+      (cell) => cell.impact === impact && cell.urgency === urgency,
+    )?.priority ?? null
+  );
+}
+
+const choice = z.looseObject({
+  value: z.number().int(),
+  label: z.string(),
+  description: z.string().nullable().optional(),
+});
+
+/** A priority matrix: the two questions with their wording, and all 16 cells (isDefault: not edited). */
+export const priorityMatrixSchema = z.object({
+  impacts: list(choice),
+  urgencies: list(choice),
+  cells: list(
+    z.object({
+      impact: z.number().int(),
+      urgency: z.number().int(),
+      priority: z.number().int(),
+      isDefault: z.boolean(),
+    }),
+  ),
+});
+
+/** The request form's questions and the priority for every answer pair (anyone signed in). */
+export const getPriorityMatrix = defineEndpoint({
+  method: "GET",
+  path: "/api/priority-matrix",
+  response: priorityMatrixSchema,
+});

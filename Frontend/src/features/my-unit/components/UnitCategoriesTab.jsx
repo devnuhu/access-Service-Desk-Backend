@@ -58,7 +58,11 @@ export default function UnitCategoriesTab({
                 <th scope="col" className={th}>
                   Category
                 </th>
-                <th scope="col" className={th}>
+                <th
+                  scope="col"
+                  className={th}
+                  title="Used only when a ticket is raised without the impact and urgency answers"
+                >
                   Default priority
                 </th>
                 <th scope="col" className={th}>

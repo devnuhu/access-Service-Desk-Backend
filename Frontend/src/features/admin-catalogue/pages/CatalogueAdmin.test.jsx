@@ -169,7 +169,7 @@ describe("Categories page", () => {
       "Test Category",
     );
     expect(within(dialog).queryByLabelText(/Timeline/)).toBeNull();
-    expect(within(dialog).getByLabelText("Default priority")).toHaveValue("2");
+    expect(within(dialog).getByLabelText(/^Default priority/)).toHaveValue("2");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Add category" }),
     );

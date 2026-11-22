@@ -207,7 +207,11 @@ export default function CategoriesPage() {
                   <th scope="col" className="px-3 py-2.5">
                     Name
                   </th>
-                  <th scope="col" className="px-3 py-2.5">
+                  <th
+                    scope="col"
+                    className="px-3 py-2.5"
+                    title="Used only when a ticket is raised without the impact and urgency answers"
+                  >
                     Default priority
                   </th>
                   <th scope="col" className="px-3 py-2.5">

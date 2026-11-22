@@ -1,7 +1,13 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { SearchX } from "lucide-react";
+import { Gauge, SearchX } from "lucide-react";
 import { useSession } from "@/features/auth";
-import { PriorityChip } from "@/features/catalogue";
+import {
+  IMPACT_FALLBACK,
+  PriorityChip,
+  URGENCY_FALLBACK,
+  usePriorityMatrix,
+} from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
 import {
   Card,
@@ -19,15 +25,92 @@ import EscalatedBadge from "../components/EscalatedBadge.jsx";
 import LinkedTickets, { MergedBanner } from "../components/LinkedTickets.jsx";
 import SlaBadge from "../components/SlaBadge.jsx";
 import AttachmentList from "../components/AttachmentList.jsx";
+import ChangePriorityDialog from "../components/ChangePriorityDialog.jsx";
 import PickCard from "../components/PickCard.jsx";
 import Conversation from "../components/Conversation.jsx";
 import ReplyBox from "../components/ReplyBox.jsx";
 import StatusChip from "../components/StatusChip.jsx";
 import StatusCallout from "../components/StatusCallout.jsx";
 import { ActionsCard } from "../components/TicketActions.jsx";
-import { useTicket, useTicketActions } from "../hooks/useTickets.js";
+import {
+  useTicket,
+  useTicketActions,
+  useTicketPriority,
+} from "../hooks/useTickets.js";
 import { useMarkRead } from "../hooks/useQueueTools.js";
 import { personName } from "../ticketText.js";
+
+/**
+ * Staff: "Change priority" next to the chip when allowed; when not, the same action disabled with
+ * the reason as its tooltip.
+ */
+function ChangePriorityAction({ ticket, options }) {
+  const [open, setOpen] = useState(false);
+  if (!options) return null;
+  if (!options.canChange) {
+    if (!options.reason) return null;
+    return (
+      <>
+        <button
+          type="button"
+          aria-disabled="true"
+          title={options.reason}
+          aria-describedby="priority-locked"
+          className="inline-flex cursor-not-allowed items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold text-muted"
+        >
+          <Gauge aria-hidden="true" size={13} />
+          Change priority
+        </button>
+        <span id="priority-locked" className="sr-only">
+          {options.reason}
+        </span>
+      </>
+    );
+  }
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold text-brand-navy hover:bg-brand-navy-light"
+      >
+        <Gauge aria-hidden="true" size={13} />
+        Change priority
+      </button>
+      {open && (
+        <ChangePriorityDialog
+          ticket={ticket}
+          current={options.priority}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/** Staff only: what the requester answered on the form ("Requester said: My team, Soon"). */
+function RequesterSaid({ options }) {
+  const matrix = usePriorityMatrix();
+  if (!options?.impact || !options?.urgency) return null;
+  const label = (list, fallback, value) =>
+    (list?.length ? list : fallback).find((c) => c.value === value)?.label ??
+    String(value);
+  return (
+    <span
+      data-testid="requester-said"
+      className="mt-1 block text-xs text-muted"
+    >
+      Requester said:{" "}
+      <strong className="font-semibold text-body">
+        {label(matrix.data?.impacts, IMPACT_FALLBACK, options.impact)}
+      </strong>
+      ,{" "}
+      <strong className="font-semibold text-body">
+        {label(matrix.data?.urgencies, URGENCY_FALLBACK, options.urgency)}
+      </strong>
+    </span>
+  );
+}
 
 function Detail({ label, children }) {
   return (
@@ -49,6 +132,10 @@ export default function TicketPage() {
   // Opening it clears its unread marker (once per ticket opened, not on refetches).
   useMarkRead(query.data?.id);
   const actions = useTicketActions(query.data?.id);
+  // Staff only: whether the priority can be changed, and the requester's answers.
+  const priorityOptions = useTicketPriority(query.data?.id, {
+    enabled: Boolean(query.data?.isStaffView),
+  });
 
   if (query.isLoading) {
     return (
@@ -95,7 +182,15 @@ export default function TicketPage() {
       >
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusChip status={ticket.status} />
-          <PriorityChip priority={ticket.priority} />
+          <span className="inline-flex items-center gap-1">
+            <PriorityChip priority={ticket.priority} />
+            {ticket.isStaffView && (
+              <ChangePriorityAction
+                ticket={ticket}
+                options={priorityOptions.data}
+              />
+            )}
+          </span>
           <SlaBadge level={ticket.slaLevel} />
           {ticket.escalatedToHeadAt && (
             <EscalatedBadge at={ticket.escalatedToHeadAt} />
@@ -199,6 +294,9 @@ export default function TicketPage() {
                   <span className="block text-xs text-muted">
                     {ticket.requesterDepartment}
                   </span>
+                )}
+                {ticket.isStaffView && (
+                  <RequesterSaid options={priorityOptions.data} />
                 )}
               </Detail>
               {raisedForSomeoneElse && (

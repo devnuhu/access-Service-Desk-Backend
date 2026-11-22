@@ -56,6 +56,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET, POST | `/api/admin/holidays?year=` | Super Admin | Company holidays, oldest first (server-settings ones flagged fromConfig); add one `{ date, name }` (409 if the date is already a holiday) |
 | DELETE | `/api/admin/holidays/{id}` | Super Admin | Remove a holiday added here (404 if gone) |
 | GET, PUT | `/api/admin/sla-policies` | Super Admin | Service levels: the four default targets (built-in when not saved) and the department and category overrides; save one `{ scope, departmentId?, categoryId?, priority, responseHours, resolutionHours }` |
+| GET | `/api/priority-matrix` | signed in (the request form uses it) | The impact and urgency questions with their wording, and the priority of all 16 answer pairs (`isDefault`: not edited) |
+| PUT | `/api/admin/priority-matrix` | Super Admin | Change cells `{ cells: [{ impact, urgency, priority }] }`; a cell sent at its default goes back to not edited; answers the whole matrix; affects tickets raised from now on |
 | DELETE | `/api/admin/sla-policies/{id}` | Super Admin | Remove a saved level: the level above (or the built-in default) applies again |
 | GET | `/api/canned-replies/placeholders` | signed in | The placeholders a saved reply may use, with what each becomes |
 | GET | `/api/tickets/{id}/canned-replies` | department staff, Super Admin (others 404) | Saved replies for this ticket (its unit first, then shared), placeholders filled in |
@@ -66,7 +68,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/units/{unitId}/skills` | Head of Unit, HOD, Department Admin, Super Admin | The unit's skills matrix and cover warnings |
 | PUT | `/api/units/{unitId}/skills/{userId}` | Head of Unit, Department Admin, Super Admin | One member's whole set of categories (the HOD reads only) |
 | PATCH, DELETE | `/api/canned-replies/{id}` | signed in (the library's keepers; others 403) | Change or remove a saved reply |
-| POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, priority?, subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
+| POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, impact, urgency (the priority comes from the priority matrix; priority? only when both are missing), subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
 | POST | `/api/tickets/duplicate-check` | signed in | Open tickets in the same category from the last 7 days with the same RSA PIN |
 | GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; status and search filters |
 | GET | `/api/tickets/{id}`, `/api/tickets/by-reference/{ref}` | requester, raiser, people copied, department staff, Super Admin (others 404) | The ticket, its files and comments (internal notes for staff only) |
@@ -78,6 +80,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/{id}/pick` | signed in; unit members mapped to the category, or the head | Take a New ticket from the pool (400 unavailable, 409 already taken) |
 | GET | `/api/tickets/{id}/assignments` | department staff, Super Admin | Assignment history with the workloads the engine compared |
 | GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
+| GET | `/api/tickets/{id}/priority` | anyone who can see the ticket (others 404) | Can I change the priority (`canChange`, `reason` why not), the priority, and for staff the requester's `impact` and `urgency` |
+| POST | `/api/tickets/{id}/priority` | signed in; head of the ticket's unit, HOD, Department Admin, Super Admin (others 403) | Change an open ticket's priority `{ priority, reason }` (reason 5-500, kept as an internal note); the service levels follow; 409 changed at the same moment |
 | GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes |
 | POST | `/api/tickets/{id}/acknowledge`, `/resume` | the assignee | Assigned/Reopened -> In progress; Pending -> In progress |
 | POST | `/api/tickets/{id}/pending` | the assignee | `{ reason: 1 requester / 2 third party, note }` |

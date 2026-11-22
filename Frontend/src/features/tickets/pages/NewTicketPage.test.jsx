@@ -46,6 +46,34 @@ const LOCATIONS = {
   defaultLocationId: "l-abj",
 };
 
+/** The built-in matrix, except My team + Soon, edited to Critical: the form must follow the matrix. */
+const MATRIX = {
+  impacts: [
+    { value: 1, label: "Just me", description: "Only I am affected." },
+    { value: 2, label: "My team", description: "People in my unit." },
+    { value: 3, label: "My department", description: "The whole department." },
+    { value: 4, label: "The whole company", description: "Everyone." },
+  ],
+  urgencies: [
+    { value: 1, label: "It can wait", description: "Next week is fine." },
+    { value: 2, label: "Soon", description: "In a day or two." },
+    { value: 3, label: "Urgent", description: "Today." },
+    { value: 4, label: "I cannot work", description: "Work has stopped." },
+  ],
+  cells: [1, 2, 3, 4].flatMap((impact) =>
+    [1, 2, 3, 4].map((urgency) => {
+      const sum = impact + urgency;
+      const edited = impact === 2 && urgency === 2;
+      return {
+        impact,
+        urgency,
+        priority: edited ? 4 : sum >= 8 ? 4 : sum >= 6 ? 3 : sum >= 4 ? 2 : 1,
+        isDefault: !edited,
+      };
+    }),
+  ),
+};
+
 const twoDaysAgo = new Date(Date.now() - 2.2 * 24 * 3600 * 1000).toISOString();
 
 function renderForm({ roles = ["Requester"], draft, routes = {} } = {}) {
@@ -58,6 +86,7 @@ function renderForm({ roles = ["Requester"], draft, routes = {} } = {}) {
   const api = installFakeApi(queryClient, {
     "GET /api/catalogue/categories": () => [200, CATALOGUE],
     "GET /api/locations": () => [200, LOCATIONS],
+    "GET /api/priority-matrix": () => [200, MATRIX],
     "POST /api/tickets/duplicate-check": (config) => {
       calls.duplicates.push(config.body);
       return [200, { pinsFound: [], matches: [] }];
@@ -103,25 +132,34 @@ afterEach(() => {
 });
 
 describe("Raise a ticket", () => {
-  it("sets the category's default priority until the user picks one; pre-selects the location; an empty description blocks submit", async () => {
+  it("asks who it affects and how urgent it is (both required); pre-selects the location; an empty description blocks submit", async () => {
     const user = userEvent.setup();
     const { calls } = renderForm();
 
-    // One department today: no Department select.
+    // One department today: no Department select; no Priority dropdown any more.
     await screen.findByRole("combobox", { name: "Category" });
     expect(screen.queryByLabelText("Department")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Priority")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByLabelText("Location")).toHaveDisplayValue("Abuja"),
     );
-    expect(screen.getByLabelText("Priority")).toHaveDisplayValue("Medium");
-
     await chooseCategory(user, "Account Reconciliation");
-    expect(screen.getByLabelText("Priority")).toHaveDisplayValue("High");
     expect(screen.getByText("Balances that do not agree.")).toBeInTheDocument();
 
-    await user.selectOptions(screen.getByLabelText("Priority"), "Low");
-    await chooseCategory(user, "Unmatched contribution");
-    expect(screen.getByLabelText("Priority")).toHaveDisplayValue("Low");
+    const affects = screen.getByRole("group", {
+      name: "Who does this affect?",
+    });
+    const urgent = screen.getByRole("group", { name: "How urgent is it?" });
+    expect(
+      within(affects)
+        .getAllByRole("radio")
+        .map((r) => r.closest("label").textContent),
+    ).toEqual([
+      "Just meOnly I am affected.",
+      "My teamPeople in my unit.",
+      "My departmentThe whole department.",
+      "The whole companyEveryone.",
+    ]);
 
     await user.type(screen.getByLabelText("Subject"), "Balance wrong");
     await screen.findByRole("toolbar", { name: "Formatting" });
@@ -129,11 +167,104 @@ describe("Raise a ticket", () => {
     expect(
       await screen.findByText("Describe the request."),
     ).toBeInTheDocument();
+    expect(affects).toHaveAccessibleDescription("Choose who this affects.");
+    expect(urgent).toHaveAccessibleDescription("Choose how urgent it is.");
     expect(document.getElementById("ticket-description")).toHaveAttribute(
       "aria-invalid",
       "true",
     );
     expect(calls.create).toHaveLength(0);
+  });
+
+  it("“We will treat this as” follows the matrix as the answers change, and is read-only", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const preview = await screen.findByTestId("priority-preview");
+    const affects = screen.getByRole("group", {
+      name: "Who does this affect?",
+    });
+    const urgent = screen.getByRole("group", { name: "How urgent is it?" });
+    expect(preview).toBeEmptyDOMElement();
+
+    await user.click(within(affects).getByRole("radio", { name: /My team/ }));
+    expect(preview).toBeEmptyDOMElement();
+    await user.click(within(urgent).getByRole("radio", { name: /^Soon/ }));
+    // Edited cell: Critical, not the built-in Medium.
+    await waitFor(() =>
+      expect(preview).toHaveTextContent(
+        "We will treat this as Critical priority.",
+      ),
+    );
+    await user.click(
+      within(urgent).getByRole("radio", { name: /It can wait/ }),
+    );
+    expect(preview).toHaveTextContent("We will treat this as Low priority.");
+    await user.click(
+      within(affects).getByRole("radio", { name: /The whole company/ }),
+    );
+    await user.click(
+      within(urgent).getByRole("radio", { name: /I cannot work/ }),
+    );
+    expect(preview).toHaveTextContent(
+      "We will treat this as Critical priority.",
+    );
+    expect(within(preview).queryByRole("combobox")).not.toBeInTheDocument();
+    expect(within(preview).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("without the matrix the questions still show (built-in wording) and the priority line hides", async () => {
+    const user = userEvent.setup();
+    renderForm({
+      routes: {
+        "GET /api/priority-matrix": () => [500, { message: "Down." }],
+      },
+    });
+    const affects = await screen.findByRole("group", {
+      name: "Who does this affect?",
+    });
+    const urgent = screen.getByRole("group", { name: "How urgent is it?" });
+    await user.click(
+      await within(affects).findByRole("radio", { name: "Just me" }),
+    );
+    await user.click(within(urgent).getByRole("radio", { name: "Urgent" }));
+    expect(
+      within(urgent).getByRole("radio", { name: "I cannot work" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("priority-preview")).toBeEmptyDOMElement();
+  });
+
+  it("a 400 naming impact or urgency marks that question", async () => {
+    const user = userEvent.setup();
+    renderForm({
+      draft: {
+        categoryId: "c-ar",
+        impact: 1,
+        urgency: 1,
+        subject: "Balance query",
+        descriptionHtml: "<p>Please check.</p>",
+      },
+      routes: {
+        "POST /api/tickets": () => [
+          400,
+          {
+            message: "Some details are not valid.",
+            errors: { urgency: "Choose how urgent it is." },
+          },
+        ],
+      },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText("Location")).toHaveDisplayValue("Abuja"),
+    );
+    await screen.findByRole("toolbar", { name: "Formatting" });
+    await user.click(screen.getByRole("button", { name: "Raise ticket" }));
+    const urgent = screen.getByRole("group", { name: "How urgent is it?" });
+    await waitFor(() =>
+      expect(urgent).toHaveAccessibleDescription("Choose how urgent it is."),
+    );
+    expect(
+      screen.getByRole("group", { name: "Who does this affect?" }),
+    ).not.toHaveAccessibleDescription();
   });
 
   it("sends multipart/form-data with repeated ccUserIds and files and the CSRF header; a 400 on files shows under the picker and keeps the typing", async () => {
@@ -150,6 +281,8 @@ describe("Raise a ticket", () => {
       roles: ["Requester", "SuperAdmin"],
       draft: {
         categoryId: "c-ar",
+        impact: 2,
+        urgency: 3,
         subject: "Contribution not on statement",
         descriptionHtml: "<p>Please <strong>check</strong> this.</p>",
         cc: [
@@ -186,7 +319,9 @@ describe("Raise a ticket", () => {
     const form = config.body;
     expect(form.get("categoryId")).toBe("c-ar");
     expect(form.get("locationId")).toBe("l-abj");
-    expect(form.get("priority")).toBe("3");
+    expect(form.get("impact")).toBe("2");
+    expect(form.get("urgency")).toBe("3");
+    expect(form.has("priority")).toBe(false);
     expect(form.get("subject")).toBe("Contribution not on statement");
     expect(form.get("descriptionHtml")).toBe(
       "<p>Please <strong>check</strong> this.</p>",
@@ -229,6 +364,8 @@ describe("Raise a ticket", () => {
     const { calls } = renderForm({
       draft: {
         categoryId: "c-ar",
+        impact: 1,
+        urgency: 1,
         subject: "Balance query",
         descriptionHtml:
           "<p>Member PEN123456789012 says the balance is short.</p>",
@@ -288,6 +425,8 @@ describe("Copy colleagues (CC) for everyone", () => {
     const { calls } = renderForm({
       draft: {
         categoryId: "c-ar",
+        impact: 1,
+        urgency: 1,
         subject: "Balance query",
         descriptionHtml: "<p>Please check.</p>",
         cc: nine,

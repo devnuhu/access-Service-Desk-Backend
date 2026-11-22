@@ -39,6 +39,7 @@ import {
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
 import { listHolidays } from "../src/features/admin-holidays/api/endpoints.js";
 import { getSlaPolicies } from "../src/features/admin-sla/api/endpoints.js";
+import { getPriorityMatrix } from "../src/features/catalogue/api/endpoints.js";
 import {
   listPlaceholders,
   listSharedReplies,
@@ -54,6 +55,7 @@ import {
   getTicket,
   getSlaSummary,
   getTicketActions,
+  getTicketPriority,
   getTicketByReference,
   listPool,
   listLocations,
@@ -289,6 +291,12 @@ export const ACCESS_TABLE = [
   }),
   write("PUT", "/api/admin/sla-policies", SUPER),
   write("DELETE", "/api/admin/sla-policies/{id}", SUPER),
+  // Priority matrix: anyone signed in reads it (the request form); Super Admin edits it
+  get("/api/priority-matrix", SIGNED_IN, {
+    probe: {},
+    schema: getPriorityMatrix.response,
+  }),
+  write("PUT", "/api/admin/priority-matrix", SUPER),
 
   // Saved replies: staff of a ticket read its replies (404 otherwise); a unit's head, the
   // Department Admin and Super Admin keep its library (403 otherwise); Super Admin the shared one
@@ -412,6 +420,12 @@ export const ACCESS_TABLE = [
     schema: getTicketActions.response,
   }),
   write("POST", "/api/tickets/{ticketId}/acknowledge", SIGNED_IN),
+  // Priority (impact and urgency): the service decides by the ticket and the person
+  get("/api/tickets/{ticketId}/priority", SIGNED_IN, {
+    ...from("/api/tickets", "id", { view: "mine", page: 1, pageSize: 1 }),
+    schema: getTicketPriority.response,
+  }),
+  write("POST", "/api/tickets/{ticketId}/priority", SIGNED_IN),
   refused("pending", { reason: 1, note: "" }, "an empty note"),
   write("POST", "/api/tickets/{ticketId}/resume", SIGNED_IN),
   refused("resolve", { code: 1, note: "" }, "an empty note"),

@@ -5166,6 +5166,274 @@
         }
       }
     },
+    "/api/priority-matrix": {
+      "get": {
+        "tags": [
+          "Priority"
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriorityMatrixDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/priority-matrix": {
+      "put": {
+        "tags": [
+          "Priority"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SavePriorityMatrixRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SavePriorityMatrixRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/SavePriorityMatrixRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriorityMatrixDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets/{ticketId}/priority": {
+      "get": {
+        "tags": [
+          "Priority"
+        ],
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PriorityOptionsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Priority"
+        ],
+        "parameters": [
+          {
+            "name": "ticketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ChangePriorityRequest"
+                  }
+                ]
+              }
+            },
+            "text/json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ChangePriorityRequest"
+                  }
+                ]
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/ChangePriorityRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports/export": {
       "post": {
         "tags": [
@@ -7028,6 +7296,20 @@
                       }
                     ]
                   },
+                  "Impact": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/TicketImpact"
+                      }
+                    ]
+                  },
+                  "Urgency": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/TicketUrgency"
+                      }
+                    ]
+                  },
                   "Subject": {
                     "type": "string"
                   },
@@ -7062,6 +7344,12 @@
                   "style": "form"
                 },
                 "Priority": {
+                  "style": "form"
+                },
+                "Impact": {
+                  "style": "form"
+                },
+                "Urgency": {
                   "style": "form"
                 },
                 "Subject": {
@@ -9412,6 +9700,22 @@
         },
         "additionalProperties": false
       },
+      "ChangePriorityRequest": {
+        "type": "object",
+        "properties": {
+          "priority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "CommentKind": {
         "enum": [
           0,
@@ -10640,6 +10944,139 @@
         },
         "additionalProperties": false
       },
+      "PriorityCellDto": {
+        "type": "object",
+        "properties": {
+          "impact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketImpact"
+              }
+            ]
+          },
+          "urgency": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketUrgency"
+              }
+            ]
+          },
+          "priority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriorityCellRequest": {
+        "type": "object",
+        "properties": {
+          "impact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketImpact"
+              }
+            ]
+          },
+          "urgency": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketUrgency"
+              }
+            ]
+          },
+          "priority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriorityChoiceDto": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriorityMatrixDto": {
+        "type": "object",
+        "properties": {
+          "impacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriorityChoiceDto"
+            }
+          },
+          "urgencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriorityChoiceDto"
+            }
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriorityCellDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "PriorityOptionsDto": {
+        "type": "object",
+        "properties": {
+          "canChange": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "priority": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketPriority"
+              }
+            ]
+          },
+          "impact": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketImpact"
+              }
+            ],
+            "nullable": true
+          },
+          "urgency": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TicketUrgency"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ProblemDetails": {
         "type": "object",
         "properties": {
@@ -11240,6 +11677,19 @@
           },
           "isActive": {
             "type": "boolean",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "SavePriorityMatrixRequest": {
+        "type": "object",
+        "properties": {
+          "cells": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriorityCellRequest"
+            },
             "nullable": true
           }
         },
@@ -12157,6 +12607,16 @@
         },
         "additionalProperties": false
       },
+      "TicketImpact": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
       "TicketLinkDto": {
         "type": "object",
         "properties": {
@@ -12364,6 +12824,16 @@
           6,
           7,
           8
+        ],
+        "type": "integer",
+        "format": "int32"
+      },
+      "TicketUrgency": {
+        "enum": [
+          1,
+          2,
+          3,
+          4
         ],
         "type": "integer",
         "format": "int32"

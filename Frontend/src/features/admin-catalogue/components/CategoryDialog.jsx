@@ -259,7 +259,7 @@ export default function CategoryDialog({
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             id="category-priority"
-            label="Default priority"
+            label="Default priority (used only when no answers are given)"
             error={errors.defaultPriority}
           >
             <select

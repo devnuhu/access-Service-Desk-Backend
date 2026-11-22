@@ -1201,3 +1201,222 @@ describe("Linked tickets and merge", () => {
     expect(asked).toBe(false);
   });
 });
+
+describe("Change priority (staff)", () => {
+  const MATRIX = {
+    impacts: [
+      { value: 1, label: "Just me", description: "" },
+      { value: 2, label: "My team", description: "" },
+      { value: 3, label: "My department", description: "" },
+      { value: 4, label: "The whole company", description: "" },
+    ],
+    urgencies: [
+      { value: 1, label: "It can wait", description: "" },
+      { value: 2, label: "Soon", description: "" },
+      { value: 3, label: "Urgent", description: "" },
+      { value: 4, label: "I cannot work", description: "" },
+    ],
+    cells: [],
+  };
+
+  /** A staff view whose priority endpoint answers `options`; POST answers `answer`. */
+  function renderStaff({ options = {}, answer, staff = true } = {}) {
+    const state = { priority: 2, ticketGets: 0, optionGets: 0, sent: [] };
+    const api = renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => {
+        state.ticketGets += 1;
+        return [200, ticket({ isStaffView: staff, priority: state.priority })];
+      },
+      "GET /api/priority-matrix": () => [200, MATRIX],
+      "GET /api/tickets/:ticketId/priority": () => {
+        state.optionGets += 1;
+        return [
+          200,
+          {
+            canChange: true,
+            reason: null,
+            priority: state.priority,
+            impact: 2,
+            urgency: 2,
+            ...options,
+          },
+        ];
+      },
+      "POST /api/tickets/:ticketId/priority": (config) => {
+        state.sent.push(config.body);
+        if (answer) return answer();
+        state.priority = config.body.priority;
+        return [200, { message: "Priority changed from Medium to High." }];
+      },
+    });
+    return { api, state };
+  }
+
+  it("shows what the requester said, checks the reason, sends it and refreshes the ticket", async () => {
+    const user = userEvent.setup();
+    const { state } = renderStaff();
+    expect(await screen.findByTestId("requester-said")).toHaveTextContent(
+      "Requester said: My team, Soon",
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: "Change priority" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Change the priority of CP-2026-000001",
+    });
+    const select = within(dialog).getByLabelText("New priority");
+    expect(
+      within(select).getByRole("option", { name: "Medium (current)" }),
+    ).toBeDisabled();
+
+    // Nothing chosen and too short a reason: nothing is sent.
+    await user.type(within(dialog).getByLabelText("Reason"), "abc");
+    expect(dialog).toHaveTextContent("3 of 500 characters");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    expect(
+      within(dialog).getByText("Choose the new priority."),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Reason")).toHaveAccessibleDescription(
+      /Say why the priority changes \(5 to 500 characters\)\./,
+    );
+    expect(state.sent).toEqual([]);
+
+    await user.selectOptions(select, "3");
+    await user.type(
+      within(dialog).getByLabelText("Reason"),
+      " - member called twice",
+    );
+    const gets = { ticket: state.ticketGets, options: state.optionGets };
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    expect(
+      await screen.findByText("Priority changed from Medium to High."),
+    ).toBeInTheDocument();
+    expect(state.sent).toEqual([
+      { priority: 3, reason: "abc - member called twice" },
+    ]);
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    // The ticket and its priority options were fetched again: the chip follows.
+    expect(state.ticketGets).toBeGreaterThan(gets.ticket);
+    expect(state.optionGets).toBeGreaterThan(gets.options);
+    const header = screen.getByRole("heading", {
+      name: "Balance does not agree",
+    }).parentElement.parentElement;
+    await waitFor(() => expect(header).toHaveTextContent("High"));
+  });
+
+  it("errors.reason from the server shows under the reason", async () => {
+    const user = userEvent.setup();
+    renderStaff({
+      answer: () => [
+        400,
+        {
+          message: "Say why the priority changes (5 to 500 characters).",
+          errors: {
+            reason: "Say why the priority changes (5 to 500 characters).",
+          },
+        },
+      ],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Change priority" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(
+      within(dialog).getByLabelText("New priority"),
+      "4",
+    );
+    await user.type(within(dialog).getByLabelText("Reason"), "Members waiting");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    await waitFor(() =>
+      expect(within(dialog).getByLabelText("Reason")).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      ),
+    );
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("a 409 says to reload, with a Reload button; a 403 shows as a plain message", async () => {
+    const user = userEvent.setup();
+    let status = 409;
+    const { state } = renderStaff({
+      answer: () => [status, { message: "Not allowed for this ticket." }],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Change priority" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(
+      within(dialog).getByLabelText("New priority"),
+      "1",
+    );
+    await user.type(within(dialog).getByLabelText("Reason"), "Not urgent now");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The ticket changed at the same moment. Reload and try again.",
+    );
+
+    status = 403;
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Not allowed for this ticket.",
+    );
+
+    status = 409;
+    await user.click(
+      within(dialog).getByRole("button", { name: "Change priority" }),
+    );
+    const gets = state.ticketGets;
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Reload" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(state.ticketGets).toBeGreaterThan(gets);
+  });
+
+  it("when not allowed, the action is disabled with the reason as its tooltip", async () => {
+    renderStaff({
+      options: {
+        canChange: false,
+        reason: "Only the head of the unit can change the priority.",
+        impact: null,
+        urgency: null,
+      },
+    });
+    const action = await screen.findByRole("button", {
+      name: "Change priority",
+    });
+    expect(action).toHaveAttribute("aria-disabled", "true");
+    expect(action).toHaveAttribute(
+      "title",
+      "Only the head of the unit can change the priority.",
+    );
+    // An older ticket: no answers, no "Requester said" line.
+    expect(screen.queryByTestId("requester-said")).not.toBeInTheDocument();
+  });
+
+  it("a requester never asks for the priority options and sees no answers", async () => {
+    const { state } = renderStaff({ staff: false });
+    await screen.findByRole("heading", { name: "Balance does not agree" });
+    expect(
+      screen.queryByRole("button", { name: "Change priority" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("requester-said")).not.toBeInTheDocument();
+    expect(state.optionGets).toBe(0);
+  });
+});

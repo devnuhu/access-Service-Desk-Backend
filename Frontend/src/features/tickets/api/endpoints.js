@@ -175,8 +175,9 @@ export const listLocations = defineEndpoint({
 });
 
 /**
- * Raise a ticket (multipart). 400 answers errors.<field> for categoryId, locationId, priority,
- * subject, descriptionHtml, ccUserIds, files and requesterUserId (Super Admin only).
+ * Raise a ticket (multipart). The priority comes from impact and urgency through the priority matrix.
+ * 400 answers errors.<field> for categoryId, locationId, impact, urgency, subject, descriptionHtml,
+ * ccUserIds, files and requesterUserId (Super Admin only).
  */
 export const createTicket = defineEndpoint({
   method: "POST",
@@ -185,7 +186,8 @@ export const createTicket = defineEndpoint({
   body: z.object({
     categoryId: z.string().min(1),
     locationId: z.string().min(1),
-    priority: z.number().int().optional(),
+    impact: z.number().int().min(1).max(4),
+    urgency: z.number().int().min(1).max(4),
     subject: z.string(),
     descriptionHtml: z.string(),
     ccUserIds: z.array(z.string()).optional(),
@@ -634,4 +636,36 @@ export const mergeTicket = defineEndpoint({
     copyRequester: z.boolean(),
   }),
   response: messageSchema,
+});
+
+/**
+ * Can I change this ticket's priority (canChange; reason says why not), the priority, and for
+ * staff the requester's answers (impact, urgency: null on older tickets and for everyone else).
+ * 404: the ticket cannot be seen.
+ */
+export const getTicketPriority = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/priority",
+  response: z.object({
+    canChange: z.boolean(),
+    reason: z.string().nullable().optional(),
+    priority: z.number().int(),
+    impact: z.number().int().nullable().optional(),
+    urgency: z.number().int().nullable().optional(),
+  }),
+});
+
+/**
+ * Change an open ticket's priority with a reason (5 to 500 characters, kept as an internal note);
+ * the service-level targets follow. 400 errors.priority / errors.reason; 403; 404; 409 changed at
+ * the same moment.
+ */
+export const changeTicketPriority = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/priority",
+  body: z.object({
+    priority: z.number().int().min(1).max(4),
+    reason: z.string().trim().min(5).max(500),
+  }),
+  response: z.object({ message: z.string() }),
 });
