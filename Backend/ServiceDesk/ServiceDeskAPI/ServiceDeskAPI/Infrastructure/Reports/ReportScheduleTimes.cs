@@ -26,12 +26,13 @@ namespace ServiceDeskAPI.Infrastructure.Reports
         {
             ReportFrequency.Daily => clock.IsWorkingDay(localDate),
             ReportFrequency.Weekly => localDate.DayOfWeek == s.WeekDay,
+            ReportFrequency.Custom => clock.IsWorkingDay(localDate) && (s.DaysMask & (1 << (int)localDate.DayOfWeek)) != 0,
             _ => localDate.Day == s.DayOfMonth
         };
 
         public static string Key(ReportSchedule s, DateTime localDate) => s.Frequency switch
         {
-            ReportFrequency.Daily => "D-" + localDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
+            ReportFrequency.Daily or ReportFrequency.Custom => "D-" + localDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture),
             ReportFrequency.Weekly => "W-" + ISOWeek.GetYear(localDate).ToString(CultureInfo.InvariantCulture) + ISOWeek.GetWeekOfYear(localDate).ToString("00", CultureInfo.InvariantCulture),
             _ => "M-" + localDate.ToString("yyyyMM", CultureInfo.InvariantCulture)
         };

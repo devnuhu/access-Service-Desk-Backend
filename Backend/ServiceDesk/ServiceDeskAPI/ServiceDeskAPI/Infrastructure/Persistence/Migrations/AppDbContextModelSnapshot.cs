@@ -902,10 +902,18 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CcJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<int>("DayOfMonth")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DaysMask")
                         .HasColumnType("int");
 
                     b.Property<bool>("Enabled")

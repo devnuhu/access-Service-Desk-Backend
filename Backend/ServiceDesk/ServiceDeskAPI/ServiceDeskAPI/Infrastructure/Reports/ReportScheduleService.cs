@@ -48,6 +48,18 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             _logger = logger;
         }
 
+        private static readonly System.Text.RegularExpressions.Regex EmailShape = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        private static List<string> DayNames(int mask) =>
+            new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday }
+                .Where(d => (mask & (1 << (int)d)) != 0).Select(d => d.ToString()).ToList();
+
+        private static List<ReportRecipientDto> ParseCc(string? json)
+        {
+            try { return JsonSerializer.Deserialize<List<ReportRecipientDto>>(string.IsNullOrWhiteSpace(json) ? "[]" : json) ?? new(); }
+            catch (JsonException) { return new(); }
+        }
+
         private static ReportProblem Bad(string message) => new(400, message);
 
         private static string? Shorten(string? text) => text == null ? null : (text.Length > MaxErrorLength ? text.Substring(0, MaxErrorLength) : text);
@@ -62,6 +74,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 Id = s.Id, SavedReportId = s.SavedReportId, ReportName = reportName,
                 Frequency = s.Frequency.ToString().ToLowerInvariant(),
                 WeekDay = s.Frequency == ReportFrequency.Weekly ? s.WeekDay.ToString() : null,
+                WeekDays = s.Frequency == ReportFrequency.Custom ? DayNames(s.DaysMask) : null,
+                Cc = ParseCc(s.CcJson),
                 DayOfMonth = s.Frequency == ReportFrequency.Monthly ? s.DayOfMonth : (int?)null,
                 SendHour = s.SendHour, Format = s.Format, Enabled = s.Enabled,
                 NextRunAt = next, LastSentAt = Utc(s.LastSentAt), LastStatus = s.LastStatus, LastError = s.LastError,
@@ -92,12 +106,35 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             if (request == null) return (Bad("The schedule is missing."), null);
 
             if (!Enum.TryParse<ReportFrequency>((request.Frequency ?? string.Empty).Trim(), true, out var frequency) || !Enum.IsDefined(frequency))
-                return (Bad("Frequency must be daily, weekly or monthly."), null);
+                return (Bad("Frequency must be daily, weekly, monthly or custom."), null);
             if (request.SendHour < 0 || request.SendHour > 23) return (Bad("SendHour must be from 0 to 23 (Lagos time)."), null);
             var weekDay = DayOfWeek.Monday;
             if (frequency == ReportFrequency.Weekly
                 && (!Enum.TryParse<DayOfWeek>((request.WeekDay ?? string.Empty).Trim(), true, out weekDay) || !Enum.IsDefined(weekDay)))
                 return (Bad("WeekDay must be a day name such as Monday."), null);
+            var daysMask = 0;
+            if (frequency == ReportFrequency.Custom)
+            {
+                foreach (var dayName in request.WeekDays ?? new List<string>())
+                {
+                    if (!Enum.TryParse<DayOfWeek>((dayName ?? string.Empty).Trim(), true, out var chosen) || !Enum.IsDefined(chosen) || chosen == DayOfWeek.Saturday || chosen == DayOfWeek.Sunday)
+                        return (Bad("WeekDays must be day names from Monday to Friday."), null);
+                    daysMask |= 1 << (int)chosen;
+                }
+                if (daysMask == 0) return (Bad("Choose at least one weekday."), null);
+            }
+            var cc = new List<ReportRecipientDto>();
+            foreach (var person in request.Cc ?? new List<ReportRecipientDto>())
+            {
+                var address = (person.Email ?? string.Empty).Trim().ToLowerInvariant();
+                if (address.Length == 0) continue;
+                if (address.Length > 254 || !EmailShape.IsMatch(address)) return (Bad("'" + address + "' is not a valid email address."), null);
+                if (cc.Any(c => c.Email == address)) continue;
+                var copyName = (person.Name ?? string.Empty).Trim();
+                if (copyName.Length > 100) copyName = copyName.Substring(0, 100);
+                cc.Add(new ReportRecipientDto { Name = copyName, Email = address });
+            }
+            if (cc.Count > 10) return (Bad("You can copy up to 10 people."), null);
             var dayOfMonth = 1;
             if (frequency == ReportFrequency.Monthly)
             {
@@ -139,6 +176,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             entity.DayOfMonth = dayOfMonth;
             entity.SendHour = request.SendHour;
             entity.Format = format;
+            entity.DaysMask = daysMask;
+            entity.CcJson = JsonSerializer.Serialize(cc);
             entity.Enabled = request.Enabled;
             entity.StartsAfterUtc = DateTime.UtcNow;      // the first send is the next scheduled time after saving
             entity.PendingPeriodKey = null;
@@ -195,7 +234,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                         s.LastPeriodKey = key;
                         s.LastStatus = "Sent";
                         s.LastSentAt = nowUtc;
-                        s.LastError = null;
+                        s.LastError = Shorten(error);
                         s.PendingPeriodKey = null;
                         s.PendingAttempts = 0;
                         sent++;
@@ -275,12 +314,14 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 EmailBlock.Details(("Report", report.Name), ("Period", period), ("Lines", Plain(result.Rows.Count) + (result.Truncated ? " (the first lines only)" : string.Empty)),
                     ("Made", EmailTemplates.LagosText(result.GeneratedAt)))
             };
-            if (result.Mode == "summary" && result.Columns.Count >= 2 && result.Rows.Count > 0)
+            if (result.Columns.Count > 0 && result.Rows.Count > 0)
             {
-                blocks.Add(EmailBlock.Paragraph("**" + result.Columns[1].Label + "**" + (result.Columns[0].Key == "group" ? " by " + result.Columns[0].Label : string.Empty)));
-                var lines = result.Rows.Take(10).Select(r => (Plain(r.Count > 0 ? r[0] : null), Plain(r.Count > 1 ? r[1] : null))).ToArray();
-                blocks.Add(EmailBlock.Details(lines));
-                if (result.Rows.Count > 10) blocks.Add(EmailBlock.Note("Only the first 10 lines are shown here. The full report is in the attachment and in " + brand.AppName + "."));
+                var shownColumns = Math.Min(result.Columns.Count, 8);
+                var shownRows = result.Rows.Take(25).ToList();
+                blocks.Add(EmailBlock.Table(result.Columns.Take(shownColumns).Select(col => col.Label),
+                    shownRows.Select(line => (IEnumerable<string>)line.Take(shownColumns).Select(cell => Plain(cell)).ToList()).ToList()));
+                if (result.Rows.Count > shownRows.Count || result.Columns.Count > shownColumns)
+                    blocks.Add(EmailBlock.Note("The email shows the first " + shownRows.Count + " lines and " + shownColumns + " columns. The full report is in the attachment and in " + brand.AppName + "."));
             }
             if (result.Totals != null && result.Columns.Count > 0)
             {
@@ -308,6 +349,27 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             var (ok, message) = attach
                 ? await _email.SendEmailWithAttachmentsAsync(to, parts.Subject, parts.Html, new[] { new EmailAttachment(fileName, bytes, isCsv ? "text/csv" : ReportExporter.XlsxType) })
                 : await _email.SendEmailAsync(to, parts.Subject, parts.Html);
+            var copyFailures = new List<string>();
+            var copyList = ParseCc(s.CcJson).Where(x => !string.Equals(x.Email, to, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (ok && copyList.Count > 0)
+            {
+                var ownerName = (person.FullName ?? person.UserName ?? string.Empty).Trim();
+                var copyBlocks = new List<EmailBlock>(blocks);
+                copyBlocks[0] = EmailBlock.Paragraph(ownerName + " copied you on the scheduled report **" + result.Title + "**" + (attach ? ", attached." : "."));
+                copyBlocks[copyBlocks.Count - 1] = EmailBlock.Note("You are receiving a copy because " + ownerName + " added you to this scheduled report in " + brand.AppName + ".");
+                var copyParts = EmailTemplates.Build(new EmailContent
+                {
+                    Subject = "Scheduled report: " + result.Title, Heading = result.Title, Preheader = "A scheduled report copied to you.",
+                    Greeting = "Hello,", Label = "Scheduled report", LabelTone = "info", Automatic = true, Blocks = copyBlocks
+                }, brand);
+                foreach (var recipient in copyList)
+                {
+                    var (copySent, copyMessage) = attach
+                        ? await _email.SendEmailWithAttachmentsAsync(recipient.Email, copyParts.Subject, copyParts.Html, new[] { new EmailAttachment(fileName, bytes, isCsv ? "text/csv" : ReportExporter.XlsxType) })
+                        : await _email.SendEmailAsync(recipient.Email, copyParts.Subject, copyParts.Html);
+                    if (!copySent) { copyFailures.Add(recipient.Email); _logger.LogWarning("A copy of the scheduled report was not sent to {Email}: {Message}", recipient.Email, copyMessage); }
+                }
+            }
             if (!ok)
             {
                 _logger.LogWarning("The scheduled report for user {UserId} was not sent: {Message}", s.OwnerUserId, message);
@@ -321,7 +383,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                     "system", "Report schedule worker", AuditModule.Reports);
             }
             catch (Exception ex) { _logger.LogWarning(ex, "The scheduled report was sent but the audit entry could not be written."); }
-            return ("Sent", null);
+            return ("Sent", copyFailures.Count == 0 ? null : "Sent to you, but not to: " + string.Join(", ", copyFailures));
         }
     }
 }

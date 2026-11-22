@@ -145,6 +145,8 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 if (!measures.Contains(key)) measures.Add(key);
             }
             if (mode == "summary" && measures.Count == 0) measures.Add("count");
+            var needAssignedP = measures.Contains("assignedInPeriod");
+            var needSnapshot = measures.Any(m => m is "openNow" or "pending" or "pendingRequester" or "pendingThirdParty");
 
             var columns = new List<string>();
             foreach (var c in spec.Columns ?? new List<string>())
@@ -187,7 +189,9 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             if (range.FromUtc.HasValue)
             {
                 var f = range.FromUtc.Value; var e = range.ToUtc!.Value;
-                q = q.Where(t => (t.CreatedAt >= f && t.CreatedAt < e) || (t.ResolvedAt >= f && t.ResolvedAt < e) || (t.ClosedAt >= f && t.ClosedAt < e));
+                var wantAssigned = needAssignedP; var wantOpen = needSnapshot;
+                q = q.Where(t => (t.CreatedAt >= f && t.CreatedAt < e) || (t.ResolvedAt >= f && t.ResolvedAt < e) || (t.ClosedAt >= f && t.ClosedAt < e)
+                    || (wantAssigned && t.AssignedAt >= f && t.AssignedAt < e) || (wantOpen && OpenStatuses.Contains(t.Status)));
             }
 
             var loaded = await q.OrderByDescending(t => t.CreatedAt).Take(MaxTicketRows + 1).Select(t => new Row
@@ -203,7 +207,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 AssigneeUserName = t.AssigneeUserId == null ? null : t.AssigneeUser!.UserName,
                 CreatedAt = t.CreatedAt, FirstRespondedAt = t.FirstRespondedAt, ResolvedAt = t.ResolvedAt, ClosedAt = t.ClosedAt, CancelledAt = t.CancelledAt,
                 EscalatedAt = t.EscalatedToHeadAt, ReopenCount = t.ReopenCount, Resolution = (int?)t.ResolutionCode,
-                AssignedAt = t.AssignedAt, MissedAt = t.FirstResponseMissedAt, MissedBy = t.FirstResponseMissedByUserId
+                AssignedAt = t.AssignedAt, MissedAt = t.FirstResponseMissedAt, MissedBy = t.FirstResponseMissedByUserId, PendingWhy = t.PendingReason
             }).ToListAsync(cancellationToken);
             var truncated = loaded.Count > MaxTicketRows;
             if (truncated) loaded.RemoveAt(loaded.Count - 1);
@@ -280,6 +284,21 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 if (needRaised && InRange(r.CreatedAt)) { var d = Dim(groupBy, r, r.CreatedAt, now); if (d != null) Get(d.Value.Key, d.Value.Label).Raised++; total.Raised++; }
                 if (needResolvedP && r.ResolvedAt.HasValue && InRange(r.ResolvedAt.Value)) { var d = Dim(groupBy, r, r.ResolvedAt, now); if (d != null) Get(d.Value.Key, d.Value.Label).ResolvedP++; total.ResolvedP++; }
                 if (needClosedP && r.ClosedAt.HasValue && InRange(r.ClosedAt.Value)) { var d = Dim(groupBy, r, r.ClosedAt, now); if (d != null) Get(d.Value.Key, d.Value.Label).ClosedP++; total.ClosedP++; }
+                if (needAssignedP && r.AssignedAt.HasValue && InRange(r.AssignedAt.Value)) { var d = Dim(groupBy, r, r.AssignedAt, now); if (d != null) Get(d.Value.Key, d.Value.Label).AssignedP++; total.AssignedP++; }
+                if (needSnapshot && r.IsOpen)
+                {
+                    var snap = Dim(groupBy, r, null, now);
+                    var grp = snap == null ? null : Get(snap.Value.Key, snap.Value.Label);
+                    if (grp != null) grp.OpenNow++;
+                    total.OpenNow++;
+                    if (r.Status == TicketStatus.Pending)
+                    {
+                        if (grp != null) grp.Pending++;
+                        total.Pending++;
+                        if (r.PendingWhy == PendingReason.Requester) { if (grp != null) grp.PendingRequester++; total.PendingRequester++; }
+                        else if (r.PendingWhy == PendingReason.ThirdParty) { if (grp != null) grp.PendingThirdParty++; total.PendingThirdParty++; }
+                    }
+                }
             }
 
             var measureColumns = measures.Select(m => ReportCatalogue.Measures.First(x => x.Key == m)).ToList();
@@ -347,6 +366,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             public DateTime? AssignedAt { get; set; }
             public DateTime? MissedAt { get; set; }
             public Guid? MissedBy { get; set; }
+            public PendingReason? PendingWhy { get; set; }
 
             public bool IsOpen => OpenStatuses.Contains(Status);
             public bool IsDone => Status is TicketStatus.Resolved or TicketStatus.Closed;
@@ -361,6 +381,12 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             public int Raised;
             public int ResolvedP;
             public int ClosedP;
+            public int AssignedP;
+            /// <summary>Right now, whatever the period: everything open, and how much of it is Pending.</summary>
+            public int OpenNow;
+            public int Pending;
+            public int PendingRequester;
+            public int PendingThirdParty;
             /// <summary>Grouped by person: a missed first response counts against the person who missed it.</summary>
             public bool ByPerson;
         }
@@ -497,6 +523,11 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 case "raised": return g.Raised;
                 case "resolvedInPeriod": return g.ResolvedP;
                 case "closedInPeriod": return g.ClosedP;
+                case "assignedInPeriod": return g.AssignedP;
+                case "openNow": return g.OpenNow;
+                case "pending": return g.Pending;
+                case "pendingRequester": return g.PendingRequester;
+                case "pendingThirdParty": return g.PendingThirdParty;
                 default: return null;
             }
         }

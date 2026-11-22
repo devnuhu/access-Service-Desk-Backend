@@ -28,7 +28,12 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             new("closedInPeriod", "Closed in period", "number", "Tickets closed in the period (by closing date, always)."),
             new("firstResponseMetPercent", "Responded in time %", "percent", "Of the tickets that reached a case worker, the share they acknowledged or answered within the first-response time (4 business hours from when it was assigned to them)."),
             new("firstResponseMissed", "No response in time", "number", "Tickets where the case worker did not acknowledge or answer within the first-response time. Grouped by person it counts against the person who missed it."),
-            new("reopenedPercent", "Reopened %", "percent", "Share of tickets reopened at least once.")
+            new("reopenedPercent", "Reopened %", "percent", "Share of tickets reopened at least once."),
+            new("assignedInPeriod", "Assigned in period", "number", "Tickets whose latest assignment to a person was in the period (by assignment date, always). A ticket reassigned later counts for the current holder."),
+            new("openNow", "Open now (any date)", "number", "Everything still open right now, whatever date it was raised. Ignores the period."),
+            new("pending", "On hold (Pending)", "number", "Tickets set to Pending right now: waiting on the requester or a third party. Ignores the period."),
+            new("pendingRequester", "Pending: waiting on requester", "number", "Pending right now because the case worker is waiting on the requester. Ignores the period."),
+            new("pendingThirdParty", "Pending: waiting on third party", "number", "Pending right now because the case worker is waiting on a third party. Ignores the period.")
         };
 
         public static readonly ReportOption[] GroupBys =
@@ -91,7 +96,9 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             Make("R10", "Team performance", "Each case worker: tickets, resolved, average time to resolve, finished within time, answered in time and reopened.",
                 new ReportSpec { Title = "Team performance", Preset = "last30", GroupBy = "assignee", Measures = new() { "count", "resolved", "avgResolutionHours", "withinSlaPercent", "firstResponseMetPercent", "firstResponseMissed", "reopenedPercent" }, Chart = "table" }),
             Make("R11", "Unit performance", "Each unit: tickets, resolved, average time to resolve, finished within time, answered in time and reopened.",
-                new ReportSpec { Title = "Unit performance", Preset = "last30", GroupBy = "unit", Measures = new() { "count", "resolved", "avgResolutionHours", "withinSlaPercent", "firstResponseMetPercent", "firstResponseMissed", "reopenedPercent" }, Chart = "table" })
+                new ReportSpec { Title = "Unit performance", Preset = "last30", GroupBy = "unit", Measures = new() { "count", "resolved", "avgResolutionHours", "withinSlaPercent", "firstResponseMetPercent", "firstResponseMissed", "reopenedPercent" }, Chart = "table" }),
+            Make("R12", "Daily team report", "Each case worker today: tickets assigned today, on hold (Pending), resolved today and everything open. Schedule it to email heads every working day.",
+                new ReportSpec { Title = "Daily team report", Preset = "today", GroupBy = "assignee", Measures = new() { "assignedInPeriod", "pending", "resolvedInPeriod", "openNow" }, Chart = "table" })
         };
 
         private static BuiltInReportDto Make(string code, string name, string description, ReportSpec definition) =>

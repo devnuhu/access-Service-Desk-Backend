@@ -11,7 +11,9 @@ namespace ServiceDeskAPI.Domain.Entities
         /// <summary>One chosen weekday.</summary>
         Weekly = 1,
         /// <summary>One chosen day of the month (1 to 28).</summary>
-        Monthly = 2
+        Monthly = 2,
+        /// <summary>The chosen weekdays, Monday to Friday (for example Monday, Wednesday and Friday).</summary>
+        Custom = 3
     }
 
     /// <summary>
@@ -28,6 +30,11 @@ namespace ServiceDeskAPI.Domain.Entities
         public SavedReport? SavedReport { get; set; }
         public ReportFrequency Frequency { get; set; } = ReportFrequency.Daily;
         public DayOfWeek WeekDay { get; set; } = DayOfWeek.Monday;
+        /// <summary>Custom frequency: the chosen weekdays, one bit per DayOfWeek (Sunday is bit 0).</summary>
+        public int DaysMask { get; set; }
+        /// <summary>The people copied, a JSON list of name and email, chosen from the staff directory.</summary>
+        [MaxLength(4000)]
+        public string CcJson { get; set; } = "[]";
         public int DayOfMonth { get; set; } = 1;
         /// <summary>Lagos hour, 0 to 23.</summary>
         public int SendHour { get; set; } = 8;

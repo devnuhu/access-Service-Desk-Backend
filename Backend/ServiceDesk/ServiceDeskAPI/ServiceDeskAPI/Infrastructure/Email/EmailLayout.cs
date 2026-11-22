@@ -13,6 +13,9 @@ namespace ServiceDeskAPI.Infrastructure.Email
         public string Tone { get; private init; } = "info";
         public List<KeyValuePair<string, string>> Rows { get; private init; } = new();
         public List<string> Items { get; private init; } = new();
+        public List<string> Headers { get; private init; } = new();
+        public List<List<string>> Grid { get; private init; } = new();
+        public bool TotalLast { get; private init; }
 
         /// <summary>A paragraph. Put **words** between double stars to make them bold.</summary>
         public static EmailBlock Paragraph(string text) => new() { Kind = "p", Text = text };
@@ -31,6 +34,10 @@ namespace ServiceDeskAPI.Infrastructure.Email
         }
 
         public static EmailBlock Bullets(params string[] items) => new() { Kind = "bullets", Items = items.ToList() };
+
+        /// <summary>A table: a header row and data rows (every cell is HTML-encoded). The first column is left-aligned, the others right-aligned; totalLast makes the last row bold.</summary>
+        public static EmailBlock Table(IEnumerable<string> headers, IEnumerable<IEnumerable<string>> rows, bool totalLast = false) =>
+            new() { Kind = "table", Headers = headers.ToList(), Grid = rows.Select(r => r.ToList()).ToList(), TotalLast = totalLast };
 
         /// <summary>A highlighted box. Tone: info, success, warning or danger.</summary>
         public static EmailBlock Callout(string text, string tone = "info") => new() { Kind = "callout", Text = text, Tone = tone };
@@ -173,7 +180,28 @@ namespace ServiceDeskAPI.Infrastructure.Email
                         }
                         sb.Append("</table>");
                         break;
-                    case "callout":
+                    case "table":
+                        {
+                            if (block.Headers.Count == 0) break;
+                            sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:4px 0 22px 0;border-top:3px solid ").Append(brand.SecondaryColor).Append(";\"><tr>");
+                            for (var ci = 0; ci < block.Headers.Count; ci++)
+                                sb.Append("<td align=\"").Append(ci == 0 ? "left" : "right").Append("\" style=\"padding:9px 8px 9px 0;border-bottom:1px solid ").Append(Line).Append(";font-family:").Append(Font)
+                                  .Append(";font-size:11px;line-height:1.4;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;color:").Append(Muted).Append(";vertical-align:bottom;\">").Append(Enc(block.Headers[ci])).Append("</td>");
+                            sb.Append("</tr>");
+                            for (var ri = 0; ri < block.Grid.Count; ri++)
+                            {
+                                var isTotal = block.TotalLast && ri == block.Grid.Count - 1;
+                                sb.Append("<tr>");
+                                for (var ci = 0; ci < block.Grid[ri].Count; ci++)
+                                    sb.Append("<td align=\"").Append(ci == 0 ? "left" : "right").Append("\" style=\"padding:9px 8px 9px 0;border-bottom:1px solid ").Append(Line).Append(isTotal ? ";border-top:1px solid " + Ink : string.Empty)
+                                      .Append(";font-family:").Append(Font).Append(";font-size:14px;line-height:1.4;font-weight:").Append(isTotal || ci == 0 ? "600" : "400").Append(";color:").Append(isTotal || ci == 0 ? Ink : Body).Append(";vertical-align:top;\">")
+                                      .Append(Enc(block.Grid[ri][ci])).Append("</td>");
+                                sb.Append("</tr>");
+                            }
+                            sb.Append("</table>");
+                            break;
+                        }
+                        case "callout":
                         var t = Tone(brand, block.Tone);
                         sb.Append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" border=\"0\" style=\"margin:0 0 20px 0;\"><tr><td style=\"background-color:")
                           .Append(t.Back).Append(";border-left:4px solid ").Append(t.Edge).Append(";padding:14px 18px;font-family:").Append(Font)
@@ -249,6 +277,14 @@ namespace ServiceDeskAPI.Infrastructure.Email
                     case "button":
                         sb.AppendLine(block.Text + ": " + block.Url);
                         sb.AppendLine();
+                        break;
+                    case "table":
+                        if (block.Headers.Count > 0)
+                        {
+                            sb.AppendLine(string.Join(" | ", block.Headers));
+                            foreach (var gridRow in block.Grid) sb.AppendLine(string.Join(" | ", gridRow.Select(cell => Plain(cell))));
+                            sb.AppendLine();
+                        }
                         break;
                     default:
                         sb.AppendLine(Plain(block.Text));
