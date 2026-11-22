@@ -110,16 +110,21 @@ export default function ReportsPage() {
       thenEmail: false,
     });
 
-  const saveAndEmail = (report) =>
+  // Saved first (a schedule sends a saved report), then the schedule dialog opens with it chosen.
+  const saveAndEmail = (report, scheduleDefaults) =>
     setSaving({
       definition: forUnit(report.definition),
       defaultName: unitId ? `${report.name} (${unitName})` : report.name,
       defaultDescription: report.description,
       thenEmail: true,
+      scheduleDefaults,
     });
+  // The daily team report: every working day at 17:00; heads can then add people to copy.
+  const emailDaily = (report) =>
+    saveAndEmail(report, { frequency: "daily", sendHour: 17 });
 
   const reportSaved = (report) => {
-    const { thenEmail, report: edited } = saving;
+    const { thenEmail, report: edited, scheduleDefaults } = saving;
     setSaving(null);
     if (edited) {
       toast.success("Your changes are saved.", { title: report.name });
@@ -127,7 +132,7 @@ export default function ReportsPage() {
       toast.success("Now choose when it is emailed to you.", {
         title: `${report.name} saved`,
       });
-      setDialog({ savedReportId: report.id });
+      setDialog({ savedReportId: report.id, defaults: scheduleDefaults });
     } else {
       toast.success("It is in your saved reports.", {
         title: `${report.name} saved`,
@@ -219,7 +224,8 @@ export default function ReportsPage() {
               <ReadyMadeReports
                 catalogue={catalogue}
                 onRun={runBuiltIn}
-                onSaveAndEmail={saveAndEmail}
+                onSaveAndEmail={(report) => saveAndEmail(report)}
+                onEmailDaily={emailDaily}
               />
               <SavedReportsTab
                 savedReports={savedReports}
@@ -244,6 +250,7 @@ export default function ReportsPage() {
         <RunReportDialog
           report={running}
           presets={catalogue.data?.presets ?? []}
+          measures={catalogue.data?.measures ?? []}
           onSave={saveRunning}
           onClose={() => setRunning(null)}
         />
@@ -260,6 +267,7 @@ export default function ReportsPage() {
         <ScheduleDialog
           schedule={dialog.schedule}
           savedReportId={dialog.savedReportId}
+          defaults={dialog.defaults}
           savedReports={savedReports.data ?? []}
           scheduledReportIds={scheduleList.map((s) => s.savedReportId)}
           onClose={() => setDialog(null)}

@@ -13,9 +13,30 @@ const PRIORITIES = [
   PRIORITY.Low,
 ];
 
+const FIELDS = [
+  "responseHours",
+  "resolutionHours",
+  "departmentId",
+  "categoryId",
+  "priority",
+];
+
+/** The first form field the server's errors name (any letter case), with its message. */
+function namedField(error) {
+  const entries = Object.entries(error?.fieldErrors ?? {});
+  for (const field of FIELDS) {
+    const hit = entries.find(
+      ([key]) => key.toLowerCase() === field.toLowerCase(),
+    );
+    const message = hit && [].concat(hit[1])[0];
+    if (message) return { field, message };
+  }
+  return null;
+}
+
 /**
- * The server answers a bad value with a message only (no field name): put it under the field it
- * is about, by its words; anything else shows above the form.
+ * When the server's message names no field: put it under the field it is about, by its words;
+ * anything else shows above the form.
  */
 function fieldOf(message) {
   // "Resolution … shorter than the first-response time" is about resolution: check it first.
@@ -98,7 +119,13 @@ export default function PolicyDialog({ row, onClose, onSaved }) {
       const saved = await save.mutateAsync(body);
       onSaved(saved);
     } catch (error) {
-      setErrors({ [fieldOf(error.message)]: error.message });
+      // A field named by the server wins; otherwise place the message by its words.
+      const named = namedField(error);
+      setErrors(
+        named
+          ? { [named.field]: named.message }
+          : { [fieldOf(error.message)]: error.message },
+      );
     }
   };
 

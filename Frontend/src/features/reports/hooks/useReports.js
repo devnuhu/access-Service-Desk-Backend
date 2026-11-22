@@ -15,6 +15,7 @@ import {
   runSavedReport,
   updateReportSchedule,
   updateSavedReport,
+  searchReportRecipients,
 } from "../api/endpoints.js";
 
 export const SAVED_REPORTS_KEY = ["reports", "saved"];
@@ -154,4 +155,14 @@ export async function downloadReport(
   const name = fileName === "download" ? `${title}.${format}` : fileName;
   saveBlob(blob, name);
   return name;
+}
+
+/** Directory search for people to copy (2 characters or more; the caller debounces). */
+export function useRecipientSearch(text) {
+  return useQuery({
+    queryKey: ["reports", "recipients", text],
+    queryFn: () => request(searchReportRecipients, { query: { query: text } }),
+    enabled: text.length >= 2,
+    staleTime: 60_000,
+  });
 }

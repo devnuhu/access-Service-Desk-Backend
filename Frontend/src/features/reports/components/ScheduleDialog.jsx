@@ -1,13 +1,14 @@
 import { useId, useState } from "react";
 import { Button, Dialog, Switch } from "@/shared/ui";
 import { formatWat } from "@/shared/lib/time";
-import { FORMATS, WEEK_DAYS } from "../api/endpoints.js";
+import { FORMATS, WEEK_DAYS, WORK_DAYS } from "../api/endpoints.js";
 import {
   useCreateSchedule,
   useRefreshSavedReports,
   useUpdateSchedule,
 } from "../hooks/useReports.js";
 import { isGone } from "../savedReport.js";
+import CcPicker from "./CcPicker.jsx";
 import {
   FORMAT_LABELS,
   FREQUENCY_LABELS,
@@ -35,14 +36,24 @@ function Field({ id, label, hint, children }) {
   );
 }
 
+/** The server answers a bad value with a message: put it by the control it is about. */
+function errorField(message) {
+  if (/weekday/i.test(message)) return "weekDays";
+  if (/copy|email address/i.test(message)) return "cc";
+  return "form";
+}
+
 /**
  * Add a schedule (`savedReportId` preselects the report) or change one (`schedule`). The report is
- * sent to the person who saves it, with their own scope, at the next scheduled time after saving.
+ * sent to the person who saves it, with their own scope, at the next scheduled time after saving,
+ * and to the people they copy (up to 10, from the staff directory). Custom sends on the chosen
+ * working days. `defaults` pre-set a new one (frequency, sendHour).
  * `scheduledReportIds`: reports that already have a schedule (one per report), not offered again.
  */
 export default function ScheduleDialog({
   schedule,
   savedReportId,
+  defaults,
   savedReports,
   scheduledReportIds,
   onClose,
@@ -50,9 +61,12 @@ export default function ScheduleDialog({
 }) {
   const editing = Boolean(schedule);
   const [values, setValues] = useState(() =>
-    formValues(schedule, savedReportId),
+    formValues(schedule, savedReportId, defaults),
   );
-  const [error, setError] = useState("");
+  // { form?, weekDays?, cc? }
+  const [errors, setErrors] = useState({});
+  const error = errors.form;
+  const setError = (message) => setErrors(message ? { form: message } : {});
   const create = useCreateSchedule();
   const update = useUpdateSchedule();
   const refreshSaved = useRefreshSavedReports();
@@ -68,8 +82,14 @@ export default function ScheduleDialog({
 
   const set = (name) => (value) => {
     setValues((current) => ({ ...current, [name]: value }));
-    setError("");
+    setErrors({});
   };
+  const toggleDay = (day) =>
+    set("weekDays")(
+      values.weekDays.includes(day)
+        ? values.weekDays.filter((d) => d !== day)
+        : WORK_DAYS.filter((d) => d === day || values.weekDays.includes(d)),
+    );
   const onInput = (name) => (event) => set(name)(event.target.value);
 
   // In edit mode the report cannot change; the report may no longer be in the list.
@@ -83,6 +103,10 @@ export default function ScheduleDialog({
       setError("Choose a saved report.");
       return;
     }
+    if (values.frequency === "custom" && values.weekDays.length === 0) {
+      setErrors({ weekDays: "Choose at least one weekday." });
+      return;
+    }
     const body = toBody(values);
     try {
       const saved = editing
@@ -92,7 +116,7 @@ export default function ScheduleDialog({
     } catch (failure) {
       // The report (or the schedule) is gone: the lists catch up.
       if (isGone(failure)) refreshSaved();
-      setError(failure.message);
+      setErrors({ [errorField(failure.message)]: failure.message });
     }
   };
 
@@ -103,7 +127,7 @@ export default function ScheduleDialog({
       title={
         editing ? `Email schedule: ${schedule.reportName}` : "Email me a report"
       }
-      description="Sent to you. Shows only what you are allowed to see."
+      description="Sent to you, and to anyone you copy. Shows only what you are allowed to see."
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={busy}>
@@ -173,6 +197,45 @@ export default function ScheduleDialog({
           </Field>
         )}
 
+        {values.frequency === "custom" && (
+          <fieldset
+            aria-describedby={
+              errors.weekDays ? "schedule-days-error" : undefined
+            }
+          >
+            <legend className="text-sm font-semibold text-ink">
+              On these days
+            </legend>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {WORK_DAYS.map((day) => {
+                const on = values.weekDays.includes(day);
+                return (
+                  <label
+                    key={day}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm ${on ? "border-brand-navy bg-brand-navy-light text-brand-navy" : "border-line bg-white text-body"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggleDay(day)}
+                      className="h-4 w-4 accent-brand-navy"
+                    />
+                    {day}
+                  </label>
+                );
+              })}
+            </div>
+            {errors.weekDays && (
+              <p
+                id="schedule-days-error"
+                className="mt-1 text-xs font-medium text-danger"
+              >
+                {errors.weekDays}
+              </p>
+            )}
+          </fieldset>
+        )}
+
         {values.frequency === "monthly" && (
           <Field
             id={ids.day}
@@ -229,6 +292,8 @@ export default function ScheduleDialog({
           </div>
         </fieldset>
 
+        <CcPicker value={values.cc} onChange={set("cc")} error={errors.cc} />
+
         <Switch
           id={ids.enabled}
           checked={values.enabled}
@@ -251,8 +316,7 @@ export default function ScheduleDialog({
         )}
 
         <p className="rounded-lg bg-page px-3 py-2 text-xs text-body">
-          Sent to you only. The first email goes out at the next scheduled time
-          after you save.
+          The first email goes out at the next scheduled time after you save.
         </p>
       </form>
     </Dialog>

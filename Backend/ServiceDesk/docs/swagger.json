@@ -5336,6 +5336,77 @@
         }
       }
     },
+    "/api/reports/recipients/search": {
+      "get": {
+        "tags": [
+          "ReportRecipients"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DirectoryUserDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports/catalogue": {
       "get": {
         "tags": [
@@ -10804,6 +10875,18 @@
         },
         "additionalProperties": false
       },
+      "ReportRecipientDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "ReportResultDto": {
         "type": "object",
         "properties": {
@@ -10876,6 +10959,13 @@
             "type": "string",
             "nullable": true
           },
+          "weekDays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
           "dayOfMonth": {
             "type": "integer",
             "format": "int32",
@@ -10895,6 +10985,12 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportRecipientDto"
+            }
           },
           "lastSentAt": {
             "type": "string",
@@ -11204,6 +11300,13 @@
             "type": "string",
             "nullable": true
           },
+          "weekDays": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
           "dayOfMonth": {
             "type": "integer",
             "format": "int32",
@@ -11218,6 +11321,13 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportRecipientDto"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

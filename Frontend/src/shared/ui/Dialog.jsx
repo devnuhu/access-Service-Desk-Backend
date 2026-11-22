@@ -10,8 +10,14 @@ const openStack = [];
 
 /**
  * Modal dialog: focus moves inside on open and returns on close, Tab stays inside, Escape closes.
- * side="right" shows it as a side panel; size="wide" gives a centred dialog room for a table.
+ * Centred on tablets and up, a sheet from the bottom on phones. size: "sm" (a confirmation),
+ * default (a form), "wide" (room for a table). side="right" shows it as a side panel.
  */
+const SIZES = {
+  sm: "sm:max-w-md",
+  wide: "sm:max-w-6xl",
+  default: "sm:max-w-2xl",
+};
 export default function Dialog({
   open,
   onClose,
@@ -36,8 +42,13 @@ export default function Dialog({
     if (!open) return undefined;
     const previous = document.activeElement;
     const panel = panelRef.current;
+    // The first field (or, in a confirmation, the first button: Cancel), never the close button.
     const first =
-      initialFocusRef?.current ?? panel?.querySelector(FOCUSABLE) ?? panel;
+      initialFocusRef?.current ??
+      panel?.querySelector(`[data-dialog-body] :is(${FOCUSABLE})`) ??
+      panel?.querySelector(`[data-dialog-footer] :is(${FOCUSABLE})`) ??
+      panel?.querySelector(FOCUSABLE) ??
+      panel;
     first?.focus();
 
     const marker = {};
@@ -74,12 +85,12 @@ export default function Dialog({
 
   const panelClass =
     side === "right"
-      ? "ml-auto flex h-full w-full max-w-md flex-col bg-white shadow-xl"
-      : `m-auto flex max-h-[90vh] w-full ${size === "wide" ? "max-w-5xl" : "max-w-lg"} flex-col rounded-card bg-white shadow-xl`;
+      ? "dialog-side ml-auto flex h-full w-full max-w-xl flex-col bg-white shadow-2xl ring-1 ring-ink/5"
+      : `dialog-in mt-auto flex max-h-[92vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl ring-1 ring-ink/5 sm:m-auto sm:max-h-[88vh] sm:rounded-2xl ${SIZES[size] ?? SIZES.default}`;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex bg-ink/40 p-0 sm:p-4"
+      className="dialog-backdrop fixed inset-0 z-50 flex bg-ink/45 p-0 backdrop-blur-[2px] sm:p-6"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
       <div
@@ -91,13 +102,19 @@ export default function Dialog({
         tabIndex={-1}
         className={`${panelClass} ${side === "right" ? "sm:-my-4 sm:-mr-4" : ""}`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
-          <div>
-            <h2 id={titleId} className="text-lg font-semibold">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0">
+            <h2
+              id={titleId}
+              className="text-lg leading-snug font-semibold tracking-tight text-ink"
+            >
               {title}
             </h2>
             {description && (
-              <p id={descriptionId} className="mt-0.5 text-sm text-muted">
+              <p
+                id={descriptionId}
+                className="mt-1 text-sm leading-relaxed text-muted"
+              >
                 {description}
               </p>
             )}
@@ -105,15 +122,24 @@ export default function Dialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted hover:bg-page hover:text-ink"
+            className="-mt-1 -mr-1 shrink-0 rounded-lg p-1.5 text-muted hover:bg-page hover:text-ink"
             aria-label="Close"
           >
             <X aria-hidden="true" size={20} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
+        <div
+          data-dialog-body
+          className="flex-1 overflow-y-auto px-5 py-5 sm:px-6"
+        >
+          {children}
+        </div>
         {footer && (
-          <div className="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">
+          // Phones: the buttons full width, the main one on top. Larger screens: in a row, right.
+          <div
+            data-dialog-footer
+            className="flex flex-col-reverse gap-2 rounded-b-2xl border-t border-line bg-page/60 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:px-6 [&>*]:w-full sm:[&>*]:w-auto"
+          >
             {footer}
           </div>
         )}

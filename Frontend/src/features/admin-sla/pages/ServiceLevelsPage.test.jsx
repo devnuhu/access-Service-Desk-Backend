@@ -138,6 +138,38 @@ describe("Service levels", () => {
     expect(await screen.findByText("Medium default saved")).toBeInTheDocument();
   });
 
+  it("a 400 that names its field marks that input, whatever the wording", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      "PUT /api/admin/sla-policies": () => [
+        400,
+        {
+          // The words mention resolution; the named field wins.
+          message: "Must be shorter than the resolution time.",
+          errors: {
+            ResponseHours: ["Must be shorter than the resolution time."],
+          },
+        },
+      ],
+    });
+    const medium = await screen.findByTestId("default-Medium");
+    await user.click(within(medium).getByRole("button", { name: /Edit/ }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Medium: default",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    const response = within(dialog).getByLabelText("First response (hours)");
+    await waitFor(() =>
+      expect(response).toHaveAttribute("aria-invalid", "true"),
+    );
+    expect(response).toHaveAccessibleDescription(
+      "Must be shorter than the resolution time.",
+    );
+    expect(
+      within(dialog).getByLabelText("Resolution (hours)"),
+    ).not.toHaveAttribute("aria-invalid", "true");
+  });
+
   it("resets a saved default after confirming", async () => {
     const user = userEvent.setup();
     const sent = renderPage();

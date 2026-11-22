@@ -38,11 +38,26 @@ export const definitionSchema = z.looseObject({
 
 const optionSchema = z.object({ key: z.string(), label: z.string() });
 
-/** The date presets and the ready-made reports (R1 to R11, whatever the server lists) with their definitions. */
+/**
+ * The date presets, the measures (with what each counts; some ignore the date range, which their
+ * description says) and the ready-made reports, whatever the server lists, with their definitions.
+ */
 export const getReportCatalogue = defineEndpoint({
   method: "GET",
   path: "/api/reports/catalogue",
   response: z.object({
+    measures: z
+      .array(
+        z.object({
+          key: z.string(),
+          label: z.string(),
+          type: z.string(),
+          description: z.string(),
+        }),
+      )
+      .nullable()
+      .optional()
+      .transform((items) => items ?? []),
     presets: z
       .array(optionSchema)
       .nullable()
@@ -211,7 +226,18 @@ export const exportSavedReport = defineEndpoint({
   responseType: "blob",
 });
 
-export const FREQUENCIES = ["daily", "weekly", "monthly"];
+export const FREQUENCIES = ["daily", "weekly", "monthly", "custom"];
+/** The days a custom schedule can choose (working days only). */
+export const WORK_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+];
+/** People a schedule copies: chosen from the staff directory, at most 10. */
+export const MAX_CC = 10;
+const recipientSchema = z.object({ name: z.string(), email: z.string() });
 export const WEEK_DAYS = [
   "Monday",
   "Tuesday",
@@ -229,10 +255,18 @@ const scheduleSchema = z.object({
   reportName: z.string(),
   frequency: z.string(),
   weekDay: z.string().nullable(),
+  /** Custom only: the chosen working days. */
+  weekDays: z.array(z.string()).nullable().optional().default(null),
   dayOfMonth: z.number().nullable(),
   sendHour: z.number(),
   format: z.string(),
   enabled: z.boolean(),
+  /** The people copied (always a list). */
+  cc: z
+    .array(recipientSchema)
+    .nullable()
+    .optional()
+    .transform((items) => items ?? []),
   /** UTC; empty when the schedule is switched off. */
   nextRunAt: z.string().nullable(),
   lastSentAt: z.string().nullable(),
@@ -252,12 +286,23 @@ const scheduleBody = z
     savedReportId: z.string().min(1, "Choose a saved report."),
     frequency: z.enum(FREQUENCIES),
     weekDay: z.enum(WEEK_DAYS).optional(),
+    weekDays: z.array(z.enum(WORK_DAYS)).optional(),
     dayOfMonth: z.number().int().min(1).max(28).optional(),
     sendHour: z.number().int().min(0).max(23),
     format: z.enum(FORMATS),
     enabled: z.boolean(),
+    cc: z
+      .array(recipientSchema)
+      .max(MAX_CC, "You can copy up to 10 people.")
+      .optional(),
   })
   .superRefine((body, ctx) => {
+    if (body.frequency === "custom" && !body.weekDays?.length)
+      ctx.addIssue({
+        code: "custom",
+        path: ["weekDays"],
+        message: "Choose at least one weekday.",
+      });
     if (body.frequency === "weekly" && !body.weekDay)
       ctx.addIssue({
         code: "custom",
@@ -302,4 +347,26 @@ export const deleteReportSchedule = defineEndpoint({
   method: "DELETE",
   path: "/api/reports/schedules/{id}",
   response: z.object({ message: z.string() }),
+});
+
+/**
+ * People to copy on a scheduled report: up to 20 enabled staff matching a name, login name or email,
+ * only those with an email. Heads, the HOD, Department Admins, Super Admin. 400 empty or too long
+ * query; 503 the directory could not be reached.
+ */
+export const searchReportRecipients = defineEndpoint({
+  method: "GET",
+  path: "/api/reports/recipients/search",
+  query: ["query"],
+  response: z
+    .array(
+      z.looseObject({
+        displayName: z.string(),
+        email: z.string(),
+        jobTitle: z.string().nullable().optional(),
+        department: z.string().nullable().optional(),
+      }),
+    )
+    .nullable()
+    .transform((items) => items ?? []),
 });

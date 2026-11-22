@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, TriangleAlert, Users } from "lucide-react";
 import {
   Button,
   Chip,
@@ -29,6 +29,20 @@ function LastResult({ schedule }) {
       {schedule.lastStatus === "Sent" && schedule.lastSentAt && (
         <p className="mt-1 text-xs text-muted">
           {formatWat(schedule.lastSentAt)}
+        </p>
+      )}
+      {/* Sent to the owner, but a copy failed: a warning, not a failure. */}
+      {schedule.lastStatus === "Sent" && schedule.lastError && (
+        <p
+          data-testid="copy-warning"
+          className="mt-1 flex items-start gap-1 text-xs font-medium text-brand-orange-ink"
+        >
+          <TriangleAlert
+            aria-hidden="true"
+            size={13}
+            className="mt-px shrink-0"
+          />
+          {schedule.lastError}
         </p>
       )}
       {schedule.lastStatus !== "Sent" && (
@@ -161,7 +175,23 @@ export default function SchedulesTab({ schedules, onAdd, onEdit, canAdd }) {
                   <td className="px-5 py-3 font-semibold text-ink">
                     {schedule.reportName}
                   </td>
-                  <td className="px-5 py-3">{describeSchedule(schedule)}</td>
+                  <td className="px-5 py-3">
+                    {describeSchedule(schedule)}
+                    {schedule.cc.length > 0 && (
+                      <span
+                        data-testid="copied-to"
+                        title={schedule.cc.map((p) => p.name).join(", ")}
+                        className="mt-1 flex items-center gap-1 text-xs text-muted"
+                      >
+                        <Users aria-hidden="true" size={13} />
+                        Copied to {schedule.cc.length}{" "}
+                        {schedule.cc.length === 1 ? "person" : "people"}
+                        <span className="sr-only">
+                          : {schedule.cc.map((p) => p.name).join(", ")}
+                        </span>
+                      </span>
+                    )}
+                  </td>
                   <td className="px-5 py-3">
                     {FORMAT_LABELS[schedule.format] ?? schedule.format}
                   </td>

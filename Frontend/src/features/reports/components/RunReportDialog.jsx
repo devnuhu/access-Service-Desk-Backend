@@ -26,7 +26,41 @@ function initialRange(definition) {
   return { choice: "", from: "", to: "" };
 }
 
-function ResultTable({ data }) {
+/**
+ * Notes under the table: the catalogue's description of each measure that ignores the date range
+ * (the catalogue says so: "Ignores the period"), and, grouped by person, that people with no
+ * tickets are not listed.
+ */
+function ResultNotes({ data, measures, definition }) {
+  const byKey = new Map(measures.map((m) => [m.key, m]));
+  const timeless = data.columns
+    .map((column) => byKey.get(column.key))
+    .filter((m) => m && /ignores the period/i.test(m.description));
+  const byPerson = definition?.groupBy === "assignee";
+  if (!timeless.length && !byPerson) return null;
+  return (
+    <ul
+      data-testid="report-notes"
+      className="mt-3 space-y-1 text-xs text-muted"
+    >
+      {timeless.map((m) => (
+        <li key={m.key}>
+          <strong className="font-semibold text-body">{m.label}:</strong>{" "}
+          {m.description}
+        </li>
+      ))}
+      {byPerson && (
+        <li>
+          A person with no tickets in this report does not appear as a zero
+          line.
+        </li>
+      )}
+    </ul>
+  );
+}
+
+function ResultTable({ data, measures = [] }) {
+  const help = new Map(measures.map((m) => [m.key, m.description]));
   const cellClass = (column) =>
     `px-3 py-2 ${numeric(column.type) ? "text-right tabular-nums" : ""}`;
   return (
@@ -38,6 +72,7 @@ function ResultTable({ data }) {
               <th
                 key={column.key}
                 scope="col"
+                title={help.get(column.key)}
                 className={`px-3 py-2 whitespace-nowrap ${numeric(column.type) ? "text-right" : ""}`}
               >
                 {column.label}
@@ -86,7 +121,13 @@ function ResultTable({ data }) {
  * @param {{ report: { title: string, description?: string, definition: object, saved?: object },
  *   presets: { key: string, label: string }[], onSave: (definition: object) => void, onClose: () => void }} props
  */
-export default function RunReportDialog({ report, presets, onSave, onClose }) {
+export default function RunReportDialog({
+  report,
+  presets,
+  measures = [],
+  onSave,
+  onClose,
+}) {
   const toast = useToast();
   const refreshSaved = useRefreshSavedReports();
   const updateSaved = useUpdateSavedReport();
@@ -352,7 +393,12 @@ export default function RunReportDialog({ report, presets, onSave, onClose }) {
             ) : (
               <>
                 {showChart && !tableOnly && <ReportChart result={data} />}
-                <ResultTable data={data} />
+                <ResultTable data={data} measures={measures} />
+                <ResultNotes
+                  data={data}
+                  measures={measures}
+                  definition={definition}
+                />
               </>
             )}
           </>

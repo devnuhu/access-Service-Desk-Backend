@@ -290,7 +290,7 @@ describe("Reports: email schedules", () => {
     );
     await user.click(within(dialog).getByLabelText("CSV"));
     expect(dialog).toHaveTextContent(
-      "Sent to you only. The first email goes out at the next scheduled time after you save.",
+      "The first email goes out at the next scheduled time after you save.",
     );
     await user.click(
       within(dialog).getByRole("button", { name: "Add schedule" }),
@@ -310,6 +310,7 @@ describe("Reports: email schedules", () => {
         sendHour: 7,
         format: "csv",
         enabled: true,
+        cc: [],
       },
     ]);
     expect(
@@ -380,6 +381,7 @@ describe("Reports: email schedules", () => {
           sendHour: 8,
           format: "xlsx",
           enabled: true,
+          cc: [],
         },
       ]),
     );
@@ -1013,5 +1015,338 @@ describe("Reports: performance", () => {
     expect(within(chidi).getByText("-")).toBeInTheDocument();
     const cara = within(dialog).getByText("Cara Three").closest("tr");
     expect(within(cara).getAllByText("-")).toHaveLength(2);
+  });
+});
+
+describe("Reports: custom weekdays and people copied", () => {
+  const PEOPLE = [
+    {
+      displayName: "Amaka Obi",
+      email: "amaka.obi@accesspensions.com",
+      jobTitle: "Officer",
+      department: "Contribution Processing",
+    },
+    { displayName: "Bola Ade", email: "bola.ade@accesspensions.com" },
+  ];
+  const searchRoute = (searches) => ({
+    "GET /api/reports/recipients/search": (config) => {
+      searches.push(config.params?.query);
+      return [200, PEOPLE];
+    },
+  });
+  const openAdd = async (user) => {
+    await user.click(
+      await screen.findByRole("button", { name: "Add schedule" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Email me a report",
+    });
+    await user.selectOptions(
+      within(dialog).getByLabelText("Saved report"),
+      "r-1",
+    );
+    return dialog;
+  };
+
+  it("custom needs at least one weekday, then sends the days in week order", async () => {
+    const user = userEvent.setup();
+    const { sent } = renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [],
+    });
+    const dialog = await openAdd(user);
+    await user.selectOptions(
+      within(dialog).getByLabelText("How often"),
+      "custom",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add schedule" }),
+    );
+    expect(
+      within(dialog).getByText("Choose at least one weekday."),
+    ).toBeInTheDocument();
+    expect(sent).toEqual([]);
+
+    await user.click(within(dialog).getByRole("checkbox", { name: "Friday" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Monday" }));
+    expect(
+      within(dialog).queryByText("Choose at least one weekday."),
+    ).not.toBeInTheDocument();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add schedule" }),
+    );
+    await screen.findByText(/The first email goes out/);
+    expect(sent[0]).toEqual([
+      "POST",
+      expect.objectContaining({
+        frequency: "custom",
+        weekDays: ["Monday", "Friday"],
+        cc: [],
+      }),
+    ]);
+    expect(sent[0][1]).not.toHaveProperty("weekDay");
+    expect(await screen.findByTestId("schedule-My units")).toHaveTextContent(
+      "Mon, Fri at 08:00",
+    );
+  });
+
+  it("copies people found in the directory: add, no duplicates, remove", async () => {
+    const user = userEvent.setup();
+    const searches = [];
+    const { sent } = renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [],
+      routes: searchRoute(searches),
+    });
+    const dialog = await openAdd(user);
+    const input = within(dialog).getByLabelText(/Copy to/);
+
+    await user.type(input, "a");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(searches).toEqual([]); // one character: not searched
+    await user.type(input, "m");
+    const results = await within(dialog).findByRole("list", {
+      name: "Search results",
+    });
+    expect(searches).toEqual(["am"]);
+    await user.click(
+      within(results).getByRole("button", { name: /Amaka Obi/ }),
+    );
+
+    const chip = within(dialog).getByTestId("cc-amaka.obi@accesspensions.com");
+    expect(chip).toHaveAttribute("title", "amaka.obi@accesspensions.com");
+    expect(input).toHaveValue("");
+
+    // Amaka is chosen: the same search offers only Bola.
+    await user.type(input, "am");
+    const again = await within(dialog).findByRole("list", {
+      name: "Search results",
+    });
+    expect(
+      within(again).queryByRole("button", { name: /Amaka Obi/ }),
+    ).not.toBeInTheDocument();
+    await user.click(within(again).getByRole("button", { name: /Bola Ade/ }));
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Remove Amaka Obi" }),
+    );
+    expect(
+      within(dialog).queryByTestId("cc-amaka.obi@accesspensions.com"),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add schedule" }),
+    );
+    await screen.findByText(/The first email goes out/);
+    expect(sent[0][1].cc).toEqual([
+      { name: "Bola Ade", email: "bola.ade@accesspensions.com" },
+    ]);
+  });
+
+  it("stops at 10 people", async () => {
+    const user = userEvent.setup();
+    const nine = Array.from({ length: 9 }, (_, i) => ({
+      name: `Person ${i + 1}`,
+      email: `person${i + 1}@accesspensions.com`,
+    }));
+    renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [schedule("s-1", "r-1", "My units", { cc: nine })],
+      routes: searchRoute([]),
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Edit My units" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(
+      within(dialog).queryByText("You can copy up to 10 people."),
+    ).not.toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/Copy to/), "bo");
+    await user.click(
+      await within(dialog).findByRole("button", { name: /Bola Ade/ }),
+    );
+    expect(
+      within(dialog).getByText("You can copy up to 10 people."),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Copy to/)).not.toBeInTheDocument();
+    expect(
+      within(dialog).getAllByRole("button", { name: /^Remove / }),
+    ).toHaveLength(10);
+  });
+
+  it("says plainly when the directory cannot be searched (503)", async () => {
+    const user = userEvent.setup();
+    renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [],
+      routes: {
+        "GET /api/reports/recipients/search": () => [
+          503,
+          { message: "Directory unavailable." },
+        ],
+      },
+    });
+    const dialog = await openAdd(user);
+    await user.type(within(dialog).getByLabelText(/Copy to/), "amaka");
+    expect(
+      await within(dialog).findByText(
+        "The staff directory could not be searched right now. Try again.",
+        {},
+        { timeout: 4000 },
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a custom schedule's days and copies, warns when a copy failed, and prefills the edit", async () => {
+    const user = userEvent.setup();
+    const cc = [
+      { name: "Amaka Obi", email: "amaka.obi@accesspensions.com" },
+      { name: "Bola Ade", email: "bola.ade@accesspensions.com" },
+    ];
+    const { sent } = renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [
+        schedule("s-1", "r-1", "My units", {
+          frequency: "custom",
+          weekDays: ["Monday", "Wednesday", "Friday"],
+          sendHour: 17,
+          cc,
+          lastStatus: "Sent",
+          lastSentAt: "2026-11-19T16:00:00Z",
+          lastError: "Could not send a copy to bola.ade@accesspensions.com.",
+        }),
+      ],
+    });
+    const row = await screen.findByTestId("schedule-My units");
+    expect(row).toHaveTextContent("Mon, Wed, Fri at 17:00");
+    const copied = within(row).getByTestId("copied-to");
+    expect(copied).toHaveTextContent("Copied to 2 people");
+    expect(copied).toHaveAttribute("title", "Amaka Obi, Bola Ade");
+    expect(within(row).getByTestId("copy-warning")).toHaveTextContent(
+      "Could not send a copy to bola.ade@accesspensions.com.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Edit My units" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText("How often")).toHaveValue("custom");
+    for (const [day, on] of [
+      ["Monday", true],
+      ["Tuesday", false],
+      ["Wednesday", true],
+      ["Thursday", false],
+      ["Friday", true],
+    ])
+      expect(within(dialog).getByRole("checkbox", { name: day }).checked).toBe(
+        on,
+      );
+    expect(within(dialog).getByLabelText("Time (Lagos time)")).toHaveValue(
+      "17",
+    );
+    expect(
+      within(dialog).getByTestId("cc-amaka.obi@accesspensions.com"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByTestId("cc-bola.ade@accesspensions.com"),
+    ).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: /^Save/ }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0]).toEqual([
+      "PUT",
+      "s-1",
+      expect.objectContaining({
+        frequency: "custom",
+        weekDays: ["Monday", "Wednesday", "Friday"],
+        sendHour: 17,
+        cc,
+      }),
+    ]);
+  });
+
+  it("a weekday message from the server shows under the days", async () => {
+    const user = userEvent.setup();
+    renderReports({
+      route: "/reports?tab=schedules",
+      saved: [report("r-1", "My units")],
+      schedules: [],
+      routes: {
+        "POST /api/reports/schedules": () => [
+          400,
+          { message: "Weekdays must be Monday to Friday." },
+        ],
+      },
+    });
+    const dialog = await openAdd(user);
+    await user.selectOptions(
+      within(dialog).getByLabelText("How often"),
+      "custom",
+    );
+    await user.click(within(dialog).getByRole("checkbox", { name: "Monday" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Add schedule" }),
+    );
+    const message = await within(dialog).findByText(
+      "Weekdays must be Monday to Friday.",
+    );
+    expect(message).toHaveAttribute("id", "schedule-days-error");
+  });
+});
+
+describe("Reports: daily team report", () => {
+  it("“Email me this every working day” saves R12, then opens the schedule as daily at 17:00", async () => {
+    const user = userEvent.setup();
+    const { sent } = renderReports({
+      saved: [],
+      schedules: [],
+      routes: {
+        "GET /api/reports/catalogue": () => [
+          200,
+          {
+            ...CATALOGUE,
+            builtIn: [
+              ...CATALOGUE.builtIn,
+              {
+                code: "R12",
+                name: "Daily team report",
+                description: "Each person and their day.",
+                definition: { title: "Daily team report", mode: "summary" },
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const card = await screen.findByTestId("builtin-R12");
+    expect(
+      within(screen.getByTestId("builtin-R1")).queryByRole("button", {
+        name: "Email me this every working day",
+      }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      within(card).getByRole("button", {
+        name: "Email me this every working day",
+      }),
+    );
+    const save = await screen.findByRole("dialog", {
+      name: "Save as my report",
+    });
+    await user.click(await within(save).findByLabelText("My unit"));
+    await user.click(
+      within(save).getByRole("button", { name: "Save and set up email" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Email me a report",
+    });
+    expect(within(dialog).getByLabelText("Saved report")).toHaveValue("r-new");
+    expect(within(dialog).getByLabelText("How often")).toHaveValue("daily");
+    expect(within(dialog).getByLabelText("Time (Lagos time)")).toHaveValue(
+      "17",
+    );
+    expect(sent[0][0]).toBe("SAVE");
   });
 });

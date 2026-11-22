@@ -261,17 +261,22 @@ export default function LinkedTickets({ ticket }) {
       data-testid="linked-tickets"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 id="links-heading" className="text-base font-semibold">
+        <h2
+          id="links-heading"
+          className="min-w-0 truncate text-base font-semibold whitespace-nowrap"
+        >
           Linked tickets
         </h2>
-        <span className="flex items-center gap-1">
+        <span className="flex shrink-0 items-center gap-1">
           <Button
             size="sm"
             variant="secondary"
             onClick={() => setDialog("link")}
+            aria-label="Link ticket"
+            className="whitespace-nowrap"
           >
             <Link2 aria-hidden="true" size={14} />
-            Link ticket
+            Link
           </Button>
           <MoreMenu
             canMerge={OPEN.includes(ticket.status)}

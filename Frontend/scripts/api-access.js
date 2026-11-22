@@ -458,6 +458,9 @@ export const ACCESS_TABLE = [
   write("POST", "/api/reports/schedules", REPORTS),
   write("PUT", "/api/reports/schedules/{id}", REPORTS),
   write("DELETE", "/api/reports/schedules/{id}", REPORTS),
+  get("/api/reports/recipients/search", REPORTS, {
+    skip: "needs the directory (AD); answers 503 while AD is not set up",
+  }),
 
   // Home counts (Step 9e): mine for everyone; the overview (or null) by what the person leads
   get("/api/dashboard/summary", SIGNED_IN, {

@@ -100,8 +100,9 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | PUT, DELETE | `/api/reports/saved/{id}` | the owner | Change or delete a saved report (deleting also removes its schedules) |
 | POST | `/api/reports/saved/{id}/run` | same people as above | Run a saved report in your own scope |
 | POST | `/api/reports/saved/{id}/export?format=xlsx\|csv` | same | Download a saved report |
-| GET, POST | `/api/reports/schedules` | same | My scheduled report emails; schedule a saved report (daily on working days, weekly, monthly; Lagos hour; emailed to me only) |
+| GET, POST | `/api/reports/schedules` | same | My scheduled report emails; schedule a saved report (daily on working days, weekly, monthly, or custom weekdays; Lagos hour; emailed to me and up to 10 people I copy) |
 | PUT, DELETE | `/api/reports/schedules/{id}` | the owner | Change, switch on or off, or delete a schedule. There is no "send now" |
+| GET | `/api/reports/recipients/search?query=` | unit heads, HOD, Department Admin, Super Admin | People to copy on a scheduled report: up to 20 enabled staff with an email (400 empty or too long query; 503 directory not reachable) |
 | GET, POST | `/api/views` | signed in | My saved list views (favourites first); save one `{ name, filterJson, isFavourite? }` (409 name already used, at most 30) |
 | PATCH, DELETE | `/api/views/{id}` | signed in (my own; others 404) | Rename, change, star or delete a saved view |
 | POST | `/api/tickets/bulk/pick`, `/acknowledge`, `/reassign`, `/resolve` | signed in (each ticket follows the single action's rules) | The same action on 1 to 50 tickets; always 200 with a result per ticket |

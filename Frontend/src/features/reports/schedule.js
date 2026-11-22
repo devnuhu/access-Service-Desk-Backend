@@ -19,8 +19,16 @@ export function ordinal(day) {
  * "Every working day at 08:00", "Every Monday at 09:00", "Monthly on the 5th at 08:00".
  * Daily means Monday to Friday, public holidays left out.
  */
-export function describeSchedule({ frequency, weekDay, dayOfMonth, sendHour }) {
+export function describeSchedule({
+  frequency,
+  weekDay,
+  weekDays,
+  dayOfMonth,
+  sendHour,
+}) {
   const at = `at ${hourLabel(sendHour)}`;
+  if (frequency === "custom")
+    return `${(weekDays ?? []).map((day) => day.slice(0, 3)).join(", ")} ${at}`;
   if (frequency === "weekly") return `Every ${weekDay} ${at}`;
   if (frequency === "monthly")
     return `Monthly on the ${ordinal(dayOfMonth)} ${at}`;
@@ -33,6 +41,7 @@ export const FREQUENCY_LABELS = {
   daily: "Every working day",
   weekly: "Weekly",
   monthly: "Monthly",
+  custom: "Custom (chosen weekdays)",
 };
 
 /** Tag tone and what each last result means. */
@@ -55,20 +64,25 @@ export const STATUS = {
   },
 };
 
-/** The form's starting values: an existing schedule, or a new one for `savedReportId`. */
-export function formValues(schedule, savedReportId = "") {
+/**
+ * The form's starting values: an existing schedule, or a new one for `savedReportId`. `defaults`
+ * pre-set a new one (the daily team report: every working day at 17:00).
+ */
+export function formValues(schedule, savedReportId = "", defaults = {}) {
   return {
     savedReportId: schedule?.savedReportId ?? savedReportId,
-    frequency: schedule?.frequency ?? "daily",
+    frequency: schedule?.frequency ?? defaults.frequency ?? "daily",
     weekDay: schedule?.weekDay ?? "Monday",
+    weekDays: schedule?.weekDays ?? [],
     dayOfMonth: schedule?.dayOfMonth ?? 1,
-    sendHour: schedule?.sendHour ?? 8,
+    sendHour: schedule?.sendHour ?? defaults.sendHour ?? 8,
     format: schedule?.format ?? "xlsx",
     enabled: schedule?.enabled ?? true,
+    cc: schedule?.cc ?? [],
   };
 }
 
-/** The request body: weekDay only for weekly, dayOfMonth only for monthly. */
+/** The request body: weekDay only for weekly, weekDays only for custom, dayOfMonth only for monthly; cc always. */
 export function toBody(values) {
   const body = {
     savedReportId: values.savedReportId,
@@ -80,5 +94,8 @@ export function toBody(values) {
   if (values.frequency === "weekly") body.weekDay = values.weekDay;
   if (values.frequency === "monthly")
     body.dayOfMonth = Number(values.dayOfMonth);
+  if (values.frequency === "custom")
+    body.weekDays = [...(values.weekDays ?? [])];
+  body.cc = (values.cc ?? []).map(({ name, email }) => ({ name, email }));
   return body;
 }

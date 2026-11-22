@@ -49,6 +49,7 @@ describe("schedule body", () => {
       sendHour: 8,
       format: "xlsx",
       enabled: true,
+      cc: [],
     });
     expect(toBody({ ...base, frequency: "weekly", weekDay: "Friday" })).toEqual(
       expect.objectContaining({ weekDay: "Friday" }),

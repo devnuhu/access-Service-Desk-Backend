@@ -38,8 +38,19 @@ const lookFor = (name) =>
     "bg-brand-navy-light text-brand-navy",
   ];
 
-/** The ready-made reports from GET /api/reports/catalogue (builtIn), as cards. */
-export default function ReadyMadeReports({ catalogue, onRun, onSaveAndEmail }) {
+/** The daily team report: offered as an email every working day (heads copy their people). */
+const DAILY_REPORT = "R12";
+
+/**
+ * The ready-made reports from GET /api/reports/catalogue (builtIn), as cards. The daily team report
+ * also offers "Email me this every working day" (`onEmailDaily`).
+ */
+export default function ReadyMadeReports({
+  catalogue,
+  onRun,
+  onSaveAndEmail,
+  onEmailDaily,
+}) {
   const builtIn = catalogue.data?.builtIn ?? [];
 
   return (
@@ -96,6 +107,18 @@ export default function ReadyMadeReports({ catalogue, onRun, onSaveAndEmail }) {
                     </p>
                   </div>
                 </div>
+                {report.code === DAILY_REPORT && onEmailDaily && (
+                  <div className="px-5 pb-4">
+                    <button
+                      type="button"
+                      onClick={() => onEmailDaily(report)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-b-[3px] border-brand-orange bg-brand-navy px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-navy-dark"
+                    >
+                      <Mail aria-hidden="true" size={15} />
+                      Email me this every working day
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-2 border-t border-line px-5 py-3">
                   <button
                     type="button"
