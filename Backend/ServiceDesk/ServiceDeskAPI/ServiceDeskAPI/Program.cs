@@ -213,6 +213,7 @@ builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.HolidayLoade
             builder.Services.AddScoped<IAssignmentService, ServiceDeskAPI.Infrastructure.Assignment.AssignmentService>();
             builder.Services.AddScoped<IWorkflowService, ServiceDeskAPI.Infrastructure.Tickets.WorkflowService>();
 builder.Services.AddScoped<ITicketTaskService, ServiceDeskAPI.Infrastructure.Tickets.TicketTaskService>();
+builder.Services.AddScoped<IKnowledgeBaseService, ServiceDeskAPI.Infrastructure.Tickets.KnowledgeBaseService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Assignment.AssignmentWorker>();
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Sla.SlaOptions>().BindConfiguration("Sla");
             builder.Services.AddScoped<ISlaService, ServiceDeskAPI.Infrastructure.Sla.SlaService>();

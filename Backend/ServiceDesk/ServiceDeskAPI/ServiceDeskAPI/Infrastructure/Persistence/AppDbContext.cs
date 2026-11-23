@@ -40,6 +40,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
         public DbSet<TicketWatcher> TicketWatchers => Set<TicketWatcher>();
         public DbSet<TicketComment> TicketComments => Set<TicketComment>();
         public DbSet<TicketTask> TicketTasks => Set<TicketTask>();
+        public DbSet<KbArticle> KbArticles => Set<KbArticle>();
+        public DbSet<KbArticleVote> KbArticleVotes => Set<KbArticleVote>();
         public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
         public DbSet<TicketAttachmentContent> TicketAttachmentContents => Set<TicketAttachmentContent>();
         public DbSet<TicketSequence> TicketSequences => Set<TicketSequence>();
@@ -259,6 +261,29 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(x => new { x.TicketId, x.SortOrder });
                 e.HasIndex(x => x.AssigneeUserId);
+            });
+
+            builder.Entity<KbArticle>(e =>
+            {
+                e.ToTable("KbArticles");
+                e.HasKey(x => x.Id);
+                e.Property(x => x.Title).HasMaxLength(200).IsRequired();
+                e.Property(x => x.Summary).HasMaxLength(500).IsRequired();
+                e.Property(x => x.BodyHtml).IsRequired();
+                e.Property(x => x.BodyText).IsRequired();
+                e.HasOne(x => x.Department).WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(x => x.Category).WithMany().HasForeignKey(x => x.CategoryId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => new { x.DepartmentId, x.Title }).IsUnique();
+                e.HasIndex(x => new { x.Status, x.CategoryId });
+            });
+
+            builder.Entity<KbArticleVote>(e =>
+            {
+                e.ToTable("KbArticleVotes");
+                e.HasKey(x => x.Id);
+                e.HasOne(x => x.Article).WithMany().HasForeignKey(x => x.ArticleId).OnDelete(DeleteBehavior.Cascade);
+                e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(x => new { x.ArticleId, x.UserId }).IsUnique();
             });
 
 builder.Entity<TicketAttachment>(e =>
