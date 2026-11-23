@@ -45,6 +45,16 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && tasks != null ? Ok(tasks) : Fail(problem!);
         }
 
+        /// <summary>The people who can own a task on this ticket: everyone active who works in the ticket's department. For the owner picker.</summary>
+        [HttpGet("owners")]
+        [ProducesResponseType(typeof(List<PersonDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<List<PersonDto>>> Owners(Guid ticketId)
+        {
+            var (problem, owners) = await _tasks.OwnersAsync(ticketId, Me(), IsSuperAdmin());
+            return problem == null && owners != null ? Ok(owners) : Fail(problem!);
+        }
+
         /// <summary>Adds a task (at most 30 per ticket). Not while the ticket is Resolved, Closed or Cancelled.</summary>
         [HttpPost]
         [ProducesResponseType(typeof(TicketTaskDto), StatusCodes.Status200OK)]

@@ -52,7 +52,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 
         private async Task<List<TicketTaskDto>> ToDtosAsync(List<TicketTask> tasks)
         {
-            var ids = tasks.Where(t => t.AssigneeUserId.HasValue).Select(t => t.AssigneeUserId!.Value).Distinct().ToList();
+            var ids = tasks.SelectMany(t => new[] { t.AssigneeUserId, t.DoneByUserId }).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
             var people = ids.Count == 0 ? new Dictionary<Guid, PersonDto>()
                 : (await _db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync())
                     .ToDictionary(u => u.Id, u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName));
@@ -62,7 +62,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 Id = t.Id, Title = t.Title,
                 Assignee = t.AssigneeUserId.HasValue && people.TryGetValue(t.AssigneeUserId.Value, out var p) ? p : null,
                 DueDate = t.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                IsDone = t.IsDone, DoneAt = t.DoneAt, CreatedAt = t.CreatedAt,
+                IsDone = t.IsDone, DoneAt = t.DoneAt, DoneBy = t.DoneByUserId.HasValue && people.TryGetValue(t.DoneByUserId.Value, out var d) ? d : null, CreatedAt = t.CreatedAt,
                 IsOverdue = !t.IsDone && t.DueAt.HasValue && t.DueAt.Value.Date < today
             }).ToList();
         }
@@ -176,6 +176,16 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             _db.TicketTasks.Remove(task);
             await _db.SaveChangesAsync();
             return (null, "Task removed.");
+        }
+
+        /// <summary>Everyone who can own a task on this ticket: active people who work in any unit of the ticket's department. For the owner picker.</summary>
+        public async Task<(TicketProblem? Problem, List<PersonDto>? Owners)> OwnersAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin)
+        {
+            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, false);
+            if (problem != null) return (problem, null);
+            var ids = await _db.UnitMembers.AsNoTracking().Where(m => m.IsActive && m.Unit!.DepartmentId == ticket!.DepartmentId).Select(m => m.UserId).Distinct().ToListAsync();
+            var people = await _db.Users.AsNoTracking().Where(u => ids.Contains(u.Id) && u.IsActive).Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync();
+            return (null, people.Select(u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName)).OrderBy(p => p.FullName ?? p.UserName).ToList());
         }
 
         private void TellOwner(TicketTask task, Ticket ticket, Guid actorUserId)

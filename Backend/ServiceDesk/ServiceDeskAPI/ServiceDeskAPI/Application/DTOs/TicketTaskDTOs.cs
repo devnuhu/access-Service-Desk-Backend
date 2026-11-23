@@ -6,6 +6,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public Guid Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public PersonDto? Assignee { get; set; }
+        /// <summary>Who ticked it done. Null while it is open.</summary>
+        public PersonDto? DoneBy { get; set; }
         public string? DueDate { get; set; }
         public bool IsDone { get; set; }
         public DateTime? DoneAt { get; set; }
