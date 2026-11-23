@@ -23,6 +23,14 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         public int L2Percent { get; set; } = 150;
         /// <summary>Only tickets raised on or after this date (UTC, yyyy-MM-dd) are tracked. Empty tracks all. Set it on go-live so old tickets do not trigger alerts.</summary>
         public string TrackFrom { get; set; } = string.Empty;
+        /// <summary>Working days a ticket may wait on the requester before the first reminder goes to the requester. 0 switches it off.</summary>
+        public int PendingRequesterRemindDays { get; set; } = 2;
+        /// <summary>Working days on the requester before the second reminder (to the requester, and the case worker is told). 0 switches it off.</summary>
+        public int PendingRequesterRemindAgainDays { get; set; } = 4;
+        /// <summary>Working days waiting on a third party before the case worker is nudged to chase. 0 switches it off.</summary>
+        public int PendingThirdPartyNudgeDays { get; set; } = 5;
+        /// <summary>Working days in Pending (either reason) before the unit head is told. 0 switches it off.</summary>
+        public int PendingFlagHeadDays { get; set; } = 10;
     }
 
     /// <summary>Runs the SLA check every CheckMinutes.</summary>

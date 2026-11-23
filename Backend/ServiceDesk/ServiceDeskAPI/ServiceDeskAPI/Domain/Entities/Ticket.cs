@@ -78,6 +78,14 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? SlaL2At { get; set; }
         public PendingReason? PendingReason { get; set; }
         public DateTime? PendingSince { get; set; }
+        /// <summary>When the first reminder for the current wait went to the requester. A reminder belongs to the current wait when it is on or after PendingSince.</summary>
+        public DateTime? PendingReminder1At { get; set; }
+        /// <summary>When the second reminder for the current wait went out.</summary>
+        public DateTime? PendingReminder2At { get; set; }
+        /// <summary>When the case worker was nudged to chase a third party in the current wait.</summary>
+        public DateTime? PendingNudgeAt { get; set; }
+        /// <summary>When the unit head was told about the current wait.</summary>
+        public DateTime? PendingFlaggedAt { get; set; }
         public DateTime? ResolvedAt { get; set; }
         public Guid? ResolvedByUserId { get; set; }
         public ResolutionCode? ResolutionCode { get; set; }

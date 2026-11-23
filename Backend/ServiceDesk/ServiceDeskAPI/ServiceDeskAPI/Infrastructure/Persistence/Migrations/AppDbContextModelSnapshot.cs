@@ -1290,8 +1290,20 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("PendingFlaggedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PendingNudgeAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int?>("PendingReason")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("PendingReminder1At")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("PendingReminder2At")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("PendingSince")
                         .HasColumnType("datetime2");

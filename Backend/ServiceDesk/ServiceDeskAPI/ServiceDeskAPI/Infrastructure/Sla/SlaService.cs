@@ -38,6 +38,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         {
             var clock = BusinessClock.From(_options);
             await CheckFirstResponseAsync(clock, nowUtc, cancellationToken);
+            await CheckPendingAsync(clock, nowUtc, cancellationToken);
             var query = _db.Tickets.AsNoTracking().Where(t => Running.Contains(t.Status) && t.SlaL2At == null);
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);
@@ -129,7 +130,91 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             catch (DbUpdateConcurrencyException) { _logger.LogInformation("First-response check: a ticket changed at the same moment; it will be looked at again in the next pass"); }
             finally { _db.ChangeTracker.Clear(); }
         }
-private async Task<bool> ApplyAsync(Guid ticketId, int stored, int level, double percent, DateTime now, CancellationToken ct)
+
+        /// <summary>
+        /// Tickets that sit in Pending. Working days are counted from PendingSince with the same business clock as the SLA. Once per wait: a reminder counts as sent when it is stamped on or after PendingSince,
+        /// so a ticket that is resumed and goes Pending again is reminded afresh. Requester waits: reminder, second reminder (the case worker is told too). Third-party waits: the case worker is nudged.
+        /// Either way the unit head is told once the wait is long. Nothing is closed or changed by this check. A setting of 0 switches that step off.
+        /// </summary>
+        private async Task CheckPendingAsync(BusinessClock clock, DateTime nowUtc, CancellationToken ct)
+        {
+            var first = _options.PendingRequesterRemindDays;
+            var again = _options.PendingRequesterRemindAgainDays;
+            var nudge = _options.PendingThirdPartyNudgeDays;
+            var flag = _options.PendingFlagHeadDays;
+            if (first <= 0 && again <= 0 && nudge <= 0 && flag <= 0) return;
+
+            var query = _db.Tickets.Include(t => t.Category).Where(t => t.Status == TicketStatus.Pending && t.PendingSince != null);
+            if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
+                query = query.Where(t => t.CreatedAt >= trackFrom);
+            var candidates = await query.OrderBy(t => t.PendingSince).Take(1000).ToListAsync(ct);
+            if (candidates.Count == 0) return;
+
+            var hoursPerDay = _options.WorkdayEndHour - _options.WorkdayStartHour;
+            var dayMinutes = (hoursPerDay > 0 ? hoursPerDay : 9) * 60.0;
+            var changed = false;
+            foreach (var ticket in candidates)
+            {
+                var since = ticket.PendingSince!.Value;
+                var days = clock.BusinessMinutes(since, nowUtc) / dayMinutes;
+                var d = (int)Math.Floor(days);
+                var category = ticket.Category?.Name ?? "service";
+
+                if (ticket.PendingReason == PendingReason.Requester)
+                {
+                    if (again > 0 && days >= again && !Stamped(ticket.PendingReminder2At, since))
+                    {
+                        Tell(ticket.RequesterUserId, "Ticket " + ticket.Reference + ": second reminder, your reply is needed",
+                            "Your " + category + " request has been waiting for your reply for " + d + " working days. Please reply on the ticket so work can continue.",
+                            NotificationType.ActionRequired, NotificationCategory.Ticket, ticket);
+                        if (ticket.AssigneeUserId.HasValue)
+                            Tell(ticket.AssigneeUserId.Value, "Ticket " + ticket.Reference + ": requester has not replied",
+                                "The requester has not replied after " + d + " working days. You may want to follow up with them.",
+                                NotificationType.Info, NotificationCategory.Ticket, ticket);
+                        ticket.PendingReminder2At = nowUtc;
+                        if (!Stamped(ticket.PendingReminder1At, since)) ticket.PendingReminder1At = nowUtc;
+                        changed = true;
+                    }
+                    else if (first > 0 && days >= first && !Stamped(ticket.PendingReminder1At, since) && !Stamped(ticket.PendingReminder2At, since))
+                    {
+                        Tell(ticket.RequesterUserId, "Ticket " + ticket.Reference + ": reminder, your reply is needed",
+                            "Your " + category + " request is waiting for your reply. Please reply on the ticket so work can continue.",
+                            NotificationType.ActionRequired, NotificationCategory.Ticket, ticket);
+                        ticket.PendingReminder1At = nowUtc;
+                        changed = true;
+                    }
+                }
+                else if (ticket.PendingReason == PendingReason.ThirdParty
+                    && nudge > 0 && days >= nudge && !Stamped(ticket.PendingNudgeAt, since) && ticket.AssigneeUserId.HasValue)
+                {
+                    Tell(ticket.AssigneeUserId.Value, "Ticket " + ticket.Reference + ": chase the third party",
+                        "It has been waiting on a third party for " + d + " working days. Please follow up with them.",
+                        NotificationType.ActionRequired, NotificationCategory.Ticket, ticket);
+                    ticket.PendingNudgeAt = nowUtc;
+                    changed = true;
+                }
+
+                if (flag > 0 && days >= flag && !Stamped(ticket.PendingFlaggedAt, since))
+                {
+                    var heads = await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, ticket.UnitId, DateOnly.FromDateTime(nowUtc.AddHours(_options.UtcOffsetHours)), ct);
+                    var on = ticket.PendingReason == PendingReason.Requester ? "the requester" : "a third party";
+                    foreach (var head in heads.Where(h => h != ticket.AssigneeUserId).Distinct())
+                        Tell(head, "Ticket " + ticket.Reference + ": Pending for " + d + " working days",
+                            "This " + category + " request has been waiting on " + on + " for " + d + " working days. Please check that it is not stuck.",
+                            NotificationType.Warning, NotificationCategory.Escalation, ticket);
+                    ticket.PendingFlaggedAt = nowUtc;
+                    changed = true;
+                }
+            }
+            if (!changed) return;
+            try { await _db.SaveChangesAsync(ct); }
+            catch (DbUpdateConcurrencyException) { _logger.LogInformation("Pending check: a ticket changed at the same moment; it will be looked at again in the next pass"); }
+            finally { _db.ChangeTracker.Clear(); }
+        }
+
+        private static bool Stamped(DateTime? at, DateTime since) => at.HasValue && at.Value >= since;
+
+        private async Task<bool> ApplyAsync(Guid ticketId, int stored, int level, double percent, DateTime now, CancellationToken ct)
         {
             var ticket = await _db.Tickets.Include(t => t.Category).FirstOrDefaultAsync(t => t.Id == ticketId, ct);
             if (ticket == null || !Running.Contains(ticket.Status)) return false;
