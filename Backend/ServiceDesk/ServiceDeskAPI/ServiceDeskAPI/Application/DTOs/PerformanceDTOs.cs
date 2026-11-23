@@ -30,6 +30,16 @@ namespace ServiceDeskAPI.Application.DTOs
         public double? RespondedInTimePercent { get; set; }
         public int NoResponseInTime { get; set; }
         public double? ReopenedPercent { get; set; }
+        /// <summary>Of the tickets resolved in the period, how many were finished within the time allowed.</summary>
+        public int ResolvedWithinSla { get; set; }
+        /// <summary>Of the tickets resolved in the period, how many were reopened at least once.</summary>
+        public int Reopened { get; set; }
+        /// <summary>Right now, whatever the period: open tickets already past the time allowed.</summary>
+        public int OverdueOpen { get; set; }
+        /// <summary>Tickets raised in the period and held by the person that were acknowledged or answered within the first-response time.</summary>
+        public int FirstResponseMet { get; set; }
+        /// <summary>Resolved in the period divided by assigned in the period, as a percentage (can pass 100 when older tickets are cleared). Null when nothing was assigned.</summary>
+        public double? ResolutionRatePercent { get; set; }
     }
 
     /// <summary>One bar or point of a chart. Date is yyyy-MM-dd for a day, the Monday of the week for a week, yyyy-MM for a month. Gaps are filled with zeros.</summary>

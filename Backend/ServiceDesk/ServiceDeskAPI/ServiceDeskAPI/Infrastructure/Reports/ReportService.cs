@@ -154,7 +154,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             }
             if (mode == "summary" && measures.Count == 0) measures.Add("count");
             var needAssignedP = measures.Contains("assignedInPeriod");
-            var needSnapshot = measures.Any(m => m is "openNow" or "pending" or "pendingRequester" or "pendingThirdParty");
+            var needSnapshot = measures.Any(m => m is "openNow" or "pending" or "pendingRequester" or "pendingThirdParty" or "overdueNow");
 
             var columns = new List<string>();
             foreach (var c in spec.Columns ?? new List<string>())
@@ -224,7 +224,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
 
             var now = DateTime.UtcNow;
             var clock = BusinessClock.From(_sla);
-            var needSla = measures.Any(m => m is "breached" or "breachedPercent" or "withinSlaPercent" or "avgResolutionHours")
+            var needSla = measures.Any(m => m is "breached" or "breachedPercent" or "withinSlaPercent" or "avgResolutionHours" or "withinSla" or "overdueNow")
                           || columns.Contains("usedPercent") || columns.Contains("breached") || spec.SlaBreached.HasValue;
             if (needSla)
             {
@@ -299,6 +299,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                     var grp = snap == null ? null : Get(snap.Value.Key, snap.Value.Label);
                     if (grp != null) grp.OpenNow++;
                     total.OpenNow++;
+                    if (r.Breached) { if (grp != null) grp.OverdueNow++; total.OverdueNow++; }
                     if (r.Status == TicketStatus.Pending)
                     {
                         if (grp != null) grp.Pending++;
@@ -395,6 +396,7 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             public int Pending;
             public int PendingRequester;
             public int PendingThirdParty;
+            public int OverdueNow;
             /// <summary>Grouped by person: a missed first response counts against the person who missed it.</summary>
             public bool ByPerson;
         }
@@ -536,6 +538,9 @@ namespace ServiceDeskAPI.Infrastructure.Reports
                 case "pending": return g.Pending;
                 case "pendingRequester": return g.PendingRequester;
                 case "pendingThirdParty": return g.PendingThirdParty;
+                case "withinSla": return done.Count(r => r.Within);
+                case "overdueNow": return g.OverdueNow;
+                case "firstResponseMet": return rows.Count(IsResponseMet);
                 default: return null;
             }
         }

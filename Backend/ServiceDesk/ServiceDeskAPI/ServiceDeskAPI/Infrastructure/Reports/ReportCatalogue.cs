@@ -33,7 +33,10 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             new("openNow", "Open now (any date)", "number", "Everything still open right now, whatever date it was raised. Ignores the period."),
             new("pending", "On hold (Pending)", "number", "Tickets set to Pending right now: waiting on the requester or a third party. Ignores the period."),
             new("pendingRequester", "Pending: waiting on requester", "number", "Pending right now because the case worker is waiting on the requester. Ignores the period."),
-            new("pendingThirdParty", "Pending: waiting on third party", "number", "Pending right now because the case worker is waiting on a third party. Ignores the period.")
+            new("pendingThirdParty", "Pending: waiting on third party", "number", "Pending right now because the case worker is waiting on a third party. Ignores the period."),
+            new("withinSla", "Finished within time", "number", "Of resolved or closed tickets, how many were finished within the time allowed."),
+            new("overdueNow", "Overdue open now", "number", "Open right now and already past the time allowed (business hours; Pending time not counted). Ignores the period."),
+            new("firstResponseMet", "Responded in time", "number", "Tickets the case worker acknowledged or answered within the first-response time.")
         };
 
         public static readonly ReportOption[] GroupBys =

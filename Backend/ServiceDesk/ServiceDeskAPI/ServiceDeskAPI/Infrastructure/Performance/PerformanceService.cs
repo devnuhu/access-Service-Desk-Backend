@@ -148,14 +148,14 @@ namespace ServiceDeskAPI.Infrastructure.Performance
             var person = await _db.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => new { u.FullName, u.UserName }).FirstOrDefaultAsync();
             if (person == null) return (new TicketProblem(404, "Person not found."), null);
 
-            var (p1, resolvedCohort) = await RunAsync(query, "resolved", "none", new[] { "avgResolutionHours", "withinSlaPercent", "breached", "reopenedPercent" }, assigneeId: userId);
+            var (p1, resolvedCohort) = await RunAsync(query, "resolved", "none", new[] { "avgResolutionHours", "withinSlaPercent", "breached", "reopenedPercent", "withinSla", "reopened" }, assigneeId: userId);
             if (p1 != null) return (p1, null);
-            var (p2, raisedCohort) = await RunAsync(query, "created", "none", new[] { "avgFirstResponseHours", "firstResponseMetPercent", "firstResponseMissed" }, assigneeId: userId);
+            var (p2, raisedCohort) = await RunAsync(query, "created", "none", new[] { "avgFirstResponseHours", "firstResponseMetPercent", "firstResponseMissed", "firstResponseMet" }, assigneeId: userId);
             if (p2 != null) return (p2, null);
             var bucket = BucketFor(resolvedCohort!.From, resolvedCohort.To);
             var (p3, series) = await RunAsync(query, "resolved", bucket, new[] { "assignedInPeriod", "resolvedInPeriod", "withinSlaPercent" }, assigneeId: userId);
             if (p3 != null) return (p3, null);
-            var (p4, open) = await RunAsync(query, "created", "status", new[] { "openNow" }, assigneeId: userId);
+            var (p4, open) = await RunAsync(query, "created", "status", new[] { "openNow", "overdueNow" }, assigneeId: userId);
             if (p4 != null) return (p4, null);
 
             var figures = new PerformanceFigures
@@ -170,7 +170,12 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 ReopenedPercent = resolvedCohort.Value(resolvedCohort.Only, "reopenedPercent"),
                 AvgFirstResponseHours = raisedCohort!.Value(raisedCohort.Only, "avgFirstResponseHours"),
                 RespondedInTimePercent = raisedCohort.Value(raisedCohort.Only, "firstResponseMetPercent"),
-                NoResponseInTime = raisedCohort.Count(raisedCohort.Only, "firstResponseMissed")
+                NoResponseInTime = raisedCohort.Count(raisedCohort.Only, "firstResponseMissed"),
+                ResolvedWithinSla = resolvedCohort.Count(resolvedCohort.Only, "withinSla"),
+                Reopened = resolvedCohort.Count(resolvedCohort.Only, "reopened"),
+                FirstResponseMet = raisedCohort.Count(raisedCohort.Only, "firstResponseMet"),
+                OverdueOpen = open.Count(open.Totals, "overdueNow"),
+                ResolutionRatePercent = series.Count(series.Totals, "assignedInPeriod") > 0 ? Math.Round(series.Count(series.Totals, "resolvedInPeriod") * 100.0 / series.Count(series.Totals, "assignedInPeriod"), 1) : (double?)null
             };
 
             // the unit (or units) they work in, for the comparison and for which targets to show
@@ -213,11 +218,11 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 return (new TicketProblem(403, "Only the head of " + unit.Name + ", the Head of Department, the Department Admin or a Super Admin can see this."), null);
 
             var ids = new List<Guid> { unitId };
-            var (e1, resolved) = await RunAsync(query, "resolved", "assignee", new[] { "assignedInPeriod", "resolvedInPeriod", "avgResolutionHours", "withinSlaPercent", "breached", "reopenedPercent" }, unitIds: ids);
+            var (e1, resolved) = await RunAsync(query, "resolved", "assignee", new[] { "assignedInPeriod", "resolvedInPeriod", "avgResolutionHours", "withinSlaPercent", "breached", "reopenedPercent", "withinSla", "reopened" }, unitIds: ids);
             if (e1 != null) return (e1, null);
-            var (e2, raised) = await RunAsync(query, "created", "assignee", new[] { "avgFirstResponseHours", "firstResponseMetPercent", "firstResponseMissed" }, unitIds: ids);
+            var (e2, raised) = await RunAsync(query, "created", "assignee", new[] { "avgFirstResponseHours", "firstResponseMetPercent", "firstResponseMissed", "firstResponseMet" }, unitIds: ids);
             if (e2 != null) return (e2, null);
-            var (e3, current) = await RunAsync(query, "created", "assignee", new[] { "openNow", "pending" }, unitIds: ids);
+            var (e3, current) = await RunAsync(query, "created", "assignee", new[] { "openNow", "pending", "overdueNow" }, unitIds: ids);
             if (e3 != null) return (e3, null);
             var bucket = BucketFor(resolved!.From, resolved.To);
             var (e4, series) = await RunAsync(query, "resolved", bucket, new[] { "raised", "resolvedInPeriod", "withinSlaPercent" }, unitIds: ids);
@@ -243,7 +248,12 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 ReopenedPercent = resolved.Value(resolvedRow, "reopenedPercent"),
                 AvgFirstResponseHours = raised!.Value(raisedRow, "avgFirstResponseHours"),
                 RespondedInTimePercent = raised.Value(raisedRow, "firstResponseMetPercent"),
-                NoResponseInTime = raised.Count(raisedRow, "firstResponseMissed")
+                NoResponseInTime = raised.Count(raisedRow, "firstResponseMissed"),
+                ResolvedWithinSla = resolved.Count(resolvedRow, "withinSla"),
+                Reopened = resolved.Count(resolvedRow, "reopened"),
+                FirstResponseMet = raised.Count(raisedRow, "firstResponseMet"),
+                OverdueOpen = current.Count(currentRow, "overdueNow"),
+                ResolutionRatePercent = resolved.Count(resolvedRow, "assignedInPeriod") > 0 ? Math.Round(resolved.Count(resolvedRow, "resolvedInPeriod") * 100.0 / resolved.Count(resolvedRow, "assignedInPeriod"), 1) : (double?)null
             };
 
             // every active member, idle ones too; then anyone else who appears in the figures (someone who left but still has tickets)
