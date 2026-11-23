@@ -138,6 +138,7 @@ namespace ServiceDeskAPI.Infrastructure.Dashboard
             result.Mine.ResponseOverdue = await _db.Tickets.AsNoTracking().CountAsync(t => t.AssigneeUserId == userId && Open.Contains(t.Status) && t.FirstResponseMissedAt != null && t.FirstRespondedAt == null);
             result.Mine.RaisedOpen = await _db.Tickets.AsNoTracking().CountAsync(t => t.RequesterUserId == userId && Open.Contains(t.Status));
             result.Mine.ToConfirm = await _db.Tickets.AsNoTracking().CountAsync(t => t.RequesterUserId == userId && t.Status == TicketStatus.Resolved);
+            result.Mine.WaitingOnMe = await _db.Tickets.AsNoTracking().CountAsync(t => t.RequesterUserId == userId && t.Status == TicketStatus.Pending && t.PendingReason == ServiceDeskAPI.Domain.Entities.PendingReason.Requester);
 
             var unitsQuery = _db.Units.AsNoTracking().Where(u => u.IsActive && u.Department!.IsActive);
             if (!isSuperAdmin)

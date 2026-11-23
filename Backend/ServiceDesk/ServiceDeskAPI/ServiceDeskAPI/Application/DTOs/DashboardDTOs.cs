@@ -47,6 +47,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public int RaisedOpen { get; set; }
         /// <summary>Tickets the person raised that are Resolved and wait for them to confirm or reopen.</summary>
         public int ToConfirm { get; set; }
+        /// <summary>My requests that are Pending because the case worker is waiting for my reply.</summary>
+        public int WaitingOnMe { get; set; }
         /// <summary>My open tickets that I have not answered in time.</summary>
         public int ResponseOverdue { get; set; }
     }
