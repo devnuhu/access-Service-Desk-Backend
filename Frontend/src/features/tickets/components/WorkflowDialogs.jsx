@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Dialog } from "@/shared/ui";
 import { PENDING_REASON } from "../api/endpoints.js";
 import useRunAction from "../hooks/useRunAction.js";
+import { refreshTasks, useTicketTasks } from "../hooks/useTasks.js";
+import { openTasksText, TASKS_PANEL_ID, tasksBlockResolve } from "../tasks.js";
 
 /**
  * The shell of every workflow dialog. The browser checks only that required fields are filled
@@ -17,6 +20,8 @@ function WorkflowDialog({
   validate = () => ({}),
   body,
   onClose,
+  onFailed,
+  submitDisabled = false,
   children,
 }) {
   const { run, busy } = useRunAction(ticketId);
@@ -35,6 +40,7 @@ function WorkflowDialog({
       onClose();
       return;
     }
+    onFailed?.(error);
     const server = Object.fromEntries(
       Object.entries(error.fieldErrors ?? {}).map(([field, messages]) => [
         field,
@@ -55,7 +61,13 @@ function WorkflowDialog({
           <Button variant="secondary" onClick={onClose}>
             Back
           </Button>
-          <Button type="submit" form={formId} variant={variant} busy={busy}>
+          <Button
+            type="submit"
+            form={formId}
+            variant={variant}
+            busy={busy}
+            disabled={submitDisabled}
+          >
             {submitLabel}
           </Button>
         </>
@@ -180,15 +192,62 @@ export function PendingDialog({ ticketId, onClose }) {
   );
 }
 
-export function ResolveDialog({ ticketId, codes, onClose }) {
+/**
+ * Open tasks for the chosen code: a link to the tasks panel (closes the dialog and moves there).
+ * The API's own refusal (errors.tasks) shows the same way if it arrives anyway.
+ */
+function OpenTasksBlock({ message, onClose }) {
+  const goToTasks = (event) => {
+    event.preventDefault();
+    onClose();
+    requestAnimationFrame(() => {
+      const panel = document.getElementById(TASKS_PANEL_ID);
+      panel?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      panel?.focus?.({ preventScroll: true });
+    });
+  };
+  return (
+    <p
+      role="alert"
+      data-testid="resolve-open-tasks"
+      className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+    >
+      {message}{" "}
+      <a
+        href={`#${TASKS_PANEL_ID}`}
+        onClick={goToTasks}
+        className="font-semibold underline"
+      >
+        Go to the tasks
+      </a>
+    </p>
+  );
+}
+
+/**
+ * `checkTasks` (staff view): while tasks are open, Resolve stays disabled unless the code is
+ * Duplicate or Raised in error. A refusal from the API refetches the tasks (their open count).
+ */
+export function ResolveDialog({
+  ticketId,
+  codes,
+  checkTasks = false,
+  onClose,
+}) {
+  const queryClient = useQueryClient();
+  const tasks = useTicketTasks(ticketId, { enabled: checkTasks });
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
+  const open = tasks.data?.open ?? 0;
+  const blocked = checkTasks && tasksBlockResolve(open, code);
   return (
     <WorkflowDialog
       ticketId={ticketId}
       action="resolve"
       title="Resolve"
       submitLabel="Resolve"
+      submitDisabled={blocked}
+      onFailed={() => checkTasks && refreshTasks(queryClient, ticketId)}
       onClose={onClose}
       validate={() => ({
         ...(code ? {} : { code: "Choose a resolution code." }),
@@ -222,6 +281,13 @@ export function ResolveDialog({ ticketId, codes, onClose }) {
             </select>
             <FieldError id="resolve-code-error" message={errors.code} />
           </div>
+          {blocked ? (
+            <OpenTasksBlock message={openTasksText(open)} onClose={onClose} />
+          ) : (
+            errors.tasks && (
+              <OpenTasksBlock message={errors.tasks} onClose={onClose} />
+            )
+          )}
           <TextField
             id="resolve-note"
             label="Tell the requester what was done. They see this and confirm it."

@@ -85,7 +85,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes |
 | POST | `/api/tickets/{id}/acknowledge`, `/resume` | the assignee | Assigned/Reopened -> In progress; Pending -> In progress |
 | POST | `/api/tickets/{id}/pending` | the assignee | `{ reason: 1 requester / 2 third party, note }` |
-| POST | `/api/tickets/{id}/resolve` | the assignee | `{ code, note }` |
+| POST | `/api/tickets/{id}/resolve` | the assignee | `{ code, note }`; 400 `errors.tasks` while a task is open, unless the code is Duplicate or Raised in error |
 | POST | `/api/tickets/{id}/confirm`, `/reopen` | the requester (or who raised it) | Resolved -> Closed; Resolved -> Reopened `{ reason }` |
 | POST | `/api/tickets/{id}/cancel` | requester (New/Assigned), Super Admin (any open) | `{ reason }` |
 | POST | `/api/tickets/{id}/escalate` | the assignee | Ask the unit's head for help `{ reason }` (5 to 1000 characters, kept as an internal note) |
@@ -113,6 +113,11 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/bulk/pick`, `/acknowledge`, `/reassign`, `/resolve` | signed in (each ticket follows the single action's rules) | The same action on 1 to 50 tickets; always 200 with a result per ticket |
 | GET, POST | `/api/tickets/{id}/links` | department staff, Super Admin (others 404) | Linked tickets (related, duplicate of, merged); link one `{ reference, relation }` (409 already linked) |
 | DELETE | `/api/tickets/{id}/links/{linkId}` | department staff, Super Admin (others 404) | Remove a link (400 for a merge) |
+| GET | `/api/tickets/{id}/tasks` | department staff, Super Admin (others 404) | Never for the requester (404). The checklist in the order added: `{ items: [{ id, title, assignee, dueDate, isDone, doneAt, isOverdue, createdAt }], open, done, canEdit }`; canEdit false once Resolved, Closed or Cancelled |
+| POST | `/api/tickets/{id}/tasks` | department staff, Super Admin (others 404) | Add `{ title, assigneeUserId?, dueDate? }`: title 3 to 200, at most 30 per ticket, owner works in the department (empty: the ticket's assignee), dueDate yyyy-MM-dd; 400 errors.title / dueDate / assigneeUserId, or a locked ticket |
+| PUT | `/api/tickets/{id}/tasks/{taskId}` | department staff, Super Admin (others 404) | Change title, owner and due date (same rules as add) |
+| PUT | `/api/tickets/{id}/tasks/{taskId}/done` | department staff, Super Admin (others 404) | `{ done }`: tick or untick |
+| DELETE | `/api/tickets/{id}/tasks/{taskId}` | department staff, Super Admin (others 404) | Remove a task |
 | POST | `/api/tickets/{id}/merge` | department staff, Super Admin (others 404) | Merge this ticket into the one to keep `{ targetReference, reason, copyRequester }`; it closes for good |
 | POST | `/api/tickets/{id}/read` | anyone who can see the ticket (others 404) | Mark it read for me: clears its unread marker in my lists |
 | GET | `/api/dashboard/summary` | signed in | Home counts: mine (open, waiting, warning, overdue, raised, to confirm, waiting on my reply) and, for those who oversee units, per-unit counts with a total |

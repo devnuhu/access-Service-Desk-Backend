@@ -99,6 +99,7 @@ export function ActionsCard({ ticket, actions, isRequester }) {
         <ResolveDialog
           ticketId={ticket.id}
           codes={actions.resolutionCodes}
+          checkTasks={ticket.isStaffView}
           onClose={close}
         />
       )}

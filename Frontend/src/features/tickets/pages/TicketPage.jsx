@@ -32,6 +32,7 @@ import ReplyBox from "../components/ReplyBox.jsx";
 import PendingWaitChip from "../components/PendingWaitChip.jsx";
 import StatusChip from "../components/StatusChip.jsx";
 import StatusCallout from "../components/StatusCallout.jsx";
+import TasksPanel from "../components/TasksPanel.jsx";
 import { ActionsCard } from "../components/TicketActions.jsx";
 import {
   useTicket,
@@ -267,6 +268,8 @@ export default function TicketPage() {
               </div>
             )}
           </Card>
+
+          {ticket.isStaffView && <TasksPanel ticket={ticket} />}
 
           <section aria-labelledby="conversation-heading" className="space-y-3">
             <h2 id="conversation-heading" className="text-lg font-semibold">

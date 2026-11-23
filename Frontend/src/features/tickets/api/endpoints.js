@@ -675,3 +675,69 @@ export const changeTicketPriority = defineEndpoint({
   }),
   response: z.object({ message: z.string() }),
 });
+
+// Tasks: the ticket's checklist. Staff of the ticket and Super Admin only; anyone else, the
+// requester included, gets 404, so never call these for a requester.
+const taskSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  /** Null: the ticket's assignee owns it. */
+  assignee: personSchema.nullable(),
+  /** yyyy-MM-dd (Lagos date) or null. */
+  dueDate: z.string().nullable(),
+  isDone: z.boolean(),
+  doneAt: z.string().nullable(),
+  /** Open and the due date has passed. */
+  isOverdue: z.boolean(),
+  createdAt: z.string(),
+});
+
+const taskBody = z.object({
+  title: z.string(),
+  assigneeUserId: z.string().nullable().optional(),
+  dueDate: z.string().nullable().optional(),
+});
+
+/** The tasks in the order added, how many are open and done, and canEdit (false once Resolved, Closed or Cancelled). */
+export const listTicketTasks = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/tasks",
+  response: z.object({
+    items: list(taskSchema),
+    open: z.number().int(),
+    done: z.number().int(),
+    canEdit: z.boolean(),
+  }),
+});
+
+/**
+ * title 3 to 200; at most 30 per ticket; assigneeUserId someone in the ticket's department (empty:
+ * the ticket's assignee); dueDate yyyy-MM-dd. 400 errors.title / dueDate / assigneeUserId.
+ */
+export const addTicketTask = defineEndpoint({
+  method: "POST",
+  path: "/api/tickets/{ticketId}/tasks",
+  body: taskBody,
+  response: taskSchema,
+});
+
+/** Same rules as adding. */
+export const updateTicketTask = defineEndpoint({
+  method: "PUT",
+  path: "/api/tickets/{ticketId}/tasks/{taskId}",
+  body: taskBody,
+  response: taskSchema,
+});
+
+export const setTicketTaskDone = defineEndpoint({
+  method: "PUT",
+  path: "/api/tickets/{ticketId}/tasks/{taskId}/done",
+  body: z.object({ done: z.boolean() }),
+  response: taskSchema,
+});
+
+export const removeTicketTask = defineEndpoint({
+  method: "DELETE",
+  path: "/api/tickets/{ticketId}/tasks/{taskId}",
+  response: messageSchema,
+});
