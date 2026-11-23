@@ -4,6 +4,7 @@ import { PriorityChip } from "@/features/catalogue";
 import { Card, InlineRetry } from "@/shared/ui";
 import { useTicketList } from "../hooks/useTickets.js";
 import Ago from "./Ago.jsx";
+import PendingWaitChip from "./PendingWaitChip.jsx";
 import StatusChip from "./StatusChip.jsx";
 
 const LATEST = { view: "mine", open: true, page: 1, pageSize: 5 };
@@ -81,6 +82,7 @@ export default function MyRequestsStrip() {
                   </span>
                   <StatusChip status={ticket.status} />
                   <PriorityChip priority={ticket.priority} />
+                  <PendingWaitChip ticket={ticket} />
                 </span>
                 <span className="mt-1 block truncate text-sm font-semibold text-ink">
                   {ticket.subject}

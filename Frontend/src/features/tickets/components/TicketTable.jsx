@@ -8,6 +8,7 @@ import { personName } from "../ticketText.js";
 import Ago from "./Ago.jsx";
 import DueTime from "./DueTime.jsx";
 import EscalatedBadge from "./EscalatedBadge.jsx";
+import PendingWaitChip from "./PendingWaitChip.jsx";
 import RowMarkers from "./RowMarkers.jsx";
 import SlaBadge from "./SlaBadge.jsx";
 import StatusChip from "./StatusChip.jsx";
@@ -199,6 +200,11 @@ export default function TicketTable({
                 </td>
                 <td className={`${td} min-w-44`}>
                   <StatusChip status={ticket.status} />
+                  {ticket.status === STATUS.Pending && (
+                    <span className="mt-1.5 flex">
+                      <PendingWaitChip ticket={ticket} />
+                    </span>
+                  )}
                   {(ticket.escalatedToHeadAt ||
                     ticket.slaDueAt ||
                     ticket.slaLevel > SLA_LEVEL.OnTrack) && (

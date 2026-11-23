@@ -793,6 +793,36 @@ describe("SLA and first response", () => {
     vi.useRealTimers();
   });
 
+  it("staff see how long a Pending ticket has waited beside the status, amber from 5 days", async () => {
+    vi.useFakeTimers({
+      now: new Date("2026-11-17T09:00:00Z"),
+      toFake: ["Date"],
+    });
+    renderTicket({
+      "GET /api/tickets/by-reference/:reference": () => [
+        200,
+        staffTicket({
+          status: 4,
+          slaDueAt: null,
+          pendingReason: 2,
+          pendingSince: "2026-11-12T09:00:00Z",
+        }),
+      ],
+      "GET /api/tickets/:ticketId/reassign-options": () => [
+        200,
+        { canReassign: false, reason: "No.", candidates: [] },
+      ],
+      "GET /api/tickets/:ticketId/assignments": () => [200, []],
+    });
+    const chip = await screen.findByTestId("pending-wait");
+    expect(chip).toHaveTextContent("Waiting on third party · 5d");
+    expect(chip).toHaveAttribute("data-tone", "amber");
+    expect(screen.getByTestId("pending-line")).toHaveTextContent(
+      "Waiting on a third party since 12 Nov (5 days).",
+    );
+    vi.useRealTimers();
+  });
+
   it("no Due row when the API sends null (Pending, finished, requester)", async () => {
     renderTicket({
       "GET /api/tickets/by-reference/:reference": () => [

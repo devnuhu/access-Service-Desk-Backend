@@ -1,5 +1,6 @@
 import { formatWat } from "@/shared/lib/time";
 import { PENDING_REASON, STATUS } from "../api/endpoints.js";
+import { waitingLine } from "../pendingWait.js";
 import { personName } from "../ticketText.js";
 import Ago from "./Ago.jsx";
 import { RequesterActions } from "./TicketActions.jsx";
@@ -16,15 +17,21 @@ function focusReply() {
   box?.focus({ preventScroll: true });
 }
 
+/**
+ * "Waiting on you since 12 Nov (5 days)." for the requester, "the requester" or "a third party"
+ * for everyone else; calendar days (WAT) from pendingSince.
+ */
 function PendingText({ ticket, isRequester }) {
-  const since = formatWat(ticket.pendingSince);
-  if (ticket.pendingReason !== PENDING_REASON.Requester) {
-    return <p>Waiting on a third party since {since}.</p>;
+  const forRequester =
+    isRequester && ticket.pendingReason === PENDING_REASON.Requester;
+  const line = waitingLine(ticket, { isRequester: forRequester });
+  const text = line ? `${line.text}.` : "Waiting for a reply.";
+  if (!forRequester) {
+    return <p data-testid="pending-line">{text}</p>;
   }
-  if (!isRequester) return <p>Waiting on the requester since {since}.</p>;
   return (
     <p>
-      Waiting on you since {since}.{" "}
+      <span data-testid="pending-line">{text}</span>{" "}
       <strong className="font-semibold">Reply below to continue.</strong> Your
       reply sends it back to the case worker.{" "}
       <button

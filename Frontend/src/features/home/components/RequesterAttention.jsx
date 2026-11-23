@@ -5,6 +5,13 @@ import {
   MessageSquareReply,
   CircleCheck,
 } from "lucide-react";
+import {
+  oldestWaitingFirst,
+  PENDING_REASON,
+  PendingWaitChip,
+  STATUS,
+  useTicketList,
+} from "@/features/tickets";
 import { InlineRetry } from "@/shared/ui";
 import { useDashboardSummary } from "../hooks/useDashboard.js";
 
@@ -12,9 +19,72 @@ import { useDashboardSummary } from "../hooks/useDashboard.js";
 const PENDING = "/tickets?status=4";
 const RESOLVED = "/tickets?status=5";
 
+/** My Pending requests (the API's largest page): sorted oldest first here, the API has no such sort. */
+const WAITING = {
+  view: "mine",
+  status: STATUS.Pending,
+  page: 1,
+  pageSize: 100,
+};
+/** How many of the oldest show on Home; the row above opens them all. */
+const SHOWN = 5;
+
+/** The requests waiting for my reply, oldest first, each with how long it has waited. */
+function WaitingOnMe({ count }) {
+  const list = useTicketList(WAITING, { enabled: count > 0 });
+  if (list.isLoading)
+    return (
+      <span
+        aria-hidden="true"
+        data-testid="waiting-loading"
+        className="mt-1.5 block h-8 animate-pulse rounded-lg bg-white/60"
+      />
+    );
+  if (list.isError)
+    return (
+      <InlineRetry
+        message="The requests waiting for you could not be loaded."
+        onRetry={() => list.refetch()}
+        testId="waiting-error"
+      />
+    );
+  const items = oldestWaitingFirst(
+    (list.data?.items ?? []).filter(
+      (t) => t.pendingReason === PENDING_REASON.Requester,
+    ),
+  ).slice(0, SHOWN);
+  if (!items.length) return null;
+  return (
+    <ul
+      aria-label="Waiting for your reply, oldest first"
+      data-testid="waiting-on-me"
+      className="mt-1.5 space-y-1 pl-2"
+    >
+      {items.map((ticket) => (
+        <li key={ticket.id}>
+          <Link
+            to={`/tickets/${ticket.reference}`}
+            data-testid={`waiting-${ticket.reference}`}
+            className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg px-3 py-2 text-sm hover:bg-white/70"
+          >
+            <span className="text-xs font-semibold text-muted tabular-nums">
+              {ticket.reference}
+            </span>
+            <span className="min-w-0 flex-1 basis-40 truncate font-medium text-ink">
+              {ticket.subject}
+            </span>
+            <PendingWaitChip ticket={ticket} you />
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
  * "Needs your attention": requests waiting for my reply (Pending) and resolved ones waiting for my
- * confirmation, each row opening My requests filtered to them. Hidden when both are 0.
+ * confirmation, each row opening My requests filtered to them. Hidden when both are 0. Under the
+ * first, the oldest few waiting for me, each with how long it has waited.
  */
 export default function RequesterAttention() {
   const summary = useDashboardSummary();
@@ -76,6 +146,7 @@ export default function RequesterAttention() {
                 className="shrink-0 text-brand-navy"
               />
             </Link>
+            {key === "waitingOnMe" && <WaitingOnMe count={mine.waitingOnMe} />}
           </li>
         ))}
       </ul>

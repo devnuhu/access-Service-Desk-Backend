@@ -118,3 +118,29 @@ export function formatWatClock(utc) {
   const p = watParts(date);
   return `${p.hour}:${p.minute}`;
 }
+
+/**
+ * Whole WAT calendar days since an API time (0 the same day, 1 yesterday); never below 0. Null for
+ * no value or an invalid one.
+ * @param {string | Date | null | undefined} utc
+ * @param {number | Date} [now]
+ */
+export function watDaysSince(utc, now = Date.now()) {
+  const date = parseUtc(utc);
+  if (!date) return null;
+  return Math.max(0, -watDayOffset(date, new Date(now)));
+}
+
+/**
+ * "2026-11-12T09:00:00Z" -> "12 Nov" (WAT), with the year when it is not this year. Empty string
+ * for no value or an invalid one.
+ * @param {string | Date | null | undefined} utc
+ * @param {number | Date} [now]
+ */
+export function formatWatDay(utc, now = Date.now()) {
+  const date = parseUtc(utc);
+  if (!date) return "";
+  const p = watParts(date);
+  const year = p.year === watParts(new Date(now)).year ? "" : ` ${p.year}`;
+  return `${p.day} ${p.month}${year}`;
+}

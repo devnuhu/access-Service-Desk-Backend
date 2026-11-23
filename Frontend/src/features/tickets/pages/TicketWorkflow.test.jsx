@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
@@ -439,6 +439,14 @@ describe("Reopen and cancel", () => {
 });
 
 describe("Status callout", () => {
+  // Pending since Tue 3 Nov 11:00 WAT; now Sun 8 Nov: 5 calendar days.
+  beforeEach(() => {
+    vi.useFakeTimers({
+      now: new Date("2026-11-08T09:00:00Z"),
+      toFake: ["Date"],
+    });
+  });
+  afterEach(() => vi.useRealTimers());
   const pending = (reason) =>
     ticket({
       status: 4,
@@ -449,9 +457,7 @@ describe("Status callout", () => {
   it('Pending on the requester says "Reply below to continue" to the requester only', async () => {
     renderPage({ data: pending(1) });
     const box = await callout();
-    expect(box).toHaveTextContent(
-      "Waiting on you since Tue 3 Nov 2026, 11:00 WAT.",
-    );
+    expect(box).toHaveTextContent("Waiting on you since 3 Nov (5 days).");
     expect(box).toHaveTextContent("Reply below to continue.");
     expect(
       within(box).getByRole("button", { name: "Reply" }),
@@ -461,14 +467,18 @@ describe("Status callout", () => {
   it("the assignee sees who it is waiting on, without the reply prompt", async () => {
     renderPage({ data: pending(1), viewer: "u-cw" });
     const box = await callout();
-    expect(box).toHaveTextContent("Waiting on the requester since");
+    expect(box).toHaveTextContent(
+      "Waiting on the requester since 3 Nov (5 days).",
+    );
     expect(box).not.toHaveTextContent("Reply below to continue");
   });
 
   it("Pending on a third party", async () => {
     renderPage({ data: pending(2) });
     const box = await callout();
-    expect(box).toHaveTextContent("Waiting on a third party since");
+    expect(box).toHaveTextContent(
+      "Waiting on a third party since 3 Nov (5 days).",
+    );
     expect(box).not.toHaveTextContent("Reply below");
   });
 

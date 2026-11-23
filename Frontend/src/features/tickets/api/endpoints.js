@@ -117,6 +117,10 @@ const listItemFields = {
   lastCommentAt: z.string().nullable().default(null),
   /** The last comment this person can see is the requester's: waiting for staff to answer. */
   lastCommentByRequester: z.boolean().default(false),
+  /** While Pending: who it waits on (PENDING_REASON: 1 requester, 2 third party). Null otherwise. */
+  pendingReason: z.number().int().nullable().default(null),
+  /** While Pending: when it went Pending (UTC). Null otherwise. */
+  pendingSince: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 };
@@ -138,8 +142,6 @@ const ticketSchema = z.object({
   canComment: z.boolean(),
   canAddInternalNote: z.boolean(),
   acknowledgedAt: z.string().nullable(),
-  pendingReason: z.number().int().nullable(),
-  pendingSince: z.string().nullable(),
   resolvedAt: z.string().nullable(),
   resolutionCode: z.number().int().nullable(),
   resolutionNote: z.string().nullable(),

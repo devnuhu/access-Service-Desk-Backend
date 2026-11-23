@@ -74,6 +74,7 @@ const MINE = {
   waitingOnMe: 2,
 };
 
+const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
 const person = { userId: "u-1", userName: "amaka.obi", fullName: "Amaka Obi" };
 const ticket = (n, overrides = {}) => ({
   id: `t-${n}`,
@@ -219,6 +220,58 @@ describe("Requester Home", () => {
     );
     expect(card).toHaveTextContent("2 requests are waiting for your reply");
     expect(within(card).queryByTestId("attention-toConfirm")).toBeNull();
+  });
+
+  it("lists the requests waiting for my reply, oldest first, each with its wait (not third-party ones)", async () => {
+    const asked = [];
+    renderHome({
+      routes: {
+        "GET /api/tickets": ({ params }) => {
+          asked.push(params);
+          if (params.status === 4)
+            return [
+              200,
+              {
+                // Newest first, as the API sends them.
+                items: [
+                  ticket(1, { pendingReason: 1, pendingSince: daysAgo(1) }),
+                  ticket(2, { pendingReason: 2, pendingSince: daysAgo(20) }),
+                  ticket(3, { pendingReason: 1, pendingSince: daysAgo(11) }),
+                  ticket(4, { pendingReason: 1, pendingSince: daysAgo(6) }),
+                ],
+                total: 4,
+                page: 1,
+                pageSize: 100,
+              },
+            ];
+          return [200, { items: [], total: 0, page: 1, pageSize: 5 }];
+        },
+      },
+    });
+    const list = await screen.findByTestId("waiting-on-me");
+    expect(list).toHaveAccessibleName("Waiting for your reply, oldest first");
+    const rows = within(list).getAllByRole("link");
+    expect(rows.map((r) => r.getAttribute("href"))).toEqual([
+      "/tickets/BE-2026-000003",
+      "/tickets/BE-2026-000004",
+      "/tickets/BE-2026-000001",
+    ]);
+    expect(
+      rows.map((r) => within(r).getByTestId("pending-wait").textContent),
+    ).toEqual([
+      "Waiting on you · 11d",
+      "Waiting on you · 6d",
+      "Waiting on you · 1d",
+    ]);
+    expect(
+      rows.map((r) =>
+        within(r).getByTestId("pending-wait").getAttribute("data-tone"),
+      ),
+    ).toEqual(["red", "amber", "neutral"]);
+    expect(asked.find((p) => p.status === 4)).toMatchObject({
+      view: "mine",
+      pageSize: 100,
+    });
   });
 
   it("hides Needs your attention when both counts are 0", async () => {

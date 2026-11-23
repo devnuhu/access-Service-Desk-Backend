@@ -12981,6 +12981,19 @@
             ],
             "nullable": true
           },
+          "pendingReason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PendingReason"
+              }
+            ],
+            "nullable": true
+          },
+          "pendingSince": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
           "assignedAt": {
             "type": "string",
             "format": "date-time",
@@ -13097,19 +13110,6 @@
             "type": "boolean"
           },
           "acknowledgedAt": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "pendingReason": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/PendingReason"
-              }
-            ],
-            "nullable": true
-          },
-          "pendingSince": {
             "type": "string",
             "format": "date-time",
             "nullable": true
@@ -13280,6 +13280,19 @@
                 "$ref": "#/components/schemas/PersonDto"
               }
             ],
+            "nullable": true
+          },
+          "pendingReason": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PendingReason"
+              }
+            ],
+            "nullable": true
+          },
+          "pendingSince": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           },
           "assignedAt": {

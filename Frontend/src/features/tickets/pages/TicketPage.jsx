@@ -29,6 +29,7 @@ import ChangePriorityDialog from "../components/ChangePriorityDialog.jsx";
 import PickCard from "../components/PickCard.jsx";
 import Conversation from "../components/Conversation.jsx";
 import ReplyBox from "../components/ReplyBox.jsx";
+import PendingWaitChip from "../components/PendingWaitChip.jsx";
 import StatusChip from "../components/StatusChip.jsx";
 import StatusCallout from "../components/StatusCallout.jsx";
 import { ActionsCard } from "../components/TicketActions.jsx";
@@ -182,6 +183,7 @@ export default function TicketPage() {
       >
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <StatusChip status={ticket.status} />
+          {ticket.isStaffView && <PendingWaitChip ticket={ticket} />}
           <span className="inline-flex items-center gap-1">
             <PriorityChip priority={ticket.priority} />
             {ticket.isStaffView && (

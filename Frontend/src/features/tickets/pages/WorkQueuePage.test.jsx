@@ -353,6 +353,30 @@ describe("Work queue", () => {
   });
 });
 
+describe("Pending wait chip", () => {
+  it("staff lists show the wait on Pending rows (neutral at 4 days), none on others", async () => {
+    const at = new Date(Date.now() - 4 * 86_400_000).toISOString();
+    renderQueue(
+      ["Requester", "HOD"],
+      org([CM(), RF], { isHod: true }),
+      () => [
+        item("CP-2026-000001", 4, { pendingReason: 1, pendingSince: at }),
+        item("CP-2026-000002", 2),
+      ],
+      "?tab=department&unit=u-cm",
+    );
+    const pending = await screen.findByTestId("ticket-row-CP-2026-000001");
+    const chip = within(pending).getByTestId("pending-wait");
+    expect(chip).toHaveTextContent("Waiting on requester · 4d");
+    expect(chip).toHaveAttribute("data-tone", "neutral");
+    expect(
+      within(screen.getByTestId("ticket-row-CP-2026-000002")).queryByTestId(
+        "pending-wait",
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("Priority and age filters", () => {
   const HEAD = ["Requester", "CaseWorker", "HeadOfUnit"];
   const headOrg = () => org([CM({ isHead: true, isMember: true }), RF]);

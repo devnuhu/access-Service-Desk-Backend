@@ -5,13 +5,36 @@ import { installFakeApi } from "@/test/fakeApi";
 import { createTestQueryClient, renderWithProviders } from "@/test/render";
 import MyRequestsPage from "./MyRequestsPage.jsx";
 
-function renderMyRequests(search) {
+const daysAgo = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
+const row = (n, status, overrides = {}) => ({
+  id: `t-${n}`,
+  reference: `CP-2026-00000${n}`,
+  subject: `Subject ${n}`,
+  departmentCode: "CP",
+  categoryName: "Account Reconciliation",
+  unitName: "Contribution Matching",
+  locationName: "HQ",
+  priority: 2,
+  status,
+  requester: { userId: "u-r", userName: "test.requester", fullName: null },
+  assignee: null,
+  assignedAt: null,
+  firstRespondedAt: null,
+  escalatedToHeadAt: null,
+  slaLevel: 0,
+  slaDueAt: null,
+  createdAt: "2026-11-03T10:00:00Z",
+  updatedAt: null,
+  ...overrides,
+});
+
+function renderMyRequests(search, items = []) {
   const queryClient = createTestQueryClient();
   const asked = [];
   installFakeApi(queryClient, {
     "GET /api/tickets": (config) => {
       asked.push(config.params);
-      return [200, { items: [], total: 0, page: 1, pageSize: 20 }];
+      return [200, { items, total: items.length, page: 1, pageSize: 20 }];
     },
   });
   const { router } = renderWithProviders(<MyRequestsPage />, {
@@ -38,6 +61,35 @@ describe("My requests", () => {
       expect(asked[0]).toMatchObject({ view: "mine", status: 5 }),
     );
     expect(asked[0].open).toBeUndefined();
+  });
+
+  it("a Pending row shows who it waits on and for how long; other rows show no chip", async () => {
+    renderMyRequests("", [
+      row(1, 4, { pendingReason: 1, pendingSince: daysAgo(5) }),
+      row(2, 4, { pendingReason: 2, pendingSince: daysAgo(10) }),
+      row(3, 3),
+    ]);
+    const first = await screen.findByTestId("ticket-row-CP-2026-000001");
+    expect(within(first).getByTestId("pending-wait")).toHaveTextContent(
+      "Waiting on requester · 5d",
+    );
+    expect(within(first).getByTestId("pending-wait")).toHaveAttribute(
+      "data-tone",
+      "amber",
+    );
+    const second = screen.getByTestId("ticket-row-CP-2026-000002");
+    expect(within(second).getByTestId("pending-wait")).toHaveTextContent(
+      "Waiting on third party · 10d",
+    );
+    expect(within(second).getByTestId("pending-wait")).toHaveAttribute(
+      "data-tone",
+      "red",
+    );
+    expect(
+      within(screen.getByTestId("ticket-row-CP-2026-000003")).queryByTestId(
+        "pending-wait",
+      ),
+    ).toBeNull();
   });
 
   it("has a Priority filter (no age): read from and written to the address", async () => {
