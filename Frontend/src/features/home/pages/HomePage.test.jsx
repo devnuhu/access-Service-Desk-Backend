@@ -226,29 +226,6 @@ describe("Home", () => {
     );
   });
 
-  it("Warning and Far past are plain numbers; with no unit the assigned tiles are not links", async () => {
-    renderHome(
-      ["Requester"],
-      [],
-      { departments: [] },
-      {
-        generatedAt: "2026-11-19T13:05:00Z",
-        mine: { ...MINE, warning: 1, farPast: 1 },
-        overview: null,
-      },
-    );
-    expect(await screen.findByTestId("mine-warning")).toHaveTextContent("1");
-    expect(screen.getByTestId("mine-warning")).toHaveClass(
-      "text-brand-orange-ink",
-    );
-    expect(screen.getByTestId("mine-warning").closest("a")).toBeNull();
-    expect(screen.getByTestId("mine-farPast").closest("a")).toBeNull();
-    expect(screen.getByTestId("mine-open").closest("a")).toBeNull();
-    expect(
-      screen.getByTestId("raised-raisedOpen").closest("a"),
-    ).toHaveAttribute("href", "/tickets?status=open");
-  });
-
   it("an HOD's home is the department overview: a row per unit opening its dashboard, a total row, no My work", async () => {
     renderHome(
       ["Requester", "HOD"],

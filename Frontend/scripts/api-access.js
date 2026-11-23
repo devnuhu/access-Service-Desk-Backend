@@ -33,6 +33,7 @@ import {
 } from "../src/features/admin-catalogue/api/endpoints.js";
 import {
   listCatalogue,
+  getCatalogueSuggestions,
   listCatalogueTemplates,
   listMyCategories,
 } from "../src/features/catalogue/api/endpoints.js";
@@ -242,6 +243,10 @@ export const ACCESS_TABLE = [
   }),
   // Templates: the raise form's suggestions for everyone; a category's own template for the
   // Super Admin, the head of its unit and the Department Admin (the service decides; others 403)
+  get("/api/catalogue/suggestions", SIGNED_IN, {
+    probe: {},
+    schema: getCatalogueSuggestions.response,
+  }),
   get("/api/catalogue/templates", SIGNED_IN, {
     probe: {},
     schema: listCatalogueTemplates.response,

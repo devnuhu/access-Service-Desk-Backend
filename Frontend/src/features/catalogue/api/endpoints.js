@@ -66,6 +66,27 @@ export const listCatalogue = defineEndpoint({
   ),
 });
 
+const suggestion = z.looseObject({
+  categoryId: z.string(),
+  categoryName: z.string(),
+  description: z.string().nullable().optional().default(null),
+  departmentId: z.string(),
+  departmentName: z.string(),
+});
+
+/**
+ * Quick picks for the requester home: `recent` what I raised in the last 90 days (up to 5, newest
+ * first), `popular` the most raised in the last 30 days (up to 6). Active categories only.
+ */
+export const getCatalogueSuggestions = defineEndpoint({
+  method: "GET",
+  path: "/api/catalogue/suggestions",
+  response: z.object({
+    recent: list(suggestion),
+    popular: list(suggestion),
+  }),
+});
+
 /**
  * Suggested subject and description per category, for the raise form: only categories a requester
  * can choose that have a template, placeholders already filled in for the signed-in person.

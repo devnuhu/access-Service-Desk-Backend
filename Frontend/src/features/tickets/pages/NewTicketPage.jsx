@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { X } from "lucide-react";
 import { searchPeople } from "@/features/admin-people";
 import { useSession } from "@/features/auth";
 import { searchColleagues } from "@/features/people";
@@ -145,9 +146,23 @@ function TicketForm({ user, departments }) {
   const storageKey = draftKey(user.id);
   const formRef = useRef(null);
 
+  // ?categoryId= (the home page search, quick picks and department lists): that department and
+  // request type chosen, shown as a chip; the form starts at the description.
+  const [params] = useSearchParams();
+  const asked = params.get("categoryId");
+  const askedDepartment = asked
+    ? departments.find((d) => d.categories.some((c) => c.id === asked))
+    : null;
+  const [fixed, setFixed] = useState(Boolean(askedDepartment));
+  const [pendingTemplate, setPendingTemplate] = useState(
+    Boolean(askedDepartment),
+  );
   const [form, setForm] = useState(() => ({
     ...EMPTY,
     ...readDraft(storageKey),
+    ...(askedDepartment
+      ? { departmentId: askedDepartment.departmentId, categoryId: asked }
+      : {}),
   }));
   const [files, setFiles] = useState([]);
   const [errors, setErrors] = useState({});
@@ -188,6 +203,13 @@ function TicketForm({ user, departments }) {
     setSuggested(next);
     return changes;
   };
+  // A request type chosen by the link takes its suggested texts once they have loaded.
+  if (pendingTemplate && templates.data) {
+    setPendingTemplate(false);
+    const changes = suggestFor(form.categoryId);
+    if (Object.keys(changes).length)
+      setForm((current) => ({ ...current, ...changes }));
+  }
   const chooseCategory = (categoryId, extra = {}) =>
     set({ ...extra, categoryId, ...suggestFor(categoryId) });
 
@@ -246,6 +268,24 @@ function TicketForm({ user, departments }) {
     form.requester ||
     files.length,
   );
+
+  useEffect(() => {
+    if (!askedDepartment) return undefined;
+    let tries = 0;
+    const timer = window.setInterval(() => {
+      const editor = formRef.current?.querySelector(
+        '[data-field="descriptionHtml"] [contenteditable="true"]',
+      );
+      tries += 1;
+      if (editor || tries > 40) {
+        window.clearInterval(timer);
+        editor?.focus({ preventScroll: false });
+      }
+    }, 100);
+    return () => window.clearInterval(timer);
+    // Once, on arrival from a link.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Draft (not the files) in session storage while typing.
   useEffect(() => {
@@ -405,7 +445,36 @@ function TicketForm({ user, departments }) {
           )}
 
           <div className="grid gap-5 md:grid-cols-2">
-            {departments.length > 1 && (
+            {fixed && category ? (
+              <div data-field="categoryId" className="md:col-span-2">
+                <p className="text-sm font-semibold text-ink">Request type</p>
+                <p
+                  data-testid="chosen-category"
+                  className="mt-1 inline-flex max-w-full items-center gap-2 rounded-full bg-brand-navy-light py-1 pr-1 pl-3 text-sm text-brand-navy ring-1 ring-brand-navy/15 ring-inset"
+                >
+                  <span className="min-w-0 truncate font-semibold">
+                    {category.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted">
+                    {department?.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setFixed(false)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-brand-navy hover:bg-page"
+                  >
+                    <X aria-hidden="true" size={12} />
+                    Change
+                  </button>
+                </p>
+                {category.description && (
+                  <p className="mt-1 text-xs text-muted">
+                    {category.description}
+                  </p>
+                )}
+              </div>
+            ) : null}
+            {!(fixed && category) && departments.length > 1 && (
               <div>
                 <label
                   htmlFor="ticket-department"
@@ -431,41 +500,43 @@ function TicketForm({ user, departments }) {
               </div>
             )}
 
-            <div
-              data-field="categoryId"
-              className={departments.length > 1 ? "" : "md:col-span-2"}
-            >
-              <label
-                htmlFor="ticket-category"
-                className="block text-sm font-semibold text-ink"
+            {!(fixed && category) && (
+              <div
+                data-field="categoryId"
+                className={departments.length > 1 ? "" : "md:col-span-2"}
               >
-                Category
-              </label>
-              <CategoryCombobox
-                id="ticket-category"
-                categories={categories}
-                value={form.categoryId}
-                onChange={(categoryId) => chooseCategory(categoryId)}
-                invalid={Boolean(errors.categoryId)}
-                describedBy={describe(
-                  category?.description && "ticket-category-description",
-                  errors.categoryId && "ticket-category-error",
-                )}
-                disabled={!department}
-              />
-              {category?.description && (
-                <p
-                  id="ticket-category-description"
-                  className="mt-1 text-xs text-muted"
+                <label
+                  htmlFor="ticket-category"
+                  className="block text-sm font-semibold text-ink"
                 >
-                  {category.description}
-                </p>
-              )}
-              <FieldError
-                id="ticket-category-error"
-                message={errors.categoryId}
-              />
-            </div>
+                  Category
+                </label>
+                <CategoryCombobox
+                  id="ticket-category"
+                  categories={categories}
+                  value={form.categoryId}
+                  onChange={(categoryId) => chooseCategory(categoryId)}
+                  invalid={Boolean(errors.categoryId)}
+                  describedBy={describe(
+                    category?.description && "ticket-category-description",
+                    errors.categoryId && "ticket-category-error",
+                  )}
+                  disabled={!department}
+                />
+                {category?.description && (
+                  <p
+                    id="ticket-category-description"
+                    className="mt-1 text-xs text-muted"
+                  >
+                    {category.description}
+                  </p>
+                )}
+                <FieldError
+                  id="ticket-category-error"
+                  message={errors.categoryId}
+                />
+              </div>
+            )}
 
             <div data-field="locationId">
               <label

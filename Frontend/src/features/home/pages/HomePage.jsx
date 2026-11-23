@@ -1,28 +1,20 @@
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  Building2,
-  ClipboardList,
-  ShieldCheck,
-  TriangleAlert,
-  UserCog,
-  Users,
-} from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 import { coverTitle, useCoverWarnings } from "@/features/admin-catalogue";
 import { firstNameOf, useSession } from "@/features/auth";
 import {
-  describePlaces,
   headedUnits,
   memberUnits,
   oversees,
   useMyOrganisation,
 } from "@/features/org";
 import { RaiseTicketLink } from "@/features/tickets";
-import { BRAND } from "@/shared/brand";
-import { hasAnyRole, roleLabel, ROLES, sortRoles } from "@/shared/lib/roles";
-import { Card, PageHeader, RoleChips, Spinner } from "@/shared/ui";
-import Dashboard from "../components/Dashboard.jsx";
+import { hasAnyRole, ROLES, sortRoles } from "@/shared/lib/roles";
+import { PageHeader, RoleChips, Spinner } from "@/shared/ui";
 import DepartmentOverview from "../components/DepartmentOverview.jsx";
 import MemberHome from "../components/MemberHome.jsx";
+import RequesterHome from "../components/RequesterHome.jsx";
+import StaffRequestRow from "../components/StaffRequestRow.jsx";
 import UnitDashboard from "../components/UnitDashboard.jsx";
 
 /**
@@ -59,43 +51,19 @@ function HeadHome({ units }) {
           ))}
         </div>
       )}
+      <div className="mt-4">
+        <StaffRequestRow />
+      </div>
     </UnitDashboard>
   );
 }
 
-/** One line per role (BRD Section 4). Platform wording: no department names. */
-const ROLE_CARDS = {
-  [ROLES.Requester]: {
-    icon: ClipboardList,
-    text: "Raise requests to any department and follow each one until it is resolved.",
-  },
-  [ROLES.CaseWorker]: {
-    icon: UserCog,
-    text: "Work the requests assigned to you and keep them within their response and resolution times.",
-  },
-  [ROLES.HeadOfUnit]: {
-    icon: Users,
-    text: "Run your unit's queue: set up case workers, reassign work and handle first escalations.",
-  },
-  [ROLES.HOD]: {
-    icon: Building2,
-    text: "Oversee your department's requests and performance, and handle escalations that reach you.",
-  },
-  [ROLES.DepartmentAdmin]: {
-    icon: Building2,
-    text: "See every ticket in your department and reassign anywhere in it, as the HOD does.",
-  },
-  [ROLES.SuperAdmin]: {
-    icon: ShieldCheck,
-    text: `Manage people and roles, and keep ${BRAND.name} set up and running.`,
-  },
-};
-
 /**
  * Home by what the person leads (org/me): an HOD, Department Admin or Super Admin oversees, and
- * gets the department overview (no My work: requesting stays on the Raise a ticket button); a unit
- * head gets their unit dashboard; a case worker their unit home (MemberHome); everyone else (a
- * requester) My work and what their roles can do.
+ * gets the department overview; a unit head gets their unit dashboard; a case worker their unit
+ * home (MemberHome). Each of those has a compact row on top to request something and see their own
+ * requests. Everyone else (a plain requester) gets the Requester Home: search first, departments
+ * second, their requests.
  */
 export default function HomePage() {
   const { user } = useSession();
@@ -113,7 +81,7 @@ export default function HomePage() {
   if (units.length) return <HeadHome units={units} />;
   const worksIn = memberUnits(org);
   if (worksIn.length) return <MemberHome units={worksIn} />;
-  return <WorkHome org={org} />;
+  return <RequesterHome />;
 }
 
 function Welcome({ user, children }) {
@@ -176,69 +144,9 @@ function OverviewHome() {
       <Welcome user={user}>
         <RoleChips roles={sortRoles(user.roles)} className="mt-3" />
       </Welcome>
+      <StaffRequestRow />
       <CoverWarning enabled={isSuperAdmin} />
       <DepartmentOverview actions={<RaiseTicketLink />} />
-    </div>
-  );
-}
-
-function WorkHome({ org }) {
-  const { user } = useSession();
-  const roles = sortRoles(user.roles);
-  // A unit member's Work queue opens on "Assigned to me": the My work tiles link there.
-  const memberDepartment = org?.departments.find((department) =>
-    department.units.some((unit) => unit.isMember),
-  );
-  const places = describePlaces(org);
-
-  return (
-    <div className="space-y-6">
-      <Welcome user={user}>
-        <RoleChips roles={roles} className="mt-3" />
-        {places.length > 0 && (
-          <ul
-            className="mt-3 space-y-0.5 text-sm text-body"
-            aria-label="Your place"
-          >
-            {places.map((place) => (
-              <li key={place}>{place}</li>
-            ))}
-          </ul>
-        )}
-      </Welcome>
-
-      <Dashboard
-        departmentId={memberDepartment?.id}
-        actions={<RaiseTicketLink />}
-      />
-
-      <section aria-labelledby="home-roles">
-        <h2 id="home-roles" className="text-base font-semibold">
-          What you can do
-        </h2>
-        <ul className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {roles
-            .filter((role) => ROLE_CARDS[role])
-            .map((role) => {
-              const { icon: Icon, text } = ROLE_CARDS[role];
-              return (
-                <li key={role}>
-                  <Card as="div" className="flex h-full gap-3 px-5 py-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-navy-light text-brand-navy">
-                      <Icon aria-hidden="true" size={18} />
-                    </span>
-                    <div>
-                      <h3 className="text-sm font-semibold">
-                        {roleLabel(role)}
-                      </h3>
-                      <p className="mt-1 text-sm text-body">{text}</p>
-                    </div>
-                  </Card>
-                </li>
-              );
-            })}
-        </ul>
-      </section>
     </div>
   );
 }

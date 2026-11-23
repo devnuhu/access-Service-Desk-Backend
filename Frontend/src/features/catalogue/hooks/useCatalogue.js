@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import {
+  getCatalogueSuggestions,
   getPriorityMatrix,
   listCatalogue,
   listCatalogueTemplates,
@@ -44,6 +45,17 @@ export function usePriorityMatrix() {
   return useQuery({
     queryKey: PRIORITY_MATRIX_KEY,
     queryFn: () => request(getPriorityMatrix),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export const CATALOGUE_SUGGESTIONS_KEY = ["catalogue", "suggestions"];
+
+/** Recent and popular request types for the quick picks (kept a few minutes). */
+export function useCatalogueSuggestions() {
+  return useQuery({
+    queryKey: CATALOGUE_SUGGESTIONS_KEY,
+    queryFn: () => request(getCatalogueSuggestions),
     staleTime: 5 * 60_000,
   });
 }

@@ -32,6 +32,8 @@ export const getDashboardSummary = defineEndpoint({
       ...levels,
       raisedOpen: z.number().int(),
       toConfirm: z.number().int(),
+      /** My requests that are Pending because the case worker waits for my reply. */
+      waitingOnMe: z.number().int().default(0),
     }),
     overview: z
       .object({

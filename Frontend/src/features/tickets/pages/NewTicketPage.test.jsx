@@ -76,7 +76,12 @@ const MATRIX = {
 
 const twoDaysAgo = new Date(Date.now() - 2.2 * 24 * 3600 * 1000).toISOString();
 
-function renderForm({ roles = ["Requester"], draft, routes = {} } = {}) {
+function renderForm({
+  roles = ["Requester"],
+  draft,
+  routes = {},
+  route = "/tickets/new",
+} = {}) {
   const user = makeUser({ roles });
   if (draft) {
     window.sessionStorage.setItem(draftKey(user.id), JSON.stringify(draft));
@@ -116,7 +121,7 @@ function renderForm({ roles = ["Requester"], draft, routes = {} } = {}) {
       <Route path="/tickets/new" element={<NewTicketPage />} />
       <Route path="/tickets/:reference" element={<p>Ticket page</p>} />
     </Routes>,
-    { route: "/tickets/new", queryClient },
+    { route, queryClient },
   );
   return { ...view, api, calls, user };
 }
@@ -560,5 +565,53 @@ describe("Raise a ticket: templates", () => {
     await user.type(subject, "Unmatched for March");
     await chooseCategory(user, "Account Reconciliation");
     expect(subject).toHaveValue("Unmatched for March");
+  });
+});
+
+describe("Raise a ticket: arriving with ?categoryId=", () => {
+  it("shows the chosen request type as a chip, starts at the description, and Change brings back the pickers", async () => {
+    const user = userEvent.setup();
+    const { calls } = renderForm({
+      route: "/tickets/new?categoryId=c-uc",
+      draft: {
+        impact: 1,
+        urgency: 1,
+        subject: "Contribution missing",
+        descriptionHtml: "<p>Please check.</p>",
+      },
+    });
+    const chip = await screen.findByTestId("chosen-category");
+    expect(chip).toHaveTextContent("Unmatched contribution");
+    expect(chip).toHaveTextContent("Contribution Processing");
+    expect(
+      screen.queryByRole("combobox", { name: "Category" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        document.querySelector(
+          '[data-field="descriptionHtml"] [contenteditable="true"]',
+        ),
+      ).toHaveFocus(),
+    );
+
+    // Change: the pickers come back with the same choice, and it is what goes.
+    await user.click(within(chip).getByRole("button", { name: "Change" }));
+    expect(screen.getByRole("combobox", { name: "Category" })).toHaveValue(
+      "Unmatched contribution",
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Location")).toHaveDisplayValue("Abuja"),
+    );
+    await user.click(screen.getByRole("button", { name: "Raise ticket" }));
+    await waitFor(() => expect(calls.create).toHaveLength(1));
+    expect(calls.create[0].body.get("categoryId")).toBe("c-uc");
+  });
+
+  it("an unknown categoryId leaves the form as usual", async () => {
+    renderForm({ route: "/tickets/new?categoryId=nope" });
+    expect(
+      await screen.findByRole("combobox", { name: "Category" }),
+    ).toHaveValue("");
+    expect(screen.queryByTestId("chosen-category")).not.toBeInTheDocument();
   });
 });

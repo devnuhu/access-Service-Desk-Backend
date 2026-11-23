@@ -8,6 +8,7 @@ import { RaiseTicketLink, usePool, useTicketList } from "@/features/tickets";
 import { formatWatClock } from "@/shared/lib/time";
 import { Card, PageHeader, Spinner } from "@/shared/ui";
 import { useDashboardSummary } from "../hooks/useDashboard.js";
+import StaffRequestRow from "./StaffRequestRow.jsx";
 
 const RESOLVED = 5;
 const UNIT_KEY = "asd.home.unit";
@@ -196,6 +197,8 @@ export default function MemberHome({ units }) {
           </div>
         )}
       </PageHeader>
+
+      <StaffRequestRow />
 
       {mine?.responseOverdue > 0 && (
         <Link

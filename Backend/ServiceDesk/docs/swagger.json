@@ -4104,6 +4104,35 @@
         }
       }
     },
+    "/api/catalogue/suggestions": {
+      "get": {
+        "tags": [
+          "CatalogueSuggestions"
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueSuggestionsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/catalogue/templates": {
       "get": {
         "tags": [
@@ -9815,6 +9844,48 @@
         },
         "additionalProperties": false
       },
+      "CatalogueSuggestionDto": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categoryName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "departmentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "departmentName": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogueSuggestionsDto": {
+        "type": "object",
+        "properties": {
+          "recent": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogueSuggestionDto"
+            }
+          },
+          "popular": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogueSuggestionDto"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "CatalogueTemplateDto": {
         "type": "object",
         "properties": {
@@ -10235,6 +10306,10 @@
             "format": "int32"
           },
           "toConfirm": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "waitingOnMe": {
             "type": "integer",
             "format": "int32"
           },
