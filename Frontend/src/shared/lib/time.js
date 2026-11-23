@@ -57,6 +57,18 @@ export function formatWat(utc) {
   return `${p.weekday} ${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute} WAT`;
 }
 
+/**
+ * "2026-11-24T09:00:00Z" -> "24 Nov 2026, 10:00" (WAT, always with the year, no weekday). Empty
+ * string for no value or an invalid one.
+ * @param {string | Date | null | undefined} utc
+ */
+export function formatWatDateTime(utc) {
+  const date = parseUtc(utc);
+  if (!date) return "";
+  const p = watParts(date);
+  return `${p.day} ${p.month} ${p.year}, ${p.hour}:${p.minute}`;
+}
+
 /** Whole WAT calendar days from `now` to `date` (0 today, 1 tomorrow, -1 yesterday). */
 function watDayOffset(date, now) {
   const day = (d) => {

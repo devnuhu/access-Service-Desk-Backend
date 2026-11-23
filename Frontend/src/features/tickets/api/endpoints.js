@@ -687,6 +687,8 @@ const taskSchema = z.object({
   dueDate: z.string().nullable(),
   isDone: z.boolean(),
   doneAt: z.string().nullable(),
+  /** Who ticked it; null while open. */
+  doneBy: personSchema.nullable(),
   /** Open and the due date has passed. */
   isOverdue: z.boolean(),
   createdAt: z.string(),
@@ -708,6 +710,13 @@ export const listTicketTasks = defineEndpoint({
     done: z.number().int(),
     canEdit: z.boolean(),
   }),
+});
+
+/** The owner picker: everyone active who works in the ticket's department. */
+export const listTaskOwners = defineEndpoint({
+  method: "GET",
+  path: "/api/tickets/{ticketId}/tasks/owners",
+  response: list(personSchema),
 });
 
 /**

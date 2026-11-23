@@ -1,4 +1,5 @@
-import { formatWatDay } from "@/shared/lib/time";
+import { formatWatDateTime, formatWatDay } from "@/shared/lib/time";
+import { personName } from "./ticketText.js";
 
 /** ResolutionCode values that may resolve a ticket while tasks are still open (the API agrees). */
 export const RESOLUTION_CODE = Object.freeze({
@@ -31,4 +32,11 @@ export function formatTaskDue(dueDate, now = Date.now()) {
   if (!dueDate) return "";
   // Noon UTC is the same calendar day in Lagos.
   return formatWatDay(`${dueDate}T12:00:00Z`, now);
+}
+
+/** "Done 24 Nov 2026, 10:00 by Name" (without "by" when the API names nobody); "" while open. */
+export function doneText(task) {
+  if (!task?.isDone || !task.doneAt) return "";
+  const by = task.doneBy ? ` by ${personName(task.doneBy)}` : "";
+  return `Done ${formatWatDateTime(task.doneAt)}${by}`;
 }

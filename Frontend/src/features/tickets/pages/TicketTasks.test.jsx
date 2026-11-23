@@ -20,6 +20,7 @@ const person = (userId, fullName) => ({
 const REQUESTER = person("u-req", "Rita Requester");
 const WORKER = person("u-cw", "Chidi Worker");
 const OTHER = person("u-ola", "Ola Other");
+const LEFT = person("u-left", "Lola Left");
 
 const ticket = (overrides = {}) => ({
   id: "t-1",
@@ -96,6 +97,7 @@ const task = (id, title, overrides = {}) => ({
   dueDate: null,
   isDone: false,
   doneAt: null,
+  doneBy: null,
   isOverdue: false,
   createdAt: "2026-11-03T10:00:00Z",
   ...overrides,
@@ -129,23 +131,13 @@ function renderPage({
   installFakeApi(queryClient, {
     "GET /api/tickets/by-reference/:reference": () => [200, data],
     "GET /api/tickets/:ticketId/actions": () => [200, flags],
-    "GET /api/tickets/:ticketId/reassign-options": () => [
-      200,
-      {
-        canReassign: true,
-        reason: null,
-        candidates: [
-          {
-            ...OTHER,
-            unitId: "u-cm",
-            unitName: "Contribution Matching",
-            handlesCategory: true,
-            workload: 1,
-            isCurrentAssignee: false,
-          },
-        ],
-      },
-    ],
+    "GET /api/tickets/:ticketId/tasks/owners": (config) => {
+      record("OWNERS")(config);
+      return [200, [WORKER, OTHER]];
+    },
+    "GET /api/tickets/:ticketId/reassign-options": () => {
+      throw new Error("the owner picker must not use reassign-options");
+    },
     "GET /api/tickets/:ticketId/tasks": (config) => {
       record("GET")(config);
       return [200, tasksOf(store.items, canEdit)];
@@ -164,6 +156,7 @@ function renderPage({
               ...t,
               isDone: config.body.done,
               doneAt: config.body.done ? "2026-11-04T10:00:00Z" : null,
+              doneBy: config.body.done ? WORKER : null,
             }
           : t,
       );
@@ -238,7 +231,8 @@ describe("Tasks panel", () => {
       items: [
         task("k-1", "Ask the employer for the schedule", {
           isDone: true,
-          doneAt: "2026-11-04T10:00:00Z",
+          doneAt: "2026-11-04T09:00:00Z",
+          doneBy: OTHER,
         }),
         task("k-2", "Post the missing months", {
           assignee: OTHER,
@@ -269,7 +263,10 @@ describe("Tasks panel", () => {
     const done = await rowOf("k-1");
     const doneTitle = within(done).getByTestId("task-title");
     expect(doneTitle).toHaveClass("line-through");
-    expect(doneTitle.getAttribute("title")).toMatch(/^Done /);
+    expect(doneTitle).toHaveAttribute(
+      "title",
+      "Done 4 Nov 2026, 10:00 by Ola Other",
+    );
     expect(within(done).getByRole("checkbox")).toBeChecked();
     expect(within(done).getByTestId("task-owner")).toHaveTextContent(
       "Ticket assignee",
@@ -354,7 +351,7 @@ describe("Tasks panel", () => {
     await user.type(title, "Write to the employer");
     await user.selectOptions(
       within(form).getByLabelText("Owner (optional)"),
-      "Ola Other · Contribution Matching",
+      "Ola Other",
     );
     fireEvent.change(within(form).getByLabelText("Due date (optional)"), {
       target: { value: "2026-11-30" },
@@ -393,6 +390,64 @@ describe("Tasks panel", () => {
       assigneeUserId: null,
       dueDate: null,
     });
+  });
+
+  it("lists the department's people as owners, and keeps a current owner who is not among them", async () => {
+    const user = userEvent.setup();
+    const { calls } = renderPage({
+      items: [task("k-1", "Call the PFA", { assignee: LEFT })],
+    });
+    const options = (form) =>
+      within(within(form).getByLabelText("Owner (optional)"))
+        .getAllByRole("option")
+        .map((option) => option.textContent);
+    const add = await within(await panel()).findByTestId("task-add");
+    await waitFor(() =>
+      expect(options(add)).toEqual([
+        "Ticket assignee",
+        "Chidi Worker",
+        "Ola Other",
+      ]),
+    );
+    await user.click(
+      within(await rowOf("k-1")).getByRole("button", {
+        name: "Edit task: Call the PFA",
+      }),
+    );
+    const form = await within(await panel()).findByTestId("task-form-k-1");
+    expect(options(form)).toEqual([
+      "Ticket assignee",
+      "Chidi Worker",
+      "Ola Other",
+      "Lola Left",
+    ]);
+    expect(within(form).getByLabelText("Owner (optional)")).toHaveValue(
+      "u-left",
+    );
+    expect(calls.filter(([label]) => label === "OWNERS")).toHaveLength(1);
+  });
+
+  it("says who ticked a task and when; no name when the API gives none", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      items: [
+        task("k-1", "Call the PFA"),
+        task("k-2", "Old task", {
+          isDone: true,
+          doneAt: "2026-11-24T09:00:00Z",
+        }),
+      ],
+    });
+    const old = within(await rowOf("k-2")).getByTestId("task-title");
+    expect(old).toHaveAttribute("title", "Done 24 Nov 2026, 10:00");
+    const open = within(await rowOf("k-1")).getByTestId("task-title");
+    expect(open).not.toHaveAttribute("title");
+    await user.click(within(await rowOf("k-1")).getByRole("checkbox"));
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("task-k-1")).getByTestId("task-title"),
+      ).toHaveAttribute("title", "Done 4 Nov 2026, 11:00 by Chidi Worker"),
+    );
   });
 
   it("removes a task after confirming", async () => {

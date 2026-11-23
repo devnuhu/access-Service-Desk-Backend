@@ -4,6 +4,7 @@ import {
   formatWat,
   relativeText,
   formatWatClock,
+  formatWatDateTime,
 } from "./time.js";
 
 // Tue 17 Nov 2026, 23:30 WAT: late enough that UTC and WAT dates differ.
@@ -67,6 +68,17 @@ describe("formatWat", () => {
   it("returns an empty string for nothing or an invalid value", () => {
     expect(formatWat(null)).toBe("");
     expect(formatWat("not a date")).toBe("");
+  });
+});
+
+describe("formatWatDateTime", () => {
+  it("shows the WAT day, month, year and time, with no weekday", () => {
+    expect(formatWatDateTime("2026-11-24T09:00:00Z")).toBe(
+      "24 Nov 2026, 10:00",
+    );
+    // 23:30 UTC on 31 Dec is already the new year in Lagos.
+    expect(formatWatDateTime("2026-12-31T23:30:00Z")).toBe("1 Jan 2027, 00:30");
+    expect(formatWatDateTime(null)).toBe("");
   });
 });
 

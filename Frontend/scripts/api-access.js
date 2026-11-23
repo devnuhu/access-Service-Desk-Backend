@@ -415,6 +415,10 @@ export const ACCESS_TABLE = [
     skipAlways: true,
     skip: "allowed for the ticket's staff and Super Admin; anyone else, the requester included, gets 404 by design",
   }),
+  get("/api/tickets/{ticketId}/tasks/owners", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the ticket's staff and Super Admin; anyone else, the requester included, gets 404 by design",
+  }),
   write("POST", "/api/tickets/{ticketId}/tasks", SIGNED_IN),
   write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}", SIGNED_IN),
   write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}/done", SIGNED_IN),

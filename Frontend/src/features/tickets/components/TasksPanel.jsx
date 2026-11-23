@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { CircleAlert, Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { fieldError } from "@/shared/lib/http";
-import { formatWat } from "@/shared/lib/time";
 import {
   Button,
   Card,
@@ -11,28 +10,28 @@ import {
   useToast,
 } from "@/shared/ui";
 import { STATUS_LABELS } from "../api/endpoints.js";
-import { useReassignOptions } from "../hooks/useTickets.js";
 import {
   useAddTask,
   useRemoveTask,
   useSetTaskDone,
+  useTaskOwners,
   useTicketTasks,
   useUpdateTask,
 } from "../hooks/useTasks.js";
-import { formatTaskDue, TASKS_PANEL_ID } from "../tasks.js";
+import { doneText, formatTaskDue, TASKS_PANEL_ID } from "../tasks.js";
 import { personName } from "../ticketText.js";
 
 const FIELDS = ["title", "assigneeUserId", "dueDate"];
 
 /**
- * Who can own a task: the department staff the reassign picker lists (people available now), plus
- * the task's current owner so editing never drops them. Empty value: the ticket's assignee.
+ * Who can own a task: everyone in the ticket's department (tasks/owners), plus the task's current
+ * owner when they are no longer in it, so editing never drops them. Empty value: the ticket's assignee.
  */
 function useOwnerChoices(ticketId, current) {
-  const options = useReassignOptions(ticketId);
+  const owners = useTaskOwners(ticketId);
   const seen = new Set();
   const people = [];
-  for (const person of [...(options.data?.candidates ?? []), current]) {
+  for (const person of [...(owners.data ?? []), current]) {
     if (!person || seen.has(person.userId)) continue;
     seen.add(person.userId);
     people.push(person);
@@ -170,7 +169,6 @@ function TaskForm({ ticketId, task, onDone, onCancel }) {
             {people.map((person) => (
               <option key={person.userId} value={person.userId}>
                 {personName(person)}
-                {person.unitName ? ` · ${person.unitName}` : ""}
               </option>
             ))}
           </select>
@@ -267,11 +265,7 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
       <div className="min-w-0 flex-1 py-2.5">
         <p
           data-testid="task-title"
-          title={
-            task.isDone && task.doneAt
-              ? `Done ${formatWat(task.doneAt)}`
-              : undefined
-          }
+          title={task.isDone ? doneText(task) || undefined : undefined}
           className={`text-sm break-words ${task.isDone ? "text-muted line-through" : "text-ink"}`}
         >
           {task.title}

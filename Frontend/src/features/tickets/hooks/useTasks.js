@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import {
   addTicketTask,
+  listTaskOwners,
   listTicketTasks,
   removeTicketTask,
   setTicketTaskDone,
@@ -17,6 +18,19 @@ export function useTicketTasks(ticketId, { enabled = true } = {}) {
     queryKey: tasksKey(ticketId),
     queryFn: () => request(listTicketTasks, { params: { ticketId } }),
     enabled: enabled && Boolean(ticketId),
+  });
+}
+
+/**
+ * Who can own a task: the ticket's department (staff only). Rarely changes, so kept 5 minutes, and
+ * outside tasksKey so a task change does not refetch it.
+ */
+export function useTaskOwners(ticketId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["tickets", ticketId, "task-owners"],
+    queryFn: () => request(listTaskOwners, { params: { ticketId } }),
+    enabled: enabled && Boolean(ticketId),
+    staleTime: 5 * 60 * 1000,
   });
 }
 
