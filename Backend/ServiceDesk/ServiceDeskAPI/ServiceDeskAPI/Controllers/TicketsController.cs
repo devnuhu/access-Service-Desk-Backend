@@ -66,15 +66,15 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 
-        /// <summary>view = mine (default), copied, assigned, or department (with departmentId). departmentId and unitId narrow any view; open=true: New, Assigned, In progress, Pending, Reopened. Newest first.</summary>
+        /// <summary>view = mine (default), copied, assigned, or department (with departmentId). departmentId and unitId narrow any view; open=true: New, Assigned, In progress, Pending, Reopened. priority: 1 Low, 2 Medium, 3 High, 4 Critical. ageBand: how long ago it was raised, the bands of the unit performance chart (1 under 1 day, 2 one to two days, 3 three to five days, 4 six to ten days, 5 over ten days); use it with open=true. Newest first.</summary>
         [HttpGet]
         [ProducesResponseType(typeof(TicketPageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
         public async Task<ActionResult<TicketPageDto>> List([FromQuery] string? view, [FromQuery] Guid? departmentId, [FromQuery] Guid? unitId,
-            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? waitingToStart = null, [FromQuery] string? sort = null, [FromQuery] bool? slaBreached = null, [FromQuery] bool? escalated = null)
+            [FromQuery] TicketStatus? status, [FromQuery] bool? open, [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] bool? waitingToStart = null, [FromQuery] string? sort = null, [FromQuery] bool? slaBreached = null, [FromQuery] bool? escalated = null, [FromQuery] TicketPriority? priority = null, [FromQuery] int? ageBand = null)
         {
-            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin(), waitingToStart, sort, slaBreached, escalated);
+            var (problem, result) = await _tickets.ListAsync(view, departmentId, unitId, status, open, search, page, pageSize, Me(), IsSuperAdmin(), waitingToStart, sort, slaBreached, escalated, priority, ageBand);
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 

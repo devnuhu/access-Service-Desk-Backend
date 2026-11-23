@@ -188,7 +188,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- reading ----------------
 
         public async Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status,
-            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null)
+            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null, TicketPriority? priority = null, int? ageBand = null)
         {
             page = Math.Max(1, page);
             pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
@@ -225,6 +225,22 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (open == true) query = query.Where(t => OpenStatuses.Contains(t.Status));
             else if (open == false) query = query.Where(t => !OpenStatuses.Contains(t.Status));
             if (waitingToStart == true) query = query.Where(t => t.Status == TicketStatus.Assigned || t.Status == TicketStatus.Reopened);
+            if (priority.HasValue) query = query.Where(t => t.Priority == priority.Value);
+            if (ageBand.HasValue)
+            {
+                if (ageBand.Value < 1 || ageBand.Value > 5) return (new TicketProblem(400, "ageBand must be 1 to 5.", "ageBand"), null);
+                // the same bands as the unit performance chart (OpenByAge), counted from when the ticket was raised
+                var ageNow = DateTime.UtcNow;
+                var d1 = ageNow.AddDays(-1); var d3 = ageNow.AddDays(-3); var d6 = ageNow.AddDays(-6); var d11 = ageNow.AddDays(-11);
+                query = ageBand.Value switch
+                {
+                    1 => query.Where(t => t.CreatedAt > d1),
+                    2 => query.Where(t => t.CreatedAt <= d1 && t.CreatedAt > d3),
+                    3 => query.Where(t => t.CreatedAt <= d3 && t.CreatedAt > d6),
+                    4 => query.Where(t => t.CreatedAt <= d6 && t.CreatedAt > d11),
+                    _ => query.Where(t => t.CreatedAt <= d11)
+                };
+            }
             if (slaBreached == true && (staffView || (view ?? "mine").Trim().ToLowerInvariant() == "assigned"))
                 query = query.Where(t => t.SlaBreachedAt != null && OpenStatuses.Contains(t.Status));
                 if (escalated == true && (staffView || (view ?? "mine").Trim().ToLowerInvariant() == "assigned"))

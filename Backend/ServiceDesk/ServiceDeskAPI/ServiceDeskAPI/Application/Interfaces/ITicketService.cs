@@ -29,9 +29,10 @@ namespace ServiceDeskAPI.Application.Interfaces
         /// <summary>
         /// view: mine (raised by or for me), copied, assigned (to me), department (departmentId; staff of it or Super Admin).
         /// departmentId and unitId narrow every view; open=true keeps New, Assigned, In progress, Pending and Reopened.
+        /// priority: 1 Low, 2 Medium, 3 High, 4 Critical. ageBand: 1 under 1 day, 2 one to two days, 3 three to five days, 4 six to ten days, 5 over ten days since it was raised (the unit performance chart bands).
         /// </summary>
         Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status, bool? open, string? search,
-            int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null);
+            int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null, TicketPriority? priority = null, int? ageBand = null);
 
         Task<(TicketProblem? Problem, TicketDetailDto? Ticket)> GetAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
         Task<Guid?> FindIdByReferenceAsync(string reference);
