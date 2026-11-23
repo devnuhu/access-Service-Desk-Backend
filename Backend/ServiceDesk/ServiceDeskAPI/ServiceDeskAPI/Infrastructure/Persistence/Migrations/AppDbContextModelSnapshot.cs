@@ -1645,6 +1645,61 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.ToTable("TicketStatusChanges", (string)null);
                 });
 
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AssigneeUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DoneAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DoneByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDone")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("OverdueNotifiedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssigneeUserId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("TicketId", "SortOrder");
+
+                    b.ToTable("TicketTasks", (string)null);
+                });
+
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketWatcher", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2265,6 +2320,28 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketStatusChange", b =>
                 {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("ServiceDeskAPI.Domain.Entities.TicketTask", b =>
+                {
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("AssigneeUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("ServiceDeskAPI.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("ServiceDeskAPI.Domain.Entities.Ticket", "Ticket")
                         .WithMany()
                         .HasForeignKey("TicketId")

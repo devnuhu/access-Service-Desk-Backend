@@ -156,6 +156,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var (problem, ticket, who) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin);
             if (problem != null) return (problem, null);
             if (!CanResolve(ticket!, who!)) return (Refuse(ticket!, who!.IsAssignee, "Only the assignee can resolve it, while it is in progress or Pending."), null);
+            if (request.Code != ResolutionCode.Duplicate && request.Code != ResolutionCode.RaisedInError)
+            {
+                var openTasks = await _db.TicketTasks.CountAsync(x => x.TicketId == ticket!.Id && !x.IsDone);
+                if (openTasks > 0)
+                    return (new TicketProblem(400, openTasks + (openTasks == 1 ? " task is" : " tasks are") + " still open. Mark " + (openTasks == 1 ? "it" : "them") + " done or remove " + (openTasks == 1 ? "it" : "them") + " first.", "tasks"), null);
+            }
 
             var now = DateTime.UtcNow;
             Change(ticket!, TicketStatus.Resolved, actorUserId, "Resolved: " + CodeLabels[request.Code], now);

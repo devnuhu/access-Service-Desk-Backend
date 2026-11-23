@@ -39,6 +39,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             var clock = BusinessClock.From(_options);
             await CheckFirstResponseAsync(clock, nowUtc, cancellationToken);
             await CheckPendingAsync(clock, nowUtc, cancellationToken);
+            await CheckTasksAsync(nowUtc, cancellationToken);
             var query = _db.Tickets.AsNoTracking().Where(t => Running.Contains(t.Status) && t.SlaL2At == null);
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);
@@ -209,6 +210,38 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             if (!changed) return;
             try { await _db.SaveChangesAsync(ct); }
             catch (DbUpdateConcurrencyException) { _logger.LogInformation("Pending check: a ticket changed at the same moment; it will be looked at again in the next pass"); }
+            finally { _db.ChangeTracker.Clear(); }
+        }
+
+        
+        /// <summary>
+        /// Open tasks on open tickets whose due date has passed (Lagos date): the person who owns the task (or the ticket's assignee when it has no owner) is told once.
+        /// A new due date or a new owner starts it again.
+        /// </summary>
+        private async Task CheckTasksAsync(DateTime nowUtc, CancellationToken ct)
+        {
+            var today = nowUtc.AddHours(_options.UtcOffsetHours).Date;
+            var due = await _db.TicketTasks.Include(x => x.Ticket)
+                .Where(x => !x.IsDone && x.DueAt != null && x.OverdueNotifiedAt == null && x.DueAt < today
+                    && x.Ticket!.Status != TicketStatus.Closed && x.Ticket.Status != TicketStatus.Cancelled && x.Ticket.Status != TicketStatus.Resolved)
+                .OrderBy(x => x.DueAt).Take(500).ToListAsync(ct);
+            if (due.Count == 0) return;
+            foreach (var task in due)
+            {
+                var ticket = task.Ticket!;
+                var owner = task.AssigneeUserId ?? ticket.AssigneeUserId;
+                if (owner.HasValue)
+                    Tell(owner.Value, "Ticket " + ticket.Reference + ": a task is overdue",
+                        task.Title + " was due on " + task.DueAt!.Value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture) + ".",
+                        NotificationType.ActionRequired, NotificationCategory.Ticket, ticket);
+                if (task.AssigneeUserId.HasValue && ticket.AssigneeUserId.HasValue && task.AssigneeUserId != ticket.AssigneeUserId)
+                    Tell(ticket.AssigneeUserId.Value, "Ticket " + ticket.Reference + ": a task is overdue",
+                        task.Title + " (owned by someone else) was due on " + task.DueAt!.Value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture) + ".",
+                        NotificationType.Info, NotificationCategory.Ticket, ticket);
+                task.OverdueNotifiedAt = nowUtc;
+            }
+            try { await _db.SaveChangesAsync(ct); }
+            catch (DbUpdateConcurrencyException) { _logger.LogInformation("Task check: a ticket changed at the same moment; it will be looked at again in the next pass"); }
             finally { _db.ChangeTracker.Clear(); }
         }
 

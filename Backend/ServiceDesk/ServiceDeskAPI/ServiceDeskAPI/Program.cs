@@ -212,6 +212,7 @@ builder.Services.AddScoped<ServiceDeskAPI.Application.Interfaces.ITicketReadServ
 builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Sla.HolidayLoader>();
             builder.Services.AddScoped<IAssignmentService, ServiceDeskAPI.Infrastructure.Assignment.AssignmentService>();
             builder.Services.AddScoped<IWorkflowService, ServiceDeskAPI.Infrastructure.Tickets.WorkflowService>();
+builder.Services.AddScoped<ITicketTaskService, ServiceDeskAPI.Infrastructure.Tickets.TicketTaskService>();
             builder.Services.AddHostedService<ServiceDeskAPI.Infrastructure.Assignment.AssignmentWorker>();
             builder.Services.AddOptions<ServiceDeskAPI.Infrastructure.Sla.SlaOptions>().BindConfiguration("Sla");
             builder.Services.AddScoped<ISlaService, ServiceDeskAPI.Infrastructure.Sla.SlaService>();
