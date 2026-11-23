@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { CalendarCheck2, CalendarX2, CircleAlert, Hand } from "lucide-react";
 import { firstNameOf, useSession } from "@/features/auth";
 import { ABSENCE_KIND, useMyAvailability } from "@/features/availability";
+import { MyPerformancePanel } from "@/features/performance";
 import { RaiseTicketLink, usePool, useTicketList } from "@/features/tickets";
 import { formatWatClock } from "@/shared/lib/time";
 import { Card, PageHeader, Spinner } from "@/shared/ui";
@@ -290,6 +291,8 @@ export default function MemberHome({ units }) {
           </ul>
         </section>
       )}
+
+      <MyPerformancePanel />
     </div>
   );
 }

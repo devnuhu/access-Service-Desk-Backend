@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Filter, ShieldOff } from "lucide-react";
 import { useSession } from "@/features/auth";
@@ -39,6 +39,8 @@ const TABS = [
  * catalogue, saved reports, and the ones you have emailed to you on a schedule. ?tab=schedules
  * opens the schedules. ?unit= (a unit dashboard's "Unit reports") runs the ready-made reports for
  * that unit only: unitIds in the definition; the unit's name comes in the link's state.
+ * ?report=R10&action=save|schedule (the unit dashboard's performance charts) opens "Save as my
+ * report" for that ready-made report, or saves it and then opens the schedule dialog.
  */
 export default function ReportsPage() {
   const toast = useToast();
@@ -122,6 +124,37 @@ export default function ReportsPage() {
   // The daily team report: every working day at 17:00; heads can then add people to copy.
   const emailDaily = (report) =>
     saveAndEmail(report, { frequency: "daily", sendHour: 17 });
+
+  // A link asked for a ready-made report: once the catalogue is in, open its save (or save and
+  // schedule) dialog, once; then the link's report and action are dropped from the address.
+  const askedReport = params.get("report");
+  const askedAction = params.get("action");
+  const [handled, setHandled] = useState(null);
+  const ask = askedReport ? `${askedReport}|${askedAction}` : null;
+  if (ask && catalogue.data && handled !== ask) {
+    setHandled(ask);
+    const report = catalogue.data.builtIn.find((r) => r.code === askedReport);
+    if (report && askedAction === "schedule") saveAndEmail(report);
+    else if (report)
+      setSaving({
+        definition: forUnit(report.definition),
+        defaultName: unitId ? `${report.name} (${unitName})` : report.name,
+        defaultDescription: report.description,
+        thenEmail: false,
+      });
+  }
+  useEffect(() => {
+    if (!handled) return;
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("report");
+        next.delete("action");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [handled, setParams]);
 
   const reportSaved = (report) => {
     const { thenEmail, report: edited, scheduleDefaults } = saving;

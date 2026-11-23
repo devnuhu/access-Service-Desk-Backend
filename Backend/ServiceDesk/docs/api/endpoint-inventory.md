@@ -115,4 +115,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/tickets/{id}/merge` | department staff, Super Admin (others 404) | Merge this ticket into the one to keep `{ targetReference, reason, copyRequester }`; it closes for good |
 | POST | `/api/tickets/{id}/read` | anyone who can see the ticket (others 404) | Mark it read for me: clears its unread marker in my lists |
 | GET | `/api/dashboard/summary` | signed in | Home counts: mine (open, waiting, warning, overdue, raised, to confirm) and, for those who oversee units, per-unit counts with a total |
+| GET | `/api/performance/me?preset=&from=&to=` | signed in (own figures only) | My performance: figures, the team averages, the series by day, week or month, open now by status, the targets (400 a bad range) |
+| GET | `/api/performance/people/{userId}?preset=&from=&to=` | signed in; the person's head, HOD, Department Admin, Super Admin (others 404) | The same for one of my people |
+| GET | `/api/performance/units/{unitId}?preset=&from=&to=` | signed in; the unit's head, HOD, Department Admin, Super Admin (others 403) | A unit's performance: figures, members, series, open by status, priority and age, top 8 categories, targets |
 | GET | `/api/dashboard/unit/{unitId}` | unit heads, HOD, Department Admin, Super Admin | One unit's dashboard (its own head, its department's HOD or Department Admin, Super Admin; others 403): counts, pool by category, team and leave, categories and cover, escalations, tickets past their deadline (404 unknown unit) |

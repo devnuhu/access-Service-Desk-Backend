@@ -39,6 +39,7 @@ import {
 import { listAdminLocations } from "../src/features/admin-locations/api/endpoints.js";
 import { listHolidays } from "../src/features/admin-holidays/api/endpoints.js";
 import { getSlaPolicies } from "../src/features/admin-sla/api/endpoints.js";
+import { getMyPerformance } from "../src/features/performance/api/endpoints.js";
 import { getPriorityMatrix } from "../src/features/catalogue/api/endpoints.js";
 import {
   listPlaceholders,
@@ -482,6 +483,20 @@ export const ACCESS_TABLE = [
     schema: getDashboardSummary.response,
   }),
   // One unit's dashboard: the unit's head, its department's HOD or Department Admin, Super Admin
+  // Performance: my own for anyone signed in; a person or a unit decided by the service (a person
+  // of theirs, else 404; their unit, else 403)
+  get("/api/performance/me", SIGNED_IN, {
+    probe: { preset: "thismonth" },
+    schema: getMyPerformance.response,
+  }),
+  get("/api/performance/people/{userId}", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the person's head, HOD, Department Admin and Super Admin; anyone else gets 404 by design",
+  }),
+  get("/api/performance/units/{unitId}", SIGNED_IN, {
+    skipAlways: true,
+    skip: "allowed for the unit's head, its HOD and Department Admin, and Super Admin; anyone else gets 403 by design",
+  }),
   get("/api/dashboard/unit/{unitId}", REPORTS, {
     orgScope: "unit",
     schema: getUnitDashboard.response,

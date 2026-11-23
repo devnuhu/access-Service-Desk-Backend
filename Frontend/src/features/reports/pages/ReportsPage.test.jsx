@@ -1350,3 +1350,111 @@ describe("Reports: daily team report", () => {
     expect(sent[0][0]).toBe("SAVE");
   });
 });
+
+describe("Reports: links from the unit dashboard, and Show as chart", () => {
+  it("?report=R2&action=save opens Save as my report for that ready-made report, once", async () => {
+    renderReports({
+      route: "/reports?report=R2&action=save",
+      saved: [],
+      schedules: [],
+    });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Save as my report",
+    });
+    expect(within(dialog).getByLabelText("Name")).toHaveValue("SLA breaches");
+  });
+
+  it("?report=R2&action=schedule saves it, then opens the schedule dialog with it chosen", async () => {
+    const user = userEvent.setup();
+    renderReports({
+      route: "/reports?report=R2&action=schedule",
+      saved: [],
+      schedules: [],
+    });
+    const save = await screen.findByRole("dialog", {
+      name: "Save as my report",
+    });
+    await user.click(await within(save).findByLabelText("My unit"));
+    await user.click(
+      within(save).getByRole("button", { name: "Save and set up email" }),
+    );
+    const schedule = await screen.findByRole("dialog", {
+      name: "Email me a report",
+    });
+    expect(within(schedule).getByLabelText("Saved report")).toHaveValue(
+      "r-new",
+    );
+  });
+
+  it("a table grouped by person offers Show as chart, with Resolved and Within time to choose", async () => {
+    const user = userEvent.setup();
+    renderReports({
+      saved: [],
+      schedules: [],
+      routes: {
+        "GET /api/reports/catalogue": () => [
+          200,
+          {
+            ...CATALOGUE,
+            builtIn: [
+              {
+                code: "R10",
+                name: "Team performance",
+                description: "Per person.",
+                definition: {
+                  title: "Team performance",
+                  mode: "summary",
+                  groupBy: "assignee",
+                },
+              },
+            ],
+          },
+        ],
+        "POST /api/reports/run": () => [
+          200,
+          {
+            ...RESULT,
+            title: "Team performance",
+            columns: [
+              { key: "group", label: "Assignee", type: "text" },
+              { key: "opened", label: "Assigned", type: "number" },
+              { key: "rate", label: "Within time %", type: "percent" },
+              { key: "resolved", label: "Resolved", type: "number" },
+            ],
+            rows: [
+              ["Chidi One", 6, 80, 5],
+              ["Hope Head", 2, null, 1],
+            ],
+            totals: [null, 8, 80, 6],
+          },
+        ],
+      },
+    });
+    const card = await screen.findByTestId("builtin-R10");
+    await user.click(
+      within(card).getByRole("button", { name: "Run Team performance" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Team performance",
+    });
+    await within(dialog).findByText("Chidi One");
+    expect(within(dialog).queryByRole("img")).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole("switch", { name: "Show as chart" }),
+    );
+    const measure = within(dialog).getByLabelText("Chart");
+    expect(
+      within(measure)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Resolved", "Within time %", "Assigned"]);
+    expect(within(dialog).getByRole("img")).toHaveAccessibleName(
+      /Resolved by Assignee/,
+    );
+    await user.selectOptions(measure, "Within time %");
+    expect(within(dialog).getByRole("img")).toHaveAccessibleName(
+      /Within time % by Assignee/,
+    );
+  });
+});

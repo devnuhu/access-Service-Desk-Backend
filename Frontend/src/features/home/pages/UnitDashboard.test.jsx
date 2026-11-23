@@ -171,6 +171,7 @@ describe("Unit dashboard (Head of Unit)", () => {
       "Team",
       "Categories",
       "Past deadline",
+      "Performance",
     ]);
     expect(screen.getByText("Dashboard · Updated 10:05")).toBeInTheDocument();
     // The line above the title: the unit, then its department.

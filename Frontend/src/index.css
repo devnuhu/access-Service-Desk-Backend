@@ -56,6 +56,45 @@
   --shadow-login-panel-up: 0 -12px 28px -8px rgba(0, 56, 131, 0.16);
 }
 
+/*
+ * Chart colours by meaning (src/shared/charts/palette.js): the same meaning has the same colour on
+ * every chart. Categorical steps validated with the dataviz checks (adjacent CVD and normal-vision
+ * separation pass on white; aqua and amber are under 3:1, so every chart prints its values or has a
+ * table). The dark steps are the same hues stepped for a dark surface, used when the app is themed
+ * dark (data-theme="dark"); there is no automatic flip.
+ */
+:root {
+  --viz-assigned: #2a78d6;
+  --viz-raised: #eb6834;
+  --viz-resolved: #1baf7a;
+  --viz-open: #eda100;
+  --viz-within: #008300;
+  --viz-neutral: #64748b;
+  --viz-guide: #898781;
+  --viz-grid: #e3e8ef;
+  --viz-axis: #c3c2b7;
+  --viz-text: #5d6b80;
+  --viz-surface: #ffffff;
+  --viz-step-1: #9ec5f4;
+  --viz-step-2: #6da7ec;
+  --viz-step-3: #3987e5;
+  --viz-step-4: #256abf;
+  --viz-step-5: #184f95;
+  --viz-step-6: #0d366b;
+}
+:root[data-theme="dark"] {
+  --viz-assigned: #3987e5;
+  --viz-raised: #d95926;
+  --viz-resolved: #199e70;
+  --viz-open: #c98500;
+  --viz-within: #0ca30c;
+  --viz-neutral: #94a3b8;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-text: #c3c2b7;
+  --viz-surface: #1a1a19;
+}
+
 /* Sign-in brand panel background. */
 @utility bg-login-brand {
   background:

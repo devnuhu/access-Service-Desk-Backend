@@ -18,6 +18,7 @@ import {
 } from "@/shared/ui";
 import { formatDueWat, formatWatClock, relativeText } from "@/shared/lib/time";
 import { useUnitDashboard } from "../hooks/useDashboard.js";
+import { UnitPerformance } from "@/features/performance";
 import { unitQueue } from "../links.js";
 
 const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
@@ -539,6 +540,11 @@ export default function UnitDashboard({
         <Categories dashboard={dashboard} />
       </div>
       <PastDeadline dashboard={dashboard} />
+      <UnitPerformance
+        unitId={dashboard.unitId}
+        unitName={dashboard.unitName}
+        queueLink={(filter) => unitQueue(dashboard, filter)}
+      />
     </>
   );
   if (embedded) return <div className="space-y-6">{sections}</div>;

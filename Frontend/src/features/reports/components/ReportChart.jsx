@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MEASURE_COLOR } from "@/shared/charts";
 import { cellValue, formatCell, NUMERIC_TYPES } from "../cells.js";
 
 /**
@@ -17,6 +18,19 @@ const SERIES = [
   "#e34948",
 ];
 const OTHER = "#9aa3b2";
+
+/**
+ * A measure keeps its colour on every chart (the dashboards too): Resolved, Within time, Assigned,
+ * Raised by their label; anything else takes the next slot in order.
+ */
+function seriesColor(series, k) {
+  const label = series.label;
+  if (/within/i.test(label)) return MEASURE_COLOR.within;
+  if (/^resolved/i.test(label)) return MEASURE_COLOR.resolved;
+  if (/^assigned/i.test(label)) return MEASURE_COLOR.assigned;
+  if (/^(raised|opened)/i.test(label)) return MEASURE_COLOR.raised;
+  return SERIES[k];
+}
 const GRID = "#e3e8ef";
 const AXIS_TEXT = "#6b7a90";
 
@@ -184,7 +198,7 @@ function BarChart({ data, setTip }) {
                 {
                   label: s.label,
                   value: formatCell(value, type),
-                  color: SERIES[k],
+                  color: seriesColor(s, k),
                 },
               ],
             });
@@ -192,7 +206,7 @@ function BarChart({ data, setTip }) {
             <path
               key={`${i}-${k}`}
               d={columnPath(x, barW, top, baseline)}
-              fill={SERIES[k]}
+              style={{ fill: seriesColor(s, k) }}
               tabIndex={0}
               aria-label={text}
               onMouseEnter={show}
@@ -248,7 +262,7 @@ function LineChart({ data, setTip }) {
                 .map(([px, py], i) => `${i ? "L" : "M"}${px},${py}`)
                 .join(" ")}
               fill="none"
-              stroke={SERIES[k]}
+              style={{ stroke: seriesColor(s, k) }}
               strokeWidth="2"
               strokeLinejoin="round"
             />
@@ -259,7 +273,7 @@ function LineChart({ data, setTip }) {
                   cx={px}
                   cy={py}
                   r="4"
-                  fill={SERIES[k]}
+                  style={{ fill: seriesColor(s, k) }}
                   stroke="#fff"
                   strokeWidth="2"
                 />
@@ -284,7 +298,7 @@ function LineChart({ data, setTip }) {
               lines: series.map((s, k) => ({
                 label: s.label,
                 value: formatCell(s.values[i], type) || "–",
-                color: SERIES[k],
+                color: seriesColor(s, k),
               })),
             });
           }}
@@ -403,7 +417,10 @@ export default function ReportChart({ result }) {
           detail: formatCell(s.value, data.type),
         }))
       : data.series.length > 1
-        ? data.series.map((s, k) => ({ label: s.label, color: SERIES[k] }))
+        ? data.series.map((s, k) => ({
+            label: s.label,
+            color: seriesColor(s, k),
+          }))
         : null;
   const what =
     kind === "pie"

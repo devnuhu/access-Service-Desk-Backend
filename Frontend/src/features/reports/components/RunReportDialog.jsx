@@ -59,6 +59,30 @@ function ResultNotes({ data, measures, definition }) {
   );
 }
 
+/** Results grouped by these can be drawn as bars of one numeric column ("Show as chart"). */
+const CHARTABLE_GROUPS = ["assignee", "unit"];
+
+/** The numeric columns a table result can draw, Resolved and Within time first when present. */
+function chartColumns(data) {
+  const rank = (column) =>
+    /^resolved/i.test(column.label) ? 0 : /within/i.test(column.label) ? 1 : 2;
+  return data.columns
+    .map((column, index) => ({ column, index }))
+    .slice(1)
+    .filter(({ column }) => NUMERIC_TYPES.includes(column.type))
+    .sort((a, b) => rank(a.column) - rank(b.column));
+}
+
+/** A table result as bars of one column: the label column and the chosen one. */
+function asBars(data, index) {
+  return {
+    ...data,
+    chart: "bar",
+    columns: [data.columns[0], data.columns[index]],
+    rows: data.rows.map((row) => [row[0], row[index]]),
+  };
+}
+
 function ResultTable({ data, measures = [] }) {
   const help = new Map(measures.map((m) => [m.key, m.description]));
   const cellClass = (column) =>
@@ -139,6 +163,9 @@ export default function RunReportDialog({
   const [rangeError, setRangeError] = useState("");
   const [downloading, setDownloading] = useState(null);
   const [tableOnly, setTableOnly] = useState(false);
+  // A table grouped by person or unit: "Show as chart" draws one numeric column as bars.
+  const [asChart, setAsChart] = useState(false);
+  const [chartColumn, setChartColumn] = useState(null);
 
   const saved = report.saved;
   const definition = changed ?? report.definition;
@@ -223,6 +250,16 @@ export default function RunReportDialog({
 
   const hasPreset = presets.some((p) => p.key === range.choice);
   const showChart = data && data.chart !== "table" && data.rows.length > 0;
+  const barColumns =
+    data &&
+    !showChart &&
+    data.rows.length > 0 &&
+    CHARTABLE_GROUPS.includes(definition?.groupBy)
+      ? chartColumns(data)
+      : [];
+  const barIndex =
+    barColumns.find(({ index }) => index === chartColumn)?.index ??
+    barColumns[0]?.index;
 
   return (
     <Dialog
@@ -342,6 +379,39 @@ export default function RunReportDialog({
               </Button>
             </>
           )}
+          {barColumns.length > 0 && (
+            <div className="ml-auto flex flex-wrap items-end gap-3">
+              {asChart && (
+                <div>
+                  <label
+                    htmlFor={`${ids.range}-measure`}
+                    className="block text-sm font-semibold text-ink"
+                  >
+                    Chart
+                  </label>
+                  <select
+                    id={`${ids.range}-measure`}
+                    value={barIndex}
+                    onChange={(event) =>
+                      setChartColumn(Number(event.target.value))
+                    }
+                    className="mt-1 h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+                  >
+                    {barColumns.map(({ column, index }) => (
+                      <option key={column.key} value={index}>
+                        {column.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <Switch
+                checked={asChart}
+                onChange={setAsChart}
+                label="Show as chart"
+              />
+            </div>
+          )}
           {showChart && (
             <div className="ml-auto">
               <Switch
@@ -393,6 +463,9 @@ export default function RunReportDialog({
             ) : (
               <>
                 {showChart && !tableOnly && <ReportChart result={data} />}
+                {asChart && barIndex != null && (
+                  <ReportChart result={asBars(data, barIndex)} />
+                )}
                 <ResultTable data={data} measures={measures} />
                 <ResultNotes
                   data={data}
