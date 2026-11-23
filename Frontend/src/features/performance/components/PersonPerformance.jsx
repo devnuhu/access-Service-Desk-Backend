@@ -12,16 +12,19 @@ import {
   periodText,
   targetsText,
 } from "../format.js";
+import { formatShare } from "../headline.js";
 import { HELP } from "../help.js";
 import ChartCard from "./ChartCard.jsx";
 import Figure from "./Figure.jsx";
+import HeadlinePanel from "./HeadlinePanel.jsx";
 import TargetTile from "./TargetTile.jsx";
 
 const BUCKET_WORD = { day: "day", week: "week", month: "month" };
 
 /**
  * One person's performance (their own on the dashboard, or one of a head's people in the side
- * panel): headline counts, first response and resolution against the Medium target and the team,
+ * panel): the six headline indicators, then the detail: assigned and reopened, first response and
+ * resolution against the Medium target and the team,
  * assigned and resolved over time, within-time share over time, and what is open now by status.
  */
 export default function PersonPerformance({ data }) {
@@ -37,6 +40,9 @@ export default function PersonPerformance({ data }) {
       <p data-testid="performance-period" className="text-xs text-muted">
         {periodText(period)} · by {per} · all times are business hours
       </p>
+      <HeadlinePanel figures={figures} testId="perf-headline" />
+
+      <h3 className="pt-1 text-sm font-semibold text-ink">Detail</h3>
       <ul className="grid grid-cols-2 gap-3 @2xl:grid-cols-4">
         <Figure
           label="Assigned"
@@ -45,22 +51,10 @@ export default function PersonPerformance({ data }) {
           testId="perf-assigned"
         />
         <Figure
-          label="Resolved"
-          value={figures.resolved}
-          help={HELP.resolved}
-          testId="perf-resolved"
-        />
-        <Figure
-          label="Open now"
-          value={figures.openNow}
-          help={HELP.openNow}
-          testId="perf-openNow"
-        />
-        <Figure
-          label="On hold"
-          value={figures.onHold}
-          help={HELP.onHold}
-          testId="perf-onHold"
+          label="Reopened"
+          value={`${figures.reopened} (${formatShare(figures.reopenedPercent)})`}
+          help={HELP.reopened}
+          testId="perf-reopened"
         />
       </ul>
 

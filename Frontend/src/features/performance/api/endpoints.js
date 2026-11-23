@@ -27,6 +27,16 @@ export const figuresSchema = z.looseObject({
   respondedInTimePercent: maybe,
   noResponseInTime: z.number().int(),
   reopenedPercent: maybe,
+  /** Resolved in the period and finished within the time allowed. */
+  resolvedWithinSla: z.number().int().default(0),
+  /** Resolved in the period and reopened at least once. */
+  reopened: z.number().int().default(0),
+  /** Open right now and already past the time allowed (ignores the period). */
+  overdueOpen: z.number().int().default(0),
+  /** Raised in the period and acknowledged or answered in time. */
+  firstResponseMet: z.number().int().default(0),
+  /** Resolved / assigned in the period x 100; can pass 100; null when nothing was assigned. */
+  resolutionRatePercent: maybe,
 });
 
 const periodSchema = z.looseObject({
@@ -59,7 +69,10 @@ export const performanceSchema = z.looseObject({
   userId: z.string(),
   name: z.string(),
   figures: figuresSchema,
-  /** The unit averages to compare with (efficiency figures); null when in no unit. */
+  /**
+   * The unit averages to compare with (efficiency figures only: its counts, including the new
+   * ones, are not shown); null when in no unit.
+   */
   team: figuresSchema.nullable().optional().default(null),
   series: list(pointSchema),
   openByStatus: list(countSchema),

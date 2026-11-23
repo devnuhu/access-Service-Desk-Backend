@@ -11315,6 +11315,27 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "resolvedWithinSla": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reopened": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overdueOpen": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstResponseMet": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolutionRatePercent": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false

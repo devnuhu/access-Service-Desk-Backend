@@ -19,6 +19,11 @@ const figures = (overrides = {}) => ({
   respondedInTimePercent: null,
   noResponseInTime: 0,
   reopenedPercent: null,
+  resolvedWithinSla: 0,
+  reopened: 0,
+  overdueOpen: 0,
+  firstResponseMet: 0,
+  resolutionRatePercent: null,
   ...overrides,
 });
 
@@ -84,6 +89,10 @@ const me = (overrides = {}) => ({
     avgResolutionHours: 10.5,
     avgFirstResponseHours: null,
     respondedInTimePercent: null,
+    resolvedWithinSla: 5,
+    resolvedLate: 1,
+    reopened: 1,
+    reopenedPercent: 16.7,
   }),
   team: figures({ avgResolutionHours: 14, avgFirstResponseHours: 3 }),
   series: SERIES,
@@ -117,10 +126,15 @@ const unit = (overrides = {}) => ({
       name: "Chidi One",
       isHead: false,
       figures: figures({
+        assigned: 4,
         resolved: 5,
         openNow: 3,
         onHold: 1,
+        overdueOpen: 2,
         withinSlaPercent: 80,
+        resolvedWithinSla: 4,
+        resolvedLate: 1,
+        resolutionRatePercent: 125,
       }),
     },
     {
@@ -206,9 +220,10 @@ describe("My performance", () => {
       "GET /api/performance/me": () => [200, me()],
     });
     expect(await screen.findByTestId("perf-assigned")).toHaveTextContent("6");
-    expect(screen.getByTestId("perf-resolved")).toHaveTextContent("6");
-    expect(screen.getByTestId("perf-openNow")).toHaveTextContent("3");
-    expect(screen.getByTestId("perf-onHold")).toHaveTextContent("1");
+    expect(screen.getByTestId("perf-reopened")).toHaveTextContent("1 (17%)");
+    expect(screen.getByTestId("perf-headline-openNow-count")).toHaveTextContent(
+      "3",
+    );
 
     // First response: mine is null, so No data and no verdict.
     expect(screen.getByTestId("first-response-mine")).toHaveTextContent(
@@ -355,11 +370,13 @@ describe("Unit performance", () => {
       />,
       { "GET /api/performance/units/:unitId": () => [200, unit()] },
     );
-    expect(await screen.findByTestId("unit-within")).toHaveTextContent("88%");
+    expect(
+      await screen.findByTestId("unit-headline-resolvedWithinSla-share"),
+    ).toHaveTextContent("88% of resolved");
     expect(screen.getByTestId("unit-avgResolution")).toHaveTextContent(
       "12.3 h",
     );
-    expect(screen.getByTestId("unit-reopened")).toHaveTextContent("No data");
+    expect(screen.getByTestId("unit-reopened")).toHaveTextContent("0 (–)");
 
     const compared = screen.getByTestId("chart-members");
     const names = [
@@ -503,7 +520,7 @@ describe("Unit performance", () => {
     );
   });
 
-  it("the members table sorts by any column; No data sorts last", async () => {
+  it("the members table sorts by any indicator", async () => {
     const user = userEvent.setup();
     renderPanel(
       <UnitPerformance
@@ -524,26 +541,27 @@ describe("Unit performance", () => {
       "Hope Head",
       "Idle Ike",
     ]);
+    // Outstanding (open now): most first, then by name.
     await user.click(
-      within(table).getByRole("button", { name: "Within time" }),
+      within(table).getByRole("button", { name: "Outstanding" }),
     );
     expect(order()).toEqual([
-      "Former Staff",
       "Chidi One",
       "Hope Head",
+      "Former Staff",
       "Idle Ike",
     ]);
     await user.click(
-      within(table).getByRole("button", { name: /Within time/ }),
+      within(table).getByRole("button", { name: /Outstanding/ }),
     );
     expect(order()).toEqual([
-      "Chidi One",
       "Former Staff",
-      "Hope Head",
       "Idle Ike",
+      "Hope Head",
+      "Chidi One",
     ]);
     expect(
-      within(table).getByRole("columnheader", { name: /Within time/ }),
+      within(table).getByRole("columnheader", { name: /Outstanding/ }),
     ).toHaveAttribute("aria-sort", "ascending");
   });
 
@@ -587,5 +605,179 @@ describe("Unit performance", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.getByText(/is for the head of the unit/)).toBeInTheDocument();
+  });
+});
+
+describe("Headline indicators", () => {
+  const ORDER = [
+    "resolved",
+    "resolvedWithinSla",
+    "resolvedLate",
+    "firstResponseMet",
+    "noResponseInTime",
+    "openNow",
+  ];
+  const tiles = () => [
+    ...screen
+      .getByTestId("perf-headline-panel")
+      .querySelectorAll(":scope > li"),
+  ];
+
+  it("shows the six tiles in order with their counts and shares", async () => {
+    renderPanel(<MyPerformancePanel />, {
+      "GET /api/performance/me": () => [
+        200,
+        me({
+          figures: figures({
+            assigned: 8,
+            resolved: 10,
+            resolutionRatePercent: 125,
+            resolvedWithinSla: 8,
+            withinSlaPercent: 80,
+            resolvedLate: 2,
+            firstResponseMet: 9,
+            respondedInTimePercent: 64.3,
+            noResponseInTime: 5,
+            openNow: 4,
+            overdueOpen: 1,
+            onHold: 3,
+          }),
+        }),
+      ],
+    });
+    await screen.findByTestId("perf-headline-panel");
+    expect(tiles().map((li) => li.getAttribute("data-testid"))).toEqual(
+      ORDER.map((key) => `perf-headline-${key}`),
+    );
+    expect(
+      tiles().map((li) => li.querySelector("span").firstChild.textContent),
+    ).toEqual([
+      "Tickets resolved",
+      "Resolved within time",
+      "Resolution breaches",
+      "First response in time",
+      "First response missed",
+      "Outstanding",
+    ]);
+    const count = (key) =>
+      screen.getByTestId(`perf-headline-${key}-count`).textContent;
+    expect(ORDER.map(count)).toEqual(["10", "8", "2", "9", "5", "4"]);
+    expect(screen.getByTestId("perf-headline-resolved")).toHaveTextContent(
+      "125% of assigned",
+    );
+    expect(
+      screen.getByTestId("perf-headline-resolvedWithinSla"),
+    ).toHaveTextContent("80% of resolved");
+    expect(screen.getByTestId("perf-headline-resolvedLate")).toHaveTextContent(
+      "resolved late",
+    );
+    expect(
+      screen.getByTestId("perf-headline-firstResponseMet"),
+    ).toHaveTextContent("64% in time");
+    expect(
+      screen.getByTestId("perf-headline-openNow-overdue"),
+    ).toHaveTextContent("of which overdue: 1");
+    expect(
+      screen.getByTestId("perf-headline-openNow-onHold"),
+    ).toHaveTextContent("on hold: 3");
+    expect(screen.getByTestId("perf-headline-note")).toHaveTextContent(
+      "Time allowed is counted in working hours; time spent Pending is not counted. First response means the case worker acknowledged or answered the requester.",
+    );
+
+    // Breaches and misses stay apart: no tile shows their sum (2 + 5).
+    expect(ORDER.map(count)).not.toContain("7");
+    // Above 0, breaches and misses are marked; the rest stay neutral.
+    expect(
+      tiles()
+        .filter((li) => li.dataset.alert === "true")
+        .map((li) => li.getAttribute("data-testid")),
+    ).toEqual(["perf-headline-resolvedLate", "perf-headline-noResponseInTime"]);
+  });
+
+  it('shows "–" for a null share (never 0%), no overdue line at 0, and nothing marked at 0', async () => {
+    renderPanel(<MyPerformancePanel />, {
+      "GET /api/performance/me": () => [
+        200,
+        me({ figures: figures({ openNow: 2, onHold: 1 }) }),
+      ],
+    });
+    await screen.findByTestId("perf-headline-panel");
+    expect(screen.getByTestId("perf-headline-resolved-rate")).toHaveTextContent(
+      "– of assigned",
+    );
+    expect(
+      screen.getByTestId("perf-headline-resolvedWithinSla-share"),
+    ).toHaveTextContent("– of resolved");
+    expect(
+      screen.getByTestId("perf-headline-firstResponseMet-share"),
+    ).toHaveTextContent("– in time");
+    // The shares say "–", never 0%.
+    expect(
+      ["resolved-rate", "resolvedWithinSla-share", "firstResponseMet-share"]
+        .map((id) => screen.getByTestId(`perf-headline-${id}`).textContent)
+        .some((text) => /\b0%/.test(text)),
+    ).toBe(false);
+    expect(
+      screen.queryByTestId("perf-headline-openNow-overdue"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("perf-headline-openNow-onHold"),
+    ).toHaveTextContent("on hold: 1");
+    expect(tiles().filter((li) => li.dataset.alert === "true")).toHaveLength(0);
+  });
+
+  it("the unit page has the panel, and a card per member (head marked) with the six indicators", async () => {
+    renderPanel(
+      <UnitPerformance
+        unitId="u-cm"
+        unitName="Contribution Matching"
+        queueLink={(f) => `/q?${f}`}
+      />,
+      { "GET /api/performance/units/:unitId": () => [200, unit()] },
+    );
+    expect(
+      await screen.findByTestId("unit-headline-resolved-count"),
+    ).toHaveTextContent("8");
+    const cards = screen.getByTestId("members-cards");
+    expect(
+      [...cards.querySelectorAll(":scope > li")].map((li) =>
+        li.getAttribute("data-testid"),
+      ),
+    ).toEqual([
+      "member-card-Chidi One",
+      "member-card-Former Staff",
+      "member-card-Hope Head",
+      "member-card-Idle Ike",
+    ]);
+    const chidi = screen.getByTestId("member-card-Chidi One");
+    expect(
+      within(chidi)
+        .getAllByRole("term")
+        .map((dt) => dt.textContent),
+    ).toEqual([
+      "Tickets resolved",
+      "Resolved within time",
+      "Resolution breaches",
+      "First response in time",
+      "First response missed",
+      "Outstanding",
+    ]);
+    const cell = (card, key) =>
+      within(card).getByTestId(`member-${key}`).textContent;
+    expect(cell(chidi, "resolved")).toBe("Tickets resolved5125% of assigned");
+    expect(cell(chidi, "resolvedLate")).toBe(
+      "Resolution breaches1resolved late",
+    );
+    expect(cell(chidi, "openNow")).toBe(
+      "Outstanding3of which overdue: 2on hold: 1",
+    );
+    const head = screen.getByTestId("member-card-Hope Head");
+    expect(head).toHaveTextContent("Head");
+    expect(cell(head, "openNow")).toBe("Outstanding2on hold: 1");
+    // The same six in the table (md and up).
+    const row = within(screen.getByTestId("members-table")).getByTestId(
+      "member-row-Chidi One",
+    );
+    expect(within(row).getAllByRole("cell")).toHaveLength(6);
   });
 });

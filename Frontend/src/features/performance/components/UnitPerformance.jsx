@@ -18,10 +18,12 @@ import {
   periodText,
   targetsText,
 } from "../format.js";
+import { formatShare } from "../headline.js";
 import { HELP } from "../help.js";
 import { usePeriod, useUnitPerformance } from "../hooks/usePerformance.js";
 import ChartCard from "./ChartCard.jsx";
 import Figure from "./Figure.jsx";
+import HeadlinePanel from "./HeadlinePanel.jsx";
 import MembersTable from "./MembersTable.jsx";
 import PeriodPicker from "./PeriodPicker.jsx";
 import PersonPanel from "./PersonPanel.jsx";
@@ -169,42 +171,15 @@ function UnitBody({ data, unitName, stale, error, onPerson, onFilter }) {
       <p data-testid="performance-period" className="text-xs text-muted">
         {periodText(period)}
       </p>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <HeadlinePanel figures={figures} testId="unit-headline" />
+
+      <h3 className="pt-1 text-sm font-semibold text-ink">Detail</h3>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Figure
           label="Assigned"
           value={figures.assigned}
           help={HELP.assigned}
           testId="unit-assigned"
-        />
-        <Figure
-          label="Resolved"
-          value={figures.resolved}
-          help={HELP.resolved}
-          testId="unit-resolved"
-        />
-        <Figure
-          label="Open now"
-          value={figures.openNow}
-          help={HELP.openNow}
-          testId="unit-openNow"
-        />
-        <Figure
-          label="On hold"
-          value={figures.onHold}
-          help={HELP.onHold}
-          testId="unit-onHold"
-        />
-        <Figure
-          label="Within time"
-          value={formatPercent(figures.withinSlaPercent)}
-          help={HELP.withinTime}
-          testId="unit-within"
-        />
-        <Figure
-          label="Answered in time"
-          value={formatPercent(figures.respondedInTimePercent)}
-          help={HELP.answeredInTime}
-          testId="unit-answered"
         />
         <Figure
           label="Avg time to resolve"
@@ -220,7 +195,7 @@ function UnitBody({ data, unitName, stale, error, onPerson, onFilter }) {
         />
         <Figure
           label="Reopened"
-          value={formatPercent(figures.reopenedPercent)}
+          value={`${figures.reopened} (${formatShare(figures.reopenedPercent)})`}
           help={HELP.reopened}
           testId="unit-reopened"
         />
