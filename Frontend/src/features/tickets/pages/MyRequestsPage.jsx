@@ -6,6 +6,7 @@ import { Card, PageHeader } from "@/shared/ui";
 import { STATUS_LABELS } from "../api/endpoints.js";
 import RaiseTicketLink from "../components/RaiseTicketLink.jsx";
 import TicketTable from "../components/TicketTable.jsx";
+import { PRIORITY_OPTIONS, readPriority } from "../filters.js";
 import { PAGE_SIZE, useTicketList } from "../hooks/useTickets.js";
 
 const OPEN = "open";
@@ -18,15 +19,27 @@ const TABS = [
 /**
  * My requests: tickets I raised (or that were raised for me) and tickets I am copied on. Home's
  * tiles open it filtered with ?status=open or ?status=<number> (5: Resolved, waiting for me).
+ * The priority filter lives in the address (?priority=3); clearing it removes it. No age filter here.
  */
 export default function MyRequestsPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const priority = readPriority(searchParams.get("priority"));
+  const choosePriority = (value) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (value) next.set("priority", value);
+        else next.delete("priority");
+        return next;
+      },
+      { replace: true },
+    );
   const [view, setView] = useState("mine");
   const [text, setText] = useState("");
   const [status, setStatus] = useState(searchParams.get("status") ?? "");
   const search = useDebouncedValue(text.trim(), 300);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${view}|${search}|${status}`;
+  const key = `${view}|${search}|${status}|${priority}`;
   const page = pageState.key === key ? pageState.page : 1;
 
   const list = useTicketList({
@@ -34,11 +47,12 @@ export default function MyRequestsPage() {
     search,
     open: status === OPEN ? true : undefined,
     status: status && status !== OPEN ? Number(status) : undefined,
+    priority: priority ? Number(priority) : undefined,
     page,
     pageSize: PAGE_SIZE,
   });
   const total = list.data?.total ?? 0;
-  const filtered = Boolean(search || status);
+  const filtered = Boolean(search || status || priority);
 
   return (
     <div className="space-y-4">
@@ -94,6 +108,19 @@ export default function MyRequestsPage() {
             <option value="">All statuses</option>
             <option value={OPEN}>Open</option>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Priority"
+            value={priority}
+            onChange={(event) => choosePriority(event.target.value)}
+            className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+          >
+            <option value="">All priorities</option>
+            {PRIORITY_OPTIONS.map(({ value, label }) => (
               <option key={value} value={value}>
                 {label}
               </option>

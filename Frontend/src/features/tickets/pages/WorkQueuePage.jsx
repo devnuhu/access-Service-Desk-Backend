@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useSession } from "@/features/auth";
@@ -17,6 +17,12 @@ import PoolTable from "../components/PoolTable.jsx";
 import SlaSummary from "../components/SlaSummary.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import ViewsMenu from "../components/ViewsMenu.jsx";
+import {
+  AGE_BANDS,
+  PRIORITY_OPTIONS,
+  readAgeBand,
+  readPriority,
+} from "../filters.js";
 import {
   PAGE_SIZE,
   usePool,
@@ -61,12 +67,14 @@ function byDueSoonest(items) {
  * are not members and see the whole department with a unit filter.
  *
  * Filters go to the server (status or open=true, waitingToStart=true, slaBreached=true,
- * escalated=true, sort) except the "Due soonest" sort, which orders the page shown by slaDueAt
+ * escalated=true, priority, ageBand, sort) except the "Due soonest" sort, which orders the page shown by slaDueAt
  * (the API has no sort=due). "Views" applies a built-in or saved set of filters (../views.js);
  * ticked rows get the bulk actions that fit the tab (Pick, Start work, Resolve, Reassign).
  * Home's cards open a filtered list with ?tab=, ?status=, ?waiting=1, ?overdue=1, ?escalated=1, ?sort= and
  * ?unit= (the unit filter of a department-wide view; a Department Admin asking for a unit that is
- * not their own opens the Admin tab).
+ * not their own opens the Admin tab). Priority and age live in the address (?priority=3,
+ * ?ageBand=2&open=true: the unit dashboard's bars open them) and clearing one removes it. An age
+ * is for open tickets only: choosing one sets the status to Open, and another status clears it.
  * Unit heads (All open), the Admin tab, the HOD and a Super Admin also get the SLA counts;
  * Overdue applies slaBreached, Unassigned shows New tickets (nobody holds a ticket until it leaves New).
  */
@@ -136,7 +144,23 @@ function WorkQueue({
     data: pool.data?.filter((ticket) => unitIds.has(ticket.unitId)),
   };
   const poolCount = poolHere.data?.length ?? 0;
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const priority = readPriority(searchParams.get("priority"));
+  const ageBand = readAgeBand(searchParams.get("ageBand"));
+  /** Sets (or, for "" / null, removes) address values, keeping the rest. */
+  const setParams = (changes) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        for (const [name, value] of Object.entries(changes)) {
+          if (value) next.set(name, value);
+          else next.delete(name);
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  const ageHint = useId();
   const askedUnit = searchParams.get("unit") ?? "";
   const [tab, setTab] = useState(() =>
     isAdmin && askedUnit && askedUnit !== ownUnit?.id
@@ -151,7 +175,21 @@ function WorkQueue({
   // Department-wide: the HOD and Super Admin (no tabs) and the Admin tab.
   const wide = tab === null || tab === ADMIN;
   const [unitId, setUnitId] = useState(askedUnit);
-  const [status, setStatus] = useState(searchParams.get("status") ?? OPEN);
+  const [status, setStatus] = useState(() =>
+    ageBand ? OPEN : (searchParams.get("status") ?? OPEN),
+  );
+  const chooseStatus = (value) => {
+    setStatus(value);
+    if (value !== OPEN && ageBand) setParams({ ageBand: null, open: null });
+  };
+  const chooseAge = (value) => {
+    if (value) setStatus(OPEN);
+    setParams(
+      value
+        ? { ageBand: value, open: "true", status: null }
+        : { ageBand: null, open: null },
+    );
+  };
   const [waiting, setWaiting] = useState(searchParams.get("waiting") === "1");
   const [breached, setBreached] = useState(searchParams.get("overdue") === "1");
   const [escalated, setEscalated] = useState(
@@ -163,7 +201,7 @@ function WorkQueue({
   const [text, setText] = useState("");
   const search = useDebouncedValue(text.trim(), 300);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const filtersKey = `${tab}|${unitId}|${status}|${waiting}|${breached}|${escalated}|${sort}|${search}`;
+  const filtersKey = `${tab}|${unitId}|${status}|${waiting}|${breached}|${escalated}|${priority}|${ageBand}|${sort}|${search}`;
   const key = filtersKey;
   const page = pageState.key === key ? pageState.page : 1;
   const setPage = (next) => setPageState({ page: next, key });
@@ -178,11 +216,13 @@ function WorkQueue({
   const list = useTicketList({
     ...base,
     search,
-    open: status === OPEN ? true : undefined,
+    open: status === OPEN || ageBand ? true : undefined,
     status: status === OPEN || status === ALL ? undefined : Number(status),
     waitingToStart: waiting || undefined,
     slaBreached: breached || undefined,
     escalated: escalated || undefined,
+    priority: priority ? Number(priority) : undefined,
+    ageBand: ageBand ? Number(ageBand) : undefined,
     sort:
       sort === TICKET_SORT.Newest || sort === DUE_SOONEST ? undefined : sort,
     page,
@@ -214,6 +254,8 @@ function WorkQueue({
     waiting,
     breached,
     escalated,
+    priority,
+    ageBand,
     search: text.trim(),
     sort: sortChoice,
   });
@@ -241,6 +283,12 @@ function WorkQueue({
     setWaiting(next.waiting);
     setBreached(next.breached);
     setEscalated(next.escalated);
+    setParams({
+      priority: next.priority,
+      ageBand: next.ageBand,
+      open: next.ageBand ? "true" : null,
+      status: null,
+    });
     setText(next.search);
     setSortChoice(next.sort);
   };
@@ -263,7 +311,11 @@ function WorkQueue({
   const selectedIds = new Set(rows.keys());
   const total = list.data?.total ?? 0;
   const filtered =
-    Boolean(search) || status !== OPEN || waiting || breached || escalated;
+    Boolean(search || priority || ageBand) ||
+    status !== OPEN ||
+    waiting ||
+    breached ||
+    escalated;
   const unassignedOnly = status === String(STATUS.New);
 
   const chip = (pressed, onClick, label) => (
@@ -407,7 +459,7 @@ function WorkQueue({
                 <select
                   aria-label="Status"
                   value={status}
-                  onChange={(event) => setStatus(event.target.value)}
+                  onChange={(event) => chooseStatus(event.target.value)}
                   className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
                 >
                   <option value={OPEN}>Open</option>
@@ -418,6 +470,40 @@ function WorkQueue({
                     </option>
                   ))}
                 </select>
+                <select
+                  aria-label="Priority"
+                  value={priority}
+                  onChange={(event) =>
+                    setParams({ priority: event.target.value })
+                  }
+                  className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+                >
+                  <option value="">All priorities</option>
+                  {PRIORITY_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex flex-col gap-0.5">
+                  <select
+                    aria-label="Age"
+                    aria-describedby={ageHint}
+                    value={ageBand}
+                    onChange={(event) => chooseAge(event.target.value)}
+                    className="h-10 rounded-lg border border-line bg-white px-3 text-sm text-ink"
+                  >
+                    <option value="">Any age</option>
+                    {AGE_BANDS.map((band) => (
+                      <option key={band.id} value={String(band.id)}>
+                        {band.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span id={ageHint} className="px-1 text-[11px] text-muted">
+                    Open tickets only
+                  </span>
+                </div>
                 <select
                   aria-label="Sort"
                   value={sort}

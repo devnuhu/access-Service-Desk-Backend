@@ -228,6 +228,8 @@ export const checkDuplicates = defineEndpoint({
  * narrow any view. open=true: New, Assigned, In progress, Pending, Reopened; open=false: the rest.
  * slaBreached=true: open tickets that are overdue or far past (assigned and department views only).
  * escalated=true: tickets passed up to the head of the unit (escalatedToHeadAt set).
+ * priority: 1 Low to 4 Critical. ageBand: 1 to 5, how long ago it was raised (../filters.js
+ * AGE_BANDS, the bars of the unit chart); always sent with open=true, anything else is 400.
  */
 export const listTickets = defineEndpoint({
   method: "GET",
@@ -241,6 +243,8 @@ export const listTickets = defineEndpoint({
     "waitingToStart",
     "slaBreached",
     "escalated",
+    "priority",
+    "ageBand",
     "sort",
     "search",
     "page",

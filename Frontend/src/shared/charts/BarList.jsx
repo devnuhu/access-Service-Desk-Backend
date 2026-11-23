@@ -8,7 +8,8 @@ import useWidth from "./useWidth.js";
  * Horizontal bars, one row per item, drawn in HTML so names and figures stay readable at any
  * width. Each row can have several bars (grouped), and a bar several segments (stacked, e.g. Open
  * now with On hold inside, hatched). `rows`: [{ key, label, sub?, color?, values: { segmentKey:
- * number | null }, onSelect?, extra?: [{ label, value }] }]. `bars`: [{ key, label, segments: [{
+ * number | null }, onSelect?, actionLabel?, extra?: [{ label, value }] }]; actionLabel names what
+ * onSelect does for a screen reader ("Open 3 High priority tickets"). `bars`: [{ key, label, segments: [{
  * key, label, color, hatched? }] }]. A bar whose values are all null shows "No data". The value is
  * printed at the end of each bar; hovering or focusing a row shows every figure. `reference`: a
  * dashed guide line { value, label, note }. With two or more legend items the legend toggles them.
@@ -117,6 +118,7 @@ export default function BarList({
                     <button
                       type="button"
                       onClick={row.onSelect}
+                      aria-label={row.actionLabel}
                       onFocus={(event) => showTip(row, event)}
                       onBlur={() => setTip(null)}
                       title={row.label}

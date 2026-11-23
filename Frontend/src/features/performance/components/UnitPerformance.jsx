@@ -8,6 +8,7 @@ import {
   stepColor,
   TimeChart,
 } from "@/shared/charts";
+import { ageBandFromLabel, priorityFromLabel } from "@/features/tickets";
 import { MessageCard, Spinner } from "@/shared/ui";
 import {
   axisLabel,
@@ -63,8 +64,8 @@ function ReportActions({ code, unitId, unitName }) {
  * A unit's performance on its dashboard (head, HOD, Department Admin, Super Admin): the figures,
  * raised against resolved and the within-time share over time, the members compared (a name opens
  * that person in a side panel; not for a member without a userId), open tickets by status (opens
- * the unit's list with that status), priority and age (highlighted only: the list cannot filter
- * by them), the busiest categories and a sortable members table. `queueLink(filter)` is the unit's
+ * the unit's list with that status), priority and age (open the unit's open list with that
+ * priority or age band; a label the list does not know is not a link), the busiest categories and a sortable members table. `queueLink(filter)` is the unit's
  * ticket list with extra query text.
  */
 export default function UnitPerformance({ unitId, unitName, queueLink }) {
@@ -72,7 +73,6 @@ export default function UnitPerformance({ unitId, unitName, queueLink }) {
   const [period, setPeriod] = usePeriod();
   const query = useUnitPerformance(unitId, period);
   const [person, setPerson] = useState(null);
-  const [lit, setLit] = useState(null);
 
   let body;
   if (query.isLoading) {
@@ -104,15 +104,8 @@ export default function UnitPerformance({ unitId, unitName, queueLink }) {
         unitName={unitName}
         stale={query.isFetching}
         error={query.isError ? query.error.message : null}
-        lit={lit}
         onPerson={setPerson}
-        onStatus={(label) => {
-          const code = STATUS_CODE[label.toLowerCase()];
-          if (code) navigate(queueLink(`&status=${code}`));
-        }}
-        onHighlight={(key) =>
-          setLit((current) => (current === key ? null : key))
-        }
+        onFilter={(filter) => navigate(queueLink(filter))}
       />
     );
   }
@@ -146,16 +139,7 @@ export default function UnitPerformance({ unitId, unitName, queueLink }) {
   );
 }
 
-function UnitBody({
-  data,
-  unitName,
-  stale,
-  error,
-  lit,
-  onPerson,
-  onStatus,
-  onHighlight,
-}) {
+function UnitBody({ data, unitName, stale, error, onPerson, onFilter }) {
   const { figures, series, period } = data;
   const labels = series.map((p) => axisLabel(p.date, period.bucket));
   const titles = series.map((p) => bucketLabel(p.date, period.bucket));
@@ -171,10 +155,7 @@ function UnitBody({
     onSelect: select(m),
   });
   const lines = targetsText(data.targets);
-  const priorityNote =
-    "The ticket list cannot filter by priority yet, so a bar is highlighted only.";
-  const ageNote =
-    "The ticket list cannot filter by age yet, so a bar is highlighted only.";
+  const tickets = (n) => (n === 1 ? "ticket" : "tickets");
 
   return (
     <div
@@ -398,15 +379,19 @@ function UnitBody({
         >
           <BarList
             label="Open tickets by status"
-            rows={data.openByStatus.map((c, i, all) => ({
-              key: c.label,
-              label: c.label,
-              color: stepColor(i, all.length),
-              values: { count: c.count },
-              onSelect: STATUS_CODE[c.label.toLowerCase()]
-                ? () => onStatus(c.label)
-                : undefined,
-            }))}
+            rows={data.openByStatus.map((c, i, all) => {
+              const code = STATUS_CODE[c.label.toLowerCase()];
+              return {
+                key: c.label,
+                label: c.label,
+                color: stepColor(i, all.length),
+                values: { count: c.count },
+                onSelect: code ? () => onFilter(`&status=${code}`) : undefined,
+                actionLabel: code
+                  ? `Open ${c.count} ${c.label} ${tickets(c.count)}`
+                  : undefined,
+              };
+            })}
             bars={[
               {
                 key: "count",
@@ -422,18 +407,25 @@ function UnitBody({
         <ChartCard
           testId="chart-by-priority"
           title="Open by priority"
-          help={`Open right now. ${priorityNote}`}
+          help="Open right now. Select a priority to open the unit's open tickets with it."
         >
           <BarList
             label="Open tickets by priority"
-            highlight={lit}
-            rows={data.openByPriority.map((c) => ({
-              key: `priority-${c.label}`,
-              label: c.label,
-              color: PRIORITY_COLOR[c.label] ?? MEASURE_COLOR.tickets,
-              values: { count: c.count },
-              onSelect: () => onHighlight(`priority-${c.label}`),
-            }))}
+            rows={data.openByPriority.map((c) => {
+              const priority = priorityFromLabel(c.label);
+              return {
+                key: `priority-${c.label}`,
+                label: c.label,
+                color: PRIORITY_COLOR[c.label] ?? MEASURE_COLOR.tickets,
+                values: { count: c.count },
+                onSelect: priority
+                  ? () => onFilter(`&open=true&priority=${priority}`)
+                  : undefined,
+                actionLabel: priority
+                  ? `Open ${c.count} ${c.label} priority ${tickets(c.count)}`
+                  : undefined,
+              };
+            })}
             bars={[
               {
                 key: "count",
@@ -449,18 +441,25 @@ function UnitBody({
         <ChartCard
           testId="chart-by-age"
           title="Open by age"
-          help={`Open right now, by how long ago each was raised. ${ageNote}`}
+          help="Open right now, by how long ago each was raised. Select an age to open the unit's open tickets of that age."
         >
           <BarList
             label="Open tickets by age"
-            highlight={lit}
-            rows={data.openByAge.map((c, i, all) => ({
-              key: `age-${c.label}`,
-              label: c.label,
-              color: stepColor(i, all.length),
-              values: { count: c.count },
-              onSelect: () => onHighlight(`age-${c.label}`),
-            }))}
+            rows={data.openByAge.map((c, i, all) => {
+              const band = ageBandFromLabel(c.label);
+              return {
+                key: `age-${c.label}`,
+                label: c.label,
+                color: stepColor(i, all.length),
+                values: { count: c.count },
+                onSelect: band
+                  ? () => onFilter(`&open=true&ageBand=${band}`)
+                  : undefined,
+                actionLabel: band
+                  ? `Open ${c.count} ${tickets(c.count)} aged ${c.label.toLowerCase()}`
+                  : undefined,
+              };
+            })}
             bars={[
               {
                 key: "count",
@@ -474,11 +473,6 @@ function UnitBody({
           />
         </ChartCard>
       </div>
-      {lit && (
-        <p role="status" className="text-xs text-muted">
-          {lit.startsWith("priority-") ? priorityNote : ageNote}
-        </p>
-      )}
 
       <ChartCard
         testId="chart-categories"

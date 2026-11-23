@@ -144,12 +144,15 @@ const unit = (overrides = {}) => ({
     { label: "Pending", count: 1 },
   ],
   openByPriority: [
+    { label: "Critical", count: 1 },
     { label: "High", count: 2 },
     { label: "Medium", count: 3 },
+    { label: "Urgent", count: 1 },
   ],
   openByAge: [
     { label: "Under 1 day", count: 2 },
-    { label: "Over 7 days", count: 3 },
+    { label: "Over 10 days", count: 3 },
+    { label: "Over 7 days", count: 1 },
   ],
   categories: [
     {
@@ -413,7 +416,29 @@ describe("Unit performance", () => {
     });
   });
 
-  it("a status opens the unit's list with it; priority and age only highlight", async () => {
+  it("a status bar opens the unit's list with it", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPanel(
+      <UnitPerformance
+        unitId="u-cm"
+        unitName="Contribution Matching"
+        queueLink={queueLink}
+      />,
+      { "GET /api/performance/units/:unitId": () => [200, unit()] },
+    );
+    const byStatus = await screen.findByTestId("chart-by-status");
+    await user.click(
+      within(byStatus).getByRole("button", {
+        name: "Open 3 In Progress tickets",
+      }),
+    );
+    expect(router.state.location.pathname).toBe("/departments/d-cp/tickets");
+    expect(router.state.location.search).toBe(
+      "?tab=department&unit=u-cm&status=3",
+    );
+  });
+
+  it("a priority bar opens the unit's open list with that priority; an unknown label is no link", async () => {
     const user = userEvent.setup();
     const { router } = renderPanel(
       <UnitPerformance
@@ -424,24 +449,57 @@ describe("Unit performance", () => {
       { "GET /api/performance/units/:unitId": () => [200, unit()] },
     );
     const byPriority = await screen.findByTestId("chart-by-priority");
-    await user.click(within(byPriority).getByRole("button", { name: "High" }));
-    expect(within(byPriority).getByTestId("bar-row-priority-High")).toHaveClass(
-      "bg-brand-navy-light",
-    );
     expect(
-      screen
-        .getAllByRole("status")
-        .some((el) => /cannot filter by priority yet/.test(el.textContent)),
-    ).toBe(true);
-
+      within(byPriority)
+        .getAllByRole("button", { name: /^Open / })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      "Open 1 Critical priority ticket",
+      "Open 2 High priority tickets",
+      "Open 3 Medium priority tickets",
+    ]);
+    expect(
+      within(byPriority).getByTestId("bar-row-priority-Urgent"),
+    ).toHaveTextContent("Urgent");
     await user.click(
-      within(screen.getByTestId("chart-by-status")).getByRole("button", {
-        name: "In Progress",
+      within(byPriority).getByRole("button", {
+        name: "Open 2 High priority tickets",
       }),
     );
     expect(router.state.location.pathname).toBe("/departments/d-cp/tickets");
     expect(router.state.location.search).toBe(
-      "?tab=department&unit=u-cm&status=3",
+      "?tab=department&unit=u-cm&open=true&priority=3",
+    );
+  });
+
+  it("an age bar opens the unit's open list with that age band, by keyboard too; an unknown label is no link", async () => {
+    const user = userEvent.setup();
+    const { router } = renderPanel(
+      <UnitPerformance
+        unitId="u-cm"
+        unitName="Contribution Matching"
+        queueLink={queueLink}
+      />,
+      { "GET /api/performance/units/:unitId": () => [200, unit()] },
+    );
+    const byAge = await screen.findByTestId("chart-by-age");
+    expect(
+      within(byAge)
+        .getAllByRole("button", { name: /^Open / })
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      "Open 2 tickets aged under 1 day",
+      "Open 3 tickets aged over 10 days",
+    ]);
+    expect(
+      within(byAge).getByTestId("bar-row-age-Over 7 days"),
+    ).toHaveTextContent("Over 7 days");
+    within(byAge)
+      .getByRole("button", { name: "Open 3 tickets aged over 10 days" })
+      .focus();
+    await user.keyboard("{Enter}");
+    expect(router.state.location.search).toBe(
+      "?tab=department&unit=u-cm&open=true&ageBand=5",
     );
   });
 

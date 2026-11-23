@@ -1,4 +1,5 @@
 import { STATUS } from "./api/endpoints.js";
+import { readAgeBand, readPriority } from "./filters.js";
 
 /**
  * A saved view's filterJson: the Work queue's filters as one object (the list query as the page
@@ -10,6 +11,8 @@ import { STATUS } from "./api/endpoints.js";
  *   open?: true,              // open tickets (otherwise status, or every status)
  *   status?: number,          // STATUS
  *   waitingToStart?: true, slaBreached?: true, escalated?: true,
+ *   priority?: number,        // 1 Low to 4 Critical
+ *   ageBand?: number,         // 1 to 5 (../filters.js AGE_BANDS), open tickets only
  *   search?: string,
  *   sort?: string,            // TICKET_SORT, or "due" (due soonest)
  * }
@@ -26,6 +29,8 @@ export function toFilter({
   waiting,
   breached,
   escalated,
+  priority,
+  ageBand,
   search,
   sort,
 }) {
@@ -36,6 +41,8 @@ export function toFilter({
   if (waiting) filter.waitingToStart = true;
   if (breached) filter.slaBreached = true;
   if (escalated) filter.escalated = true;
+  if (priority) filter.priority = Number(priority);
+  if (ageBand) filter.ageBand = Number(ageBand);
   if (search) filter.search = search;
   if (sort) filter.sort = sort;
   return filter;
@@ -52,11 +59,15 @@ export function fromFilter(json) {
     filter = {};
   }
   // A status wins; open=true is the open list; neither is every status (as toFilter writes it).
-  const status = Number.isInteger(filter.status)
-    ? String(filter.status)
-    : filter.open === true
-      ? OPEN
-      : ALL;
+  // An age band is for open tickets only, so it makes the list the open one.
+  const ageBand = readAgeBand(filter.ageBand);
+  const status = ageBand
+    ? OPEN
+    : Number.isInteger(filter.status)
+      ? String(filter.status)
+      : filter.open === true
+        ? OPEN
+        : ALL;
   return {
     tab: typeof filter.tab === "string" ? filter.tab : "unit",
     unitId: typeof filter.unitId === "string" ? filter.unitId : "",
@@ -64,6 +75,8 @@ export function fromFilter(json) {
     waiting: filter.waitingToStart === true,
     breached: filter.slaBreached === true,
     escalated: filter.escalated === true,
+    priority: readPriority(filter.priority),
+    ageBand,
     search: typeof filter.search === "string" ? filter.search : "",
     sort: typeof filter.sort === "string" ? filter.sort : null,
   };

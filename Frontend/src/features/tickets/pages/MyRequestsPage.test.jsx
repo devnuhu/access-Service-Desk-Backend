@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { installFakeApi } from "@/test/fakeApi";
 import { createTestQueryClient, renderWithProviders } from "@/test/render";
 import MyRequestsPage from "./MyRequestsPage.jsx";
@@ -13,10 +14,11 @@ function renderMyRequests(search) {
       return [200, { items: [], total: 0, page: 1, pageSize: 20 }];
     },
   });
-  renderWithProviders(<MyRequestsPage />, {
+  const { router } = renderWithProviders(<MyRequestsPage />, {
     route: `/tickets${search}`,
     queryClient,
   });
+  asked.router = router;
   return asked;
 }
 
@@ -36,5 +38,32 @@ describe("My requests", () => {
       expect(asked[0]).toMatchObject({ view: "mine", status: 5 }),
     );
     expect(asked[0].open).toBeUndefined();
+  });
+
+  it("has a Priority filter (no age): read from and written to the address", async () => {
+    const user = userEvent.setup();
+    const asked = renderMyRequests("?priority=2");
+    const priority = await screen.findByLabelText("Priority");
+    expect(priority).toHaveValue("2");
+    expect(screen.queryByLabelText("Age")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(asked[0]).toMatchObject({ view: "mine", priority: 2 }),
+    );
+    expect(
+      await screen.findByText("No tickets match these filters."),
+    ).toBeInTheDocument();
+    expect(
+      within(priority)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["All priorities", "Critical", "High", "Medium", "Low"]);
+
+    await user.selectOptions(priority, "Critical");
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ priority: 4 }));
+    expect(asked.router.state.location.search).toBe("?priority=4");
+
+    await user.selectOptions(priority, "All priorities");
+    await waitFor(() => expect(asked.at(-1).priority).toBeUndefined());
+    expect(asked.router.state.location.search).toBe("");
   });
 });

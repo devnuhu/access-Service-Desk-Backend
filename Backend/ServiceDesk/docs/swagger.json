@@ -7795,6 +7795,25 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/TicketPriority"
+                }
+              ]
+            }
+          },
+          {
+            "name": "ageBand",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {

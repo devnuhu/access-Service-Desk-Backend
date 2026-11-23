@@ -73,7 +73,7 @@ function renderQueue(roles, me, answer = () => [], search = "", extra = {}) {
     ...extra,
   });
   queryClient.setQueryData(SESSION_KEY, makeUser({ roles }));
-  renderWithProviders(
+  const { router } = renderWithProviders(
     <Routes>
       <Route
         path="/departments/:departmentId/tickets"
@@ -84,6 +84,7 @@ function renderQueue(roles, me, answer = () => [], search = "", extra = {}) {
     </Routes>,
     { route: `/departments/d-cp/tickets${search}`, queryClient },
   );
+  asked.router = router;
   return asked;
 }
 
@@ -349,6 +350,134 @@ describe("Work queue", () => {
       await screen.findByRole("tab", { name: "All open" }),
     ).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(asked[0]).toMatchObject({ unitId: "u-cm" }));
+  });
+});
+
+describe("Priority and age filters", () => {
+  const HEAD = ["Requester", "CaseWorker", "HeadOfUnit"];
+  const headOrg = () => org([CM({ isHead: true, isMember: true }), RF]);
+  const address = (asked) =>
+    new URLSearchParams(asked.router.state.location.search);
+
+  it("opens filtered from the dashboard (?priority=3&ageBand=5&open=true) and sends both", async () => {
+    const asked = renderQueue(
+      HEAD,
+      headOrg(),
+      () => [],
+      "?tab=department&unit=u-cm&open=true&priority=3&ageBand=5",
+    );
+    expect(await screen.findByLabelText("Priority")).toHaveValue("3");
+    expect(screen.getByLabelText("Age")).toHaveValue("5");
+    expect(screen.getByLabelText("Age")).toHaveAccessibleDescription(
+      "Open tickets only",
+    );
+    expect(screen.getByLabelText("Status")).toHaveValue("open");
+    await waitFor(() =>
+      expect(asked[0]).toMatchObject({
+        view: "department",
+        unitId: "u-cm",
+        open: true,
+        priority: 3,
+        ageBand: 5,
+      }),
+    );
+    expect(asked[0].status).toBeUndefined();
+    expect(
+      await screen.findByText("No tickets match these filters."),
+    ).toBeInTheDocument();
+  });
+
+  it("an age in the address wins over a closed status: the list is the open one", async () => {
+    const asked = renderQueue(HEAD, headOrg(), () => [], "?status=7&ageBand=1");
+    expect(await screen.findByLabelText("Status")).toHaveValue("open");
+    await waitFor(() =>
+      expect(asked[0]).toMatchObject({ open: true, ageBand: 1 }),
+    );
+    expect(asked[0].status).toBeUndefined();
+  });
+
+  it("the selects write the address and the request; clearing removes them", async () => {
+    const user = userEvent.setup();
+    const asked = renderQueue(HEAD, headOrg());
+    const priority = await screen.findByLabelText("Priority");
+    expect(
+      within(priority)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["All priorities", "Critical", "High", "Medium", "Low"]);
+    expect(
+      within(screen.getByLabelText("Age"))
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual([
+      "Any age",
+      "Under 1 day",
+      "1 to 2 days",
+      "3 to 5 days",
+      "6 to 10 days",
+      "Over 10 days",
+    ]);
+
+    await user.selectOptions(priority, "Critical");
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ priority: 4 }));
+    expect(address(asked).get("priority")).toBe("4");
+
+    await user.selectOptions(screen.getByLabelText("Age"), "6 to 10 days");
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({
+        priority: 4,
+        ageBand: 4,
+        open: true,
+      }),
+    );
+    expect(address(asked).get("ageBand")).toBe("4");
+    expect(address(asked).get("open")).toBe("true");
+
+    // Back to filters already asked for: the cached list shows (no new request).
+    await user.selectOptions(priority, "All priorities");
+    await user.selectOptions(screen.getByLabelText("Age"), "Any age");
+    expect(priority).toHaveValue("");
+    expect(screen.getByLabelText("Age")).toHaveValue("");
+    const after = address(asked);
+    expect(after.has("priority")).toBe(false);
+    expect(after.has("ageBand")).toBe(false);
+    expect(after.has("open")).toBe(false);
+  });
+
+  it("choosing an age sets the status to Open; another status clears the age", async () => {
+    const user = userEvent.setup();
+    const asked = renderQueue(HEAD, headOrg(), () => [], "?status=2");
+    const status = await screen.findByLabelText("Status");
+    expect(status).toHaveValue("2");
+
+    await user.selectOptions(screen.getByLabelText("Age"), "Under 1 day");
+    expect(status).toHaveValue("open");
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ open: true, ageBand: 1 }),
+    );
+    expect(asked.at(-1).status).toBeUndefined();
+    expect(address(asked).has("status")).toBe(false);
+
+    await user.selectOptions(status, "Resolved");
+    expect(screen.getByLabelText("Age")).toHaveValue("");
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ status: 5 }));
+    expect(asked.at(-1).ageBand).toBeUndefined();
+    expect(address(asked).has("ageBand")).toBe(false);
+  });
+
+  it("Assigned to me has them too", async () => {
+    const user = userEvent.setup();
+    const asked = renderQueue(
+      ["Requester", "CaseWorker"],
+      org([CM({ isMember: true })]),
+    );
+    expect(
+      await screen.findByRole("tab", { name: "Assigned to me" }),
+    ).toHaveAttribute("aria-selected", "true");
+    await user.selectOptions(screen.getByLabelText("Priority"), "High");
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ view: "assigned", priority: 3 }),
+    );
   });
 });
 
