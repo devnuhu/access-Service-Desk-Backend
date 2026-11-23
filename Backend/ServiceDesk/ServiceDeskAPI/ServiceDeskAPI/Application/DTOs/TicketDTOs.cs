@@ -80,6 +80,10 @@ namespace ServiceDeskAPI.Application.DTOs
         public TicketStatus Status { get; set; }
         public PersonDto Requester { get; set; } = new(Guid.Empty, string.Empty, null);
         public PersonDto? Assignee { get; set; }
+        /// <summary>While the ticket is Pending: who it is waiting on (1 requester, 2 third party). Null otherwise.</summary>
+        public PendingReason? PendingReason { get; set; }
+        /// <summary>While the ticket is Pending: when it went Pending (UTC). Null otherwise.</summary>
+        public DateTime? PendingSince { get; set; }
         /// <summary>When the current assignee got it (Step 6).</summary>
         public DateTime? AssignedAt { get; set; }
         /// <summary>When someone first answered the requester (acknowledged or commented); null until then.</summary>
@@ -158,8 +162,7 @@ namespace ServiceDeskAPI.Application.DTOs
         // ---- workflow (Step 6); what the signed-in person may do: GET /api/tickets/{id}/actions ----
         public DateTime? AcknowledgedAt { get; set; }
         /// <summary>1 waiting on the requester, 2 waiting on a third party.</summary>
-        public PendingReason? PendingReason { get; set; }
-        public DateTime? PendingSince { get; set; }
+        // PendingReason and PendingSince are on the list row (the base class)
         public DateTime? ResolvedAt { get; set; }
         /// <summary>1 Completed, 2 Information provided, 3 Referred elsewhere, 4 Duplicate, 5 No action required.</summary>
         public ResolutionCode? ResolutionCode { get; set; }

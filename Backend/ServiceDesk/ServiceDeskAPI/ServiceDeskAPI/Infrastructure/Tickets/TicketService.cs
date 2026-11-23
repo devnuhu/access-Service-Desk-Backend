@@ -527,7 +527,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             query.Select(t => new TicketListItemDto
             {
                 Id = t.Id, Reference = t.Reference, Subject = t.Subject, DepartmentCode = t.Department!.Code, CategoryName = t.Category!.Name,
-                UnitName = t.Unit!.Name, LocationName = t.Location!.Name, Priority = t.Priority, Status = t.Status,
+                UnitName = t.Unit!.Name, LocationName = t.Location!.Name, Priority = t.Priority, Status = t.Status, PendingReason = t.PendingReason, PendingSince = t.PendingSince,
                 Requester = new PersonDto(t.RequesterUserId, t.RequesterUser!.UserName ?? string.Empty, t.RequesterUser.FullName),
                 Assignee = t.AssigneeUserId == null ? null : new PersonDto(t.AssigneeUserId.Value, t.AssigneeUser!.UserName ?? string.Empty, t.AssigneeUser.FullName),
                 AssignedAt = t.AssigneeUserId == null ? null : t.AssignedAt,
