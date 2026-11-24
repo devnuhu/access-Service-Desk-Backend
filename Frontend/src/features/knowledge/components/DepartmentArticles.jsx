@@ -1,23 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { PenLine, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { formatWatDay } from "@/shared/lib/time";
-import {
-  Card,
-  InlineRetry,
-  MessageCard,
-  PageHeader,
-  Spinner,
-} from "@/shared/ui";
-import KbPager from "../components/KbPager.jsx";
-import KbStatusChip from "../components/KbStatusChip.jsx";
-import {
-  KB_PAGE_SIZE,
-  useKbOptions,
-  useManagedArticles,
-} from "../hooks/useKnowledge.js";
-import { SEARCH_DELAY } from "./KnowledgePage.jsx";
+import { Card, InlineRetry, Spinner } from "@/shared/ui";
+import { KB_PAGE_SIZE, useManagedArticles } from "../hooks/useKnowledge.js";
+import { MY_ARTICLES } from "../places.js";
+import KbPager from "./KbPager.jsx";
+import KbStatusChip from "./KbStatusChip.jsx";
+
+const SEARCH_DELAY = 300;
+/** Opening an article from here: its Back and Delete return to this tab. */
+const FROM_HERE = { from: MY_ARTICLES };
 
 const STATUS_FILTERS = [
   ["", "All"],
@@ -29,59 +23,28 @@ export const NEW_ARTICLE_LINK =
   "inline-flex h-10 items-center gap-2 rounded-lg bg-brand-navy px-4 text-sm font-semibold text-white hover:bg-brand-navy-dark";
 
 /**
- * Write articles (/knowledge/manage): drafts and published articles of the departments I write
- * for. A table from md up, one card per article below. Without options (a requester) the list is
- * never asked for.
+ * My department's articles: the second tab of /knowledge, for people who write for a department
+ * (kb/options not empty; the parent shows the tab only then, so a requester never asks for drafts).
+ * Drafts and published articles, status filter, search and New article. A table from md up, one
+ * card per article below.
  */
-export default function ManageArticlesPage() {
-  const options = useKbOptions();
-  const writer = (options.data?.length ?? 0) > 0;
+export default function DepartmentArticles() {
   const [text, setText] = useState("");
   const [status, setStatus] = useState("");
   const search = useDebouncedValue(text.trim(), SEARCH_DELAY);
   const [pageState, setPageState] = useState({ page: 1, key: "" });
   const key = `${search}|${status}`;
   const page = pageState.key === key ? pageState.page : 1;
-  const list = useManagedArticles(
-    { search, status, page, pageSize: KB_PAGE_SIZE },
-    { enabled: writer },
-  );
-
-  if (options.isLoading) {
-    return (
-      <div className="py-10 text-center text-muted">
-        <Spinner label="Loading…" />
-      </div>
-    );
-  }
-  if (!writer) {
-    return (
-      <MessageCard
-        icon={PenLine}
-        title="Write articles"
-        linkTo="/knowledge"
-        linkText="Go to the knowledge base"
-      >
-        <p>You do not write articles for any department.</p>
-      </MessageCard>
-    );
-  }
+  const list = useManagedArticles({
+    search,
+    status,
+    page,
+    pageSize: KB_PAGE_SIZE,
+  });
 
   const items = list.data?.items ?? [];
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Write articles"
-        description="Drafts and published articles of your departments."
-        trail={[{ label: "Knowledge base", to: "/knowledge" }]}
-        actions={
-          <Link to="/knowledge/manage/new" className={NEW_ARTICLE_LINK}>
-            <Plus aria-hidden="true" size={16} />
-            New article
-          </Link>
-        }
-      />
-
+    <div className="space-y-4" data-testid="kb-mine">
       <Card>
         <div className="flex flex-wrap gap-3 border-b border-line px-5 py-3">
           <div className="relative min-w-0 flex-1 basis-56">
@@ -111,6 +74,10 @@ export default function ManageArticlesPage() {
               </option>
             ))}
           </select>
+          <Link to="/knowledge/manage/new" className={NEW_ARTICLE_LINK}>
+            <Plus aria-hidden="true" size={16} />
+            New article
+          </Link>
         </div>
 
         {list.isLoading ? (
@@ -155,6 +122,7 @@ export default function ManageArticlesPage() {
                     <td className="px-5 py-3">
                       <Link
                         to={`/knowledge/${item.id}`}
+                        state={FROM_HERE}
                         className="font-semibold text-brand-navy hover:underline"
                       >
                         {item.title}
@@ -191,6 +159,7 @@ export default function ManageArticlesPage() {
                 <li key={item.id} className="px-5 py-3 text-sm">
                   <Link
                     to={`/knowledge/${item.id}`}
+                    state={FROM_HERE}
                     className="font-semibold text-brand-navy hover:underline"
                   >
                     {item.title}

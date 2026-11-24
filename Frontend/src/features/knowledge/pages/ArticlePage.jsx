@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Eye,
   EyeOff,
@@ -22,10 +22,18 @@ import {
 } from "@/shared/ui";
 import { KB_STATUS } from "../api/endpoints.js";
 import KbStatusChip from "../components/KbStatusChip.jsx";
+import { LIBRARY } from "../places.js";
+
+/** The knowledge base tab the article was opened from (link state), else the library. */
+function useCameFrom() {
+  const { state } = useLocation();
+  return typeof state?.from === "string" && state.from.startsWith(LIBRARY)
+    ? state.from
+    : LIBRARY;
+}
 import {
   useArticle,
   useDeleteArticle,
-  useIsKbWriter,
   usePublishArticle,
   useVote,
 } from "../hooks/useKnowledge.js";
@@ -93,7 +101,7 @@ function Helpful({ article }) {
 function ArticleActions({ article }) {
   const toast = useToast();
   const navigate = useNavigate();
-  const writer = useIsKbWriter();
+  const from = useCameFrom();
   const publish = usePublishArticle();
   const remove = useDeleteArticle();
   const [confirming, setConfirming] = useState(false);
@@ -111,7 +119,7 @@ function ArticleActions({ article }) {
     try {
       const result = await remove.mutateAsync(article.id);
       toast.success(result.message);
-      navigate(writer ? "/knowledge/manage" : "/knowledge", { replace: true });
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error(error.message);
       setConfirming(false);
@@ -125,6 +133,7 @@ function ArticleActions({ article }) {
       {article.canEdit && (
         <Link
           to={`/knowledge/manage/${article.id}/edit`}
+          state={{ from }}
           className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-brand-navy hover:bg-page"
         >
           <Pencil aria-hidden="true" size={15} />
@@ -173,6 +182,7 @@ function ArticleActions({ article }) {
 /** One article (/knowledge/:id). A draft is 404 outside its department; the page does not say which. */
 export default function ArticlePage() {
   const { id } = useParams();
+  const from = useCameFrom();
   const query = useArticle(id);
 
   if (query.isLoading) {
@@ -206,7 +216,7 @@ export default function ArticlePage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        back="/knowledge"
+        back={from}
         title={<span className="break-words">{article.title}</span>}
         crumb={article.title}
         actions={<ArticleActions article={article} />}

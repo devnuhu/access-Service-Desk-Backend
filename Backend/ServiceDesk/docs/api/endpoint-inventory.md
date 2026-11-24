@@ -70,7 +70,7 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | PATCH, DELETE | `/api/canned-replies/{id}` | signed in (the library's keepers; others 403) | Change or remove a saved reply |
 | GET | `/api/kb?search=&departmentId=&categoryId=&page=&pageSize=` | signed in | Published articles: `{ items: [{ id, title, summary, department, category, status, updatedAt, yes, no }], total, page, pageSize, departments: [{ id, name, count }] }`; departments counts matches per department ignoring the department filter. pageSize at most 50 |
 | GET | `/api/kb/manage?...&status=draft|published` | signed in (empty for anyone who writes for no department) | Drafts and published articles of the departments I write for; same shape |
-| GET | `/api/kb/options` | signed in | Departments I write for `[{ id, name, canPublish, categories }]`; empty: no writing screens |
+| GET | `/api/kb/options` | signed in | Departments I write for `[{ id, name, canPublish, categories }]`; empty: no "My department's articles" tab and no writing screens |
 | GET | `/api/kb/suggest?categoryId=&text=` | signed in | Up to 3 published articles for the raise form `[{ id, title, summary, departmentName }]` |
 | GET | `/api/kb/{id}` | signed in (a draft is 404 outside its department) | One article: bodyHtml (cleaned), author, dates, yes, no, myVote, canEdit, canPublish, canDelete |
 | POST | `/api/kb` | signed in (writers of the department; others 403) | Create a draft `{ departmentId, categoryId, title, summary, bodyHtml }`: title 5 to 200 and unique in the department, summary 10 to 500, body 20+ characters of text; 400 errors.title / summary / bodyHtml / categoryId |

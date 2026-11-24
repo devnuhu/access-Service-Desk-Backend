@@ -14,7 +14,7 @@ import ArticleEditorPage, {
 } from "./pages/ArticleEditorPage.jsx";
 import ArticlePage from "./pages/ArticlePage.jsx";
 import KnowledgePage from "./pages/KnowledgePage.jsx";
-import ManageArticlesPage from "./pages/ManageArticlesPage.jsx";
+import ManageRedirect from "./pages/ManageRedirect.jsx";
 
 // The editor is a lazy chunk; load it before the first test so findBy does not wait on it.
 beforeAll(() => import("@/shared/ui/RichTextEditorCore.jsx"), 60_000);
@@ -114,7 +114,7 @@ function renderKb(route, routes = {}) {
   const view = renderWithProviders(
     <Routes>
       <Route path="/knowledge" element={<KnowledgePage />} />
-      <Route path="/knowledge/manage" element={<ManageArticlesPage />} />
+      <Route path="/knowledge/manage" element={<ManageRedirect />} />
       <Route path="/knowledge/manage/new" element={<ArticleEditorPage />} />
       <Route
         path="/knowledge/manage/:id/edit"
@@ -335,18 +335,97 @@ describe("Article page", () => {
   });
 });
 
-describe("Write articles", () => {
-  it("without options it says so and never asks for the drafts", async () => {
-    const { calls } = renderKb("/knowledge/manage");
-    expect(
-      await screen.findByText("You do not write articles for any department."),
-    ).toBeInTheDocument();
+describe("Library and My department's articles tabs", () => {
+  const WRITER = {
+    "GET /api/kb/options": () => [200, [OPTION()]],
+    "GET /api/kb": () => [200, page([item("a-1", "One")])],
+    "GET /api/kb/manage": () => [200, page([item("a-2", "Mine")])],
+  };
+  const tabs = () => screen.queryAllByRole("tab");
+
+  it("someone who writes for no department sees no tabs and the app never asks for drafts, even with ?tab=mine", async () => {
+    const { calls } = renderKb("/knowledge?tab=mine", {
+      "GET /api/kb": () => [200, page([item("a-1", "One")])],
+    });
+    expect(await screen.findByTestId("kb-article-a-1")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(listCalls(calls, "GET /api/kb/options")).toHaveLength(1),
+    );
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByTestId("kb-mine")).toBeNull();
     expect(listCalls(calls, "GET /api/kb/manage")).toHaveLength(0);
+  });
+
+  it("a writer sees both tabs, Library first and chosen; the second tab goes in the address", async () => {
+    const user = userEvent.setup();
+    const { calls, router } = renderKb("/knowledge", WRITER);
+    await screen.findByRole("tablist", { name: "Which articles" });
+    expect(tabs().map((t) => t.textContent)).toEqual([
+      "Library",
+      "My department's articles",
+    ]);
+    expect(tabs()[0]).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByTestId("kb-article-a-1")).toBeInTheDocument();
+    expect(listCalls(calls, "GET /api/kb/manage")).toHaveLength(0);
+
+    await user.click(tabs()[1]);
+    expect(router.state.location.search).toBe("?tab=mine");
+    expect(await screen.findByTestId("kb-row-a-2")).toBeInTheDocument();
+    expect(tabs()[1]).toHaveAttribute("aria-selected", "true");
+    // The library link back clears the tab from the address.
+    await user.click(tabs()[0]);
+    expect(router.state.location.search).toBe("");
+  });
+
+  it("?tab=mine opens the second tab", async () => {
+    renderKb("/knowledge?tab=mine", WRITER);
+    expect(await screen.findByTestId("kb-mine")).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "My department's articles" }),
+    ).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("the old /knowledge/manage address lands on the second tab", async () => {
+    const { router } = renderKb("/knowledge/manage", WRITER);
+    expect(await screen.findByTestId("kb-mine")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/knowledge");
+    expect(router.state.location.search).toBe("?tab=mine");
+  });
+
+  it("an article opened from the second tab goes back there, by Back and after Delete", async () => {
+    const user = userEvent.setup();
+    const { router } = renderKb(
+      { pathname: "/knowledge/a-2", state: { from: "/knowledge?tab=mine" } },
+      {
+        ...WRITER,
+        "GET /api/kb/:id": () => [200, article({ id: "a-2", canDelete: true })],
+        "DELETE /api/kb/:id": () => [200, { message: "Article deleted." }],
+      },
+    );
+    await screen.findByTestId("kb-actions");
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Delete this article?",
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=mine"));
+    expect(router.state.location.pathname).toBe("/knowledge");
+  });
+
+  it("Back on an article opened directly goes to the tab it came from", async () => {
+    const user = userEvent.setup();
+    const { router } = renderKb(
+      { pathname: "/knowledge/a-2", state: { from: "/knowledge?tab=mine" } },
+      { ...WRITER, "GET /api/kb/:id": () => [200, article({ id: "a-2" })] },
+    );
+    await user.click(await screen.findByRole("button", { name: "Back" }));
+    expect(router.state.location.pathname).toBe("/knowledge");
+    expect(router.state.location.search).toBe("?tab=mine");
   });
 
   it("lists drafts and published articles with their counts, and filters by status", async () => {
     const user = userEvent.setup();
-    const { calls } = renderKb("/knowledge/manage", {
+    const { calls } = renderKb("/knowledge?tab=mine", {
       "GET /api/kb/options": () => [200, [OPTION()]],
       "GET /api/kb/manage": () => [
         200,
@@ -478,7 +557,23 @@ describe("Article editor", () => {
     });
   });
 
-  it("a publisher saves and publishes a draft, then lands on the article", async () => {
+  it("Save draft returns to My department's articles", async () => {
+    const user = userEvent.setup();
+    const state = article({ status: "Draft", canEdit: true });
+    const { router } = renderKb("/knowledge/manage/a-1/edit", {
+      "GET /api/kb/options": () => [200, [OPTION()]],
+      "GET /api/kb/manage": () => [200, page([item("a-1", "Mine")])],
+      "GET /api/kb/:id": () => [200, state],
+      "PUT /api/kb/:id": () => [200, state],
+    });
+    const form = await screen.findByTestId("kb-editor");
+    await user.click(within(form).getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByTestId("kb-mine")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/knowledge");
+    expect(router.state.location.search).toBe("?tab=mine");
+  });
+
+  it("a publisher saves and publishes a draft, then lands on My department's articles", async () => {
     const user = userEvent.setup();
     let state = article({ status: "Draft", canEdit: true, canPublish: true });
     const { calls, router } = renderKb("/knowledge/manage/a-1/edit", {
@@ -492,9 +587,8 @@ describe("Article editor", () => {
     });
     const form = await screen.findByTestId("kb-editor");
     await user.click(within(form).getByRole("button", { name: "Publish" }));
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/knowledge/a-1"),
-    );
+    await waitFor(() => expect(router.state.location.search).toBe("?tab=mine"));
+    expect(router.state.location.pathname).toBe("/knowledge");
     expect(calls.map((c) => c.key)).toEqual(
       expect.arrayContaining(["PUT /api/kb/:id", "POST /api/kb/:id/publish"]),
     );

@@ -60,12 +60,6 @@ export function useKbOptions() {
   });
 }
 
-/** True when I write for at least one department. */
-export function useIsKbWriter() {
-  const options = useKbOptions();
-  return (options.data?.length ?? 0) > 0;
-}
-
 export function useArticle(id) {
   return useQuery({
     queryKey: kbKeys.article(id),

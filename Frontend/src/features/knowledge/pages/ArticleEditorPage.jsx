@@ -13,6 +13,7 @@ import {
   useToast,
 } from "@/shared/ui";
 import { KB_STATUS } from "../api/endpoints.js";
+import { LIBRARY, MY_ARTICLES } from "../places.js";
 import {
   useArticle,
   useKbOptions,
@@ -117,12 +118,12 @@ function ArticleForm({ article, options }) {
       } else {
         toast.success(published ? "Changes saved." : "Draft saved.");
       }
-      navigate(`/knowledge/${saved.id}`);
+      navigate(MY_ARTICLES, { replace: true });
     } catch (error) {
       if (saved) {
         // Saved, but publishing was refused: the draft is kept.
         toast.error(error.message, { title: "Saved as a draft" });
-        navigate(`/knowledge/${saved.id}`);
+        navigate(MY_ARTICLES, { replace: true });
         return;
       }
       const server = Object.fromEntries(
@@ -347,8 +348,8 @@ export default function ArticleEditorPage() {
       <MessageCard
         icon={SearchX}
         title="Article not found"
-        linkTo="/knowledge/manage"
-        linkText="Go to Write articles"
+        linkTo={MY_ARTICLES}
+        linkText="Go to the knowledge base"
       >
         <p>This article does not exist, or you cannot change it.</p>
       </MessageCard>
@@ -363,8 +364,8 @@ export default function ArticleEditorPage() {
     return (
       <MessageCard
         icon={PenLine}
-        title="Write articles"
-        linkTo="/knowledge"
+        title="Knowledge base"
+        linkTo={LIBRARY}
         linkText="Go to the knowledge base"
       >
         <p>You do not write articles for any department.</p>
@@ -372,10 +373,6 @@ export default function ArticleEditorPage() {
     );
   }
 
-  const trail = [
-    { label: "Knowledge base", to: "/knowledge" },
-    { label: "Write articles", to: "/knowledge/manage" },
-  ];
   const data = article.data;
   if (editing && !data.canEdit) {
     return (
@@ -384,7 +381,6 @@ export default function ArticleEditorPage() {
           back={`/knowledge/${data.id}`}
           title={<span className="break-words">{data.title}</span>}
           crumb="Edit article"
-          trail={trail}
         />
         <p
           data-testid="kb-readonly-note"
@@ -403,9 +399,8 @@ export default function ArticleEditorPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        back={editing ? `/knowledge/${data.id}` : "/knowledge/manage"}
+        back={editing ? `/knowledge/${data.id}` : MY_ARTICLES}
         title={editing ? "Edit article" : "New article"}
-        trail={trail}
       />
       <Card className="p-5">
         <ArticleForm key={id ?? "new"} article={data} options={list} />

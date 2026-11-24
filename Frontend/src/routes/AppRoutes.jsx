@@ -20,7 +20,7 @@ import {
   ArticleEditorPage,
   ArticlePage,
   KnowledgePage,
-  ManageArticlesPage,
+  ManageRedirect,
 } from "@/features/knowledge";
 import { MyUnitPage } from "@/features/my-unit";
 import { ReportsPage } from "@/features/reports";
@@ -52,7 +52,8 @@ export default function AppRoutes() {
           <Route path="tickets/id/:id" element={<TicketPage />} />
           <Route path="tickets/:reference" element={<TicketPage />} />
           <Route path="knowledge" element={<KnowledgePage />} />
-          <Route path="knowledge/manage" element={<ManageArticlesPage />} />
+          {/* The old Write articles page: the second tab of the knowledge base. */}
+          <Route path="knowledge/manage" element={<ManageRedirect />} />
           <Route path="knowledge/manage/new" element={<ArticleEditorPage />} />
           <Route
             path="knowledge/manage/:id/edit"

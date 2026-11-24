@@ -7,7 +7,7 @@ const EXACT = new Set(["/", "/availability"]);
 
 /**
  * The one menu link to mark as the current page: the item whose link is the path, or the longest
- * one the path sits under (/knowledge/manage/new is Write articles, not Knowledge base). Home and My
+ * one the path sits under (a page inside a deeper item marks that item, not its parent). Home and My
  * availability count only on their own page; /availability/units/... is its own item.
  */
 function activeLink(sections, pathname) {

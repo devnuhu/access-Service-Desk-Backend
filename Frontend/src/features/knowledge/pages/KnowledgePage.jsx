@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { PenLine, Search } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Search } from "lucide-react";
 import { useCatalogue } from "@/features/catalogue";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { formatWatDay } from "@/shared/lib/time";
 import { Card, InlineRetry, PageHeader, Spinner } from "@/shared/ui";
+import DepartmentArticles from "../components/DepartmentArticles.jsx";
 import KbPager from "../components/KbPager.jsx";
 import {
   KB_PAGE_SIZE,
   useArticles,
-  useIsKbWriter,
+  useKbOptions,
 } from "../hooks/useKnowledge.js";
+import { LIBRARY, TAB_MINE } from "../places.js";
 
 export const SEARCH_DELAY = 300;
 
@@ -54,6 +56,7 @@ export function ArticleCard({ item }) {
         <h2 className="text-base font-semibold">
           <Link
             to={`/knowledge/${item.id}`}
+            state={{ from: LIBRARY }}
             className="text-brand-navy hover:underline"
           >
             {item.title}
@@ -76,13 +79,62 @@ export function ArticleCard({ item }) {
   );
 }
 
+const TABS = [
+  ["", "Library"],
+  [TAB_MINE, "My department's articles"],
+];
+
 /**
- * The knowledge base (/knowledge), for everyone signed in: published articles only. Search
- * (debounced), department chips with their match counts (from the API, ignoring the department
- * filter), a category filter once a department is chosen, cards, and paging.
+ * The knowledge base (/knowledge), the one menu item. Everyone gets the library. People who write
+ * for a department (kb/options not empty) also get a second tab, My department's articles, kept in
+ * the address as ?tab=mine so Back and refresh keep it; only they ever ask for kb/manage.
  */
 export default function KnowledgePage() {
-  const writer = useIsKbWriter();
+  const options = useKbOptions();
+  const writer = (options.data?.length ?? 0) > 0;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = writer && searchParams.get("tab") === TAB_MINE ? TAB_MINE : "";
+
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        title="Knowledge base"
+        description="Answers written by each department's staff."
+      />
+      {writer && (
+        <div
+          role="tablist"
+          aria-label="Which articles"
+          className="flex gap-1 overflow-x-auto border-b border-line"
+        >
+          {TABS.map(([id, label]) => (
+            <button
+              key={id || "library"}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() =>
+                setSearchParams(id ? { tab: id } : {}, { replace: false })
+              }
+              className={`-mb-px min-h-11 border-b-2 px-3 text-sm font-semibold whitespace-nowrap ${tab === id ? "border-brand-orange text-brand-navy" : "border-transparent text-muted hover:text-ink"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Until options answer, the library shows: the default for everyone. */}
+      {tab === TAB_MINE ? <DepartmentArticles /> : <Library />}
+    </div>
+  );
+}
+
+/**
+ * The library: published articles only. Search (debounced), department chips with their match
+ * counts (from the API, ignoring the department filter), a category filter once a department is
+ * chosen, cards, and paging.
+ */
+function Library() {
   const [text, setText] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -105,23 +157,7 @@ export default function KnowledgePage() {
   const items = list.data?.items ?? [];
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Knowledge base"
-        description="Answers written by each department's staff."
-        actions={
-          writer && (
-            <Link
-              to="/knowledge/manage"
-              className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-brand-navy hover:bg-page"
-            >
-              <PenLine aria-hidden="true" size={16} />
-              Write articles
-            </Link>
-          )
-        }
-      />
-
+    <div className="space-y-4" data-testid="kb-library">
       <div className="space-y-3">
         <div className="flex flex-wrap gap-3">
           <div className="relative min-w-0 flex-1 basis-64">

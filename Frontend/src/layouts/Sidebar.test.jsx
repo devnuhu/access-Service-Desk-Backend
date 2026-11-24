@@ -32,18 +32,11 @@ const HOU_ORG = {
   ],
 };
 
-function renderSidebar(
-  roles,
-  org,
-  departments = [],
-  kbOptions = [],
-  route = "/",
-) {
+function renderSidebar(roles, org, departments = [], route = "/") {
   const queryClient = createTestQueryClient();
   const api = installFakeApi(queryClient, {
     "GET /api/org/me": () => [200, org],
     "GET /api/org/departments": () => [200, departments],
-    "GET /api/kb/options": () => [200, kbOptions],
   });
   renderWithProviders(<Sidebar user={makeUser({ roles })} />, {
     queryClient,
@@ -234,68 +227,38 @@ describe("Sidebar from org/me", () => {
     expect(screen.queryByText("Reports")).not.toBeInTheDocument();
   });
 
-  it("everyone gets Knowledge base; Write articles only when kb/options is not empty", async () => {
-    const reader = renderSidebar(["Requester"], { departments: [] });
+  it("has one Knowledge base item for everyone, and never asks who writes articles", async () => {
+    const api = renderSidebar(["CaseWorker", "HeadOfUnit"], HOU_ORG);
     expect(
       await screen.findByRole("link", { name: "Knowledge base" }),
     ).toHaveAttribute("href", "/knowledge");
-    await expect
-      .poll(() =>
-        reader.adapter.mock.calls.some(([c]) =>
-          c.url.includes("/api/kb/options"),
-        ),
-      )
-      .toBe(true);
+    expect(
+      screen.getAllByRole("link", { name: "Knowledge base" }),
+    ).toHaveLength(1);
     expect(
       screen.queryByRole("link", { name: "Write articles" }),
     ).not.toBeInTheDocument();
-  });
-
-  it("a writer gets Write articles under Knowledge base", async () => {
-    renderSidebar(
-      ["CaseWorker"],
-      { departments: [] },
-      [],
-      [
-        {
-          id: "d-cp",
-          name: "Contribution Processing",
-          canPublish: false,
-          categories: [],
-        },
-      ],
-    );
     expect(
-      await screen.findByRole("link", { name: "Write articles" }),
-    ).toHaveAttribute("href", "/knowledge/manage");
-    expect(linkNames().slice(-2)).toEqual(["Knowledge base", "Write articles"]);
+      api.adapter.mock.calls.some(([c]) => c.url.includes("/api/kb")),
+    ).toBe(false);
   });
 
-  it("marks one item only: the longest link the page sits under", async () => {
-    const writer = [
-      {
-        id: "d-cp",
-        name: "Contribution Processing",
-        canPublish: false,
-        categories: [],
-      },
-    ];
+  it("the editor and the old manage address mark Knowledge base, and only it", async () => {
     renderSidebar(
-      ["CaseWorker"],
+      ["Requester"],
       { departments: [] },
       [],
-      writer,
       "/knowledge/manage/new",
     );
-    const write = await screen.findByRole("link", { name: "Write articles" });
-    expect(write).toHaveAttribute("aria-current", "page");
+    const kb = await screen.findByRole("link", { name: "Knowledge base" });
+    expect(kb).toHaveAttribute("aria-current", "page");
     expect(
       screen.getAllByRole("link").filter((a) => a.getAttribute("aria-current")),
-    ).toEqual([write]);
+    ).toEqual([kb]);
   });
 
   it("an article page marks Knowledge base", async () => {
-    renderSidebar(["Requester"], { departments: [] }, [], [], "/knowledge/a-1");
+    renderSidebar(["Requester"], { departments: [] }, [], "/knowledge/a-1");
     expect(
       await screen.findByRole("link", { name: "Knowledge base" }),
     ).toHaveAttribute("aria-current", "page");

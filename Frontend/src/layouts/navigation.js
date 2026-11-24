@@ -15,7 +15,6 @@ import {
   MapPin,
   MessageSquareText,
   Network,
-  PenLine,
   Timer,
   UsersRound,
   Users,
@@ -134,18 +133,12 @@ function leadership(departments) {
  * @param {{ roles?: string[] }} user
  * @param {{ departments: any[] } | undefined} org  GET /api/org/me
  * @param {any[] | undefined} allDepartments  GET /api/org/departments (Super Admin only)
- * @param {{ kbWriter?: boolean }} [extra]  kbWriter: GET /api/kb/options is not empty ("Write articles")
  * A section without a menu heading has a `label` for the page eyebrow and the breadcrumb; a unit
  * group has a `subtitle` (its department).
  *
  * @returns {{ id: string, title: string | null, subtitle?: string, label?: string, items: { label: string, icon: any, to?: string, comingSoon?: boolean, crumbRoot?: string }[] }[]}
  */
-export function buildNavigation(
-  user,
-  org,
-  allDepartments,
-  { kbWriter = false } = {},
-) {
+export function buildNavigation(user, org, allDepartments) {
   const departments = org?.departments ?? [];
   const leads = hasAnyRole(user, [SuperAdmin]) ? null : leadership(departments);
   const sections = [
@@ -183,13 +176,12 @@ export function buildNavigation(
     sections.push(...groups);
   }
 
-  // Everyone reads the knowledge base; writers (kb/options not empty) also write for it.
-  sections[0].items.push(
-    { label: "Knowledge base", icon: BookOpen, to: "/knowledge" },
-    ...(kbWriter
-      ? [{ label: "Write articles", icon: PenLine, to: "/knowledge/manage" }]
-      : []),
-  );
+  // One item for everyone; writers get a second tab inside it (My department's articles).
+  sections[0].items.push({
+    label: "Knowledge base",
+    icon: BookOpen,
+    to: "/knowledge",
+  });
 
   if (!departments.length && hasAnyRole(user, [SuperAdmin])) {
     for (const department of allDepartments ?? []) {
