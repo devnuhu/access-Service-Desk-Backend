@@ -199,7 +199,7 @@ export default function CategoriesPage() {
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[56rem] text-left text-sm">
-              <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
+              <thead className="border-b border-line bg-page/60 text-[12px] font-semibold tracking-wider text-muted uppercase">
                 <tr>
                   <th scope="col" className="w-28 px-5 py-2.5">
                     Order

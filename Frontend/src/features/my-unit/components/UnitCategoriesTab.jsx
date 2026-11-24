@@ -6,7 +6,7 @@ import { Card, Chip, Spinner } from "@/shared/ui";
 import { useMyUnitSkills, useUnitCategories } from "../hooks/useMyUnit.js";
 
 const th =
-  "px-4 py-3 text-[11px] font-semibold tracking-wider text-muted uppercase";
+  "px-4 py-3 text-[12px] font-semibold tracking-wider text-muted uppercase";
 
 /**
  * The unit's categories (its functions), read only: the Super Admin creates and edits them. A row

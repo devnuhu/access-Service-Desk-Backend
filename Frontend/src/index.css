@@ -1,19 +1,27 @@
 @import "tailwindcss";
 
-/* The app's theme: the colours of its emails, and the Servio brand (logo, login, favicon). */
+/* The app's theme: the colours of its emails, and the Access Desk brand (logo, login, favicon). */
 @theme {
   --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   /* The wordmark only; the UI font when the brand font cannot load. */
   --font-brand:
     "Plus Jakarta Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
-  /* Servio: on light backgrounds, then on dark. */
-  --color-servio-navy: #0b3b78;
-  --color-servio-orange: #e07b00;
-  --color-servio-green: #4c8a1e;
-  --color-servio-orange-on-dark: #ff9a1f;
-  --color-servio-green-on-dark: #7bc043;
-  --color-servio-navy-deep: #0a2a57;
+  /* Text a step larger than Tailwind's defaults (12, 14, 16, 18, 20 px), for easier reading.
+     Line heights keep Tailwind's ratios; spacing is unchanged. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.3125rem;
+
+  /* Access Desk: on light backgrounds, then on dark. */
+  --color-desk-navy: #0b3b78;
+  --color-desk-orange: #e07b00;
+  --color-desk-green: #4c8a1e;
+  --color-desk-orange-on-dark: #ff9a1f;
+  --color-desk-green-on-dark: #7bc043;
+  --color-desk-navy-deep: #0a2a57;
 
   --color-brand-navy: #003883;
   --color-brand-navy-dark: #002556;
@@ -165,7 +173,7 @@
    */
   .rich-text {
     color: var(--color-ink);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.6;
     overflow-wrap: anywhere;
   }
@@ -210,7 +218,7 @@
     border: 1px solid var(--color-line);
     border-radius: 4px;
     padding: 0 0.25em;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
   }
   .rich-text pre {
     background: var(--color-page);

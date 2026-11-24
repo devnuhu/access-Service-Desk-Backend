@@ -65,17 +65,23 @@ const signedOut = {
 afterEach(() => clearCsrfToken());
 
 describe("LoginPage", () => {
-  it("shows the Servio lockup, the caption and the descriptor, and titles the tab", async () => {
+  it("shows the Access Desk lockup, the caption and the descriptor, and titles the tab", async () => {
     renderLogin("/login", signedOut);
     const brand = await screen.findByTestId("login-brand");
     expect(
       within(brand).getByRole("img", { name: BRAND.name }),
-    ).toHaveTextContent(BRAND.name.toLowerCase());
+    ).toHaveTextContent(BRAND.name);
     expect(within(brand).getByText(BRAND.caption)).toBeInTheDocument();
     expect(within(brand).getByText(BRAND.descriptor)).toBeInTheDocument();
     // The company stays, small: "by" and its logo.
     expect(within(brand).getByAltText(BRAND.company)).toBeInTheDocument();
     expect(document.title).toBe(`Sign in · ${BRAND.name}`);
+    // The copyright names the legal entity, never the old one.
+    const year = new Date().getFullYear();
+    expect(
+      screen.getAllByText(`© ${year} Access Pensions Ltd`).length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText(/ARM/)).toBeNull();
   });
 
   it("focuses the username field and requires both fields", async () => {

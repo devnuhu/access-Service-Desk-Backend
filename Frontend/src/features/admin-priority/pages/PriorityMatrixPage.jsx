@@ -147,7 +147,7 @@ export default function PriorityMatrixPage() {
               <tr className="border-b border-line bg-page/60">
                 <th
                   scope="col"
-                  className="px-4 py-3 text-left text-[11px] font-semibold tracking-wider text-muted uppercase"
+                  className="px-4 py-3 text-left text-[12px] font-semibold tracking-wider text-muted uppercase"
                 >
                   Who it affects{" "}
                   <span aria-hidden="true" className="text-line">
@@ -209,11 +209,11 @@ export default function PriorityMatrixPage() {
                             ))}
                           </select>
                           {unsaved ? (
-                            <span className="text-[11px] font-medium text-brand-navy">
+                            <span className="text-[12px] font-medium text-brand-navy">
                               Unsaved
                             </span>
                           ) : cell.isDefault ? (
-                            <span className="text-[11px] text-muted">
+                            <span className="text-[12px] text-muted">
                               default
                             </span>
                           ) : (

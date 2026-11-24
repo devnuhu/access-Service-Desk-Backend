@@ -127,7 +127,7 @@ function Axes({ max, type, labels }) {
   const band = PLOT_W / labels.length;
   const every = Math.ceil(labels.length / MAX_X_LABELS);
   return (
-    <g fontSize="11" fill={AXIS_TEXT}>
+    <g fontSize="12" fill={AXIS_TEXT}>
       {ticks.map((tick) => {
         const y = M.top + PLOT_H - (tick / max) * PLOT_H;
         return (

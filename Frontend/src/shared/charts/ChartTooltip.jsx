@@ -33,7 +33,7 @@ export default function ChartTooltip({ tip, width }) {
         </p>
       ))}
       {tip.note && (
-        <p className="mt-1 max-w-56 text-[11px] whitespace-normal text-muted">
+        <p className="mt-1 max-w-56 text-[12px] whitespace-normal text-muted">
           {tip.note}
         </p>
       )}

@@ -37,11 +37,11 @@ describe("BrandMark", () => {
     );
   });
 
-  it("the lockup says the name once and writes the lowercase wordmark", () => {
+  it("the lockup says the name once and writes the wordmark as the name is", () => {
     render(<BrandLockup />);
     expect(screen.getAllByRole("img")).toHaveLength(1);
     expect(screen.getByRole("img", { name: BRAND.name })).toHaveTextContent(
-      BRAND.name.toLowerCase(),
+      BRAND.name,
     );
   });
 });

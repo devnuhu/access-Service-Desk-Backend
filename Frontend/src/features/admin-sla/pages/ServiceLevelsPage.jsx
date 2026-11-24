@@ -16,7 +16,7 @@ import PolicyDialog from "../components/PolicyDialog.jsx";
 import { useDeleteSlaPolicy, useSlaPolicies } from "../hooks/useSlaPolicies.js";
 
 const th =
-  "px-4 py-3 text-[11px] font-semibold tracking-wider text-muted uppercase";
+  "px-4 py-3 text-[12px] font-semibold tracking-wider text-muted uppercase";
 const td = "px-4 py-3";
 const hours = (n) => `${n} h`;
 

@@ -99,7 +99,7 @@ export default function BarList({
                 <>
                   <span className="block truncate">{row.label}</span>
                   {row.sub && (
-                    <span className="block truncate text-[11px] font-normal text-muted">
+                    <span className="block truncate text-[12px] font-normal text-muted">
                       {row.sub}
                     </span>
                   )}

@@ -6,17 +6,17 @@ import ServiceDeskIllustration from "./ServiceDeskIllustration.jsx";
 const POINTS = [
   {
     icon: Plus,
-    color: "text-servio-orange",
+    color: "text-desk-orange",
     lines: ["Raise a request", "in a minute"],
   },
   {
     icon: Clock,
-    color: "text-servio-orange",
+    color: "text-desk-orange",
     lines: ["Clear response", "and resolution times"],
   },
   {
     icon: Check,
-    color: "text-servio-green",
+    color: "text-desk-green",
     lines: ["Updates by email", "and in the app"],
   },
 ];
@@ -30,9 +30,9 @@ function ByCompany() {
 function BrandBand() {
   return (
     <div aria-hidden="true" className="hidden h-1.5 shrink-0 lg:flex">
-      <span className="flex-[5] bg-servio-green" />
-      <span className="flex-[2] bg-servio-orange" />
-      <span className="flex-[3] bg-servio-navy" />
+      <span className="flex-[5] bg-desk-green" />
+      <span className="flex-[2] bg-desk-orange" />
+      <span className="flex-[3] bg-desk-navy" />
     </div>
   );
 }
@@ -40,7 +40,7 @@ function BrandBand() {
 /**
  * The light brand panel.
  *
- * Desktop (1024px and wider), as tall as the window, in three bands: the Servio lockup with the
+ * Desktop (1024px and wider), as tall as the window, in three bands: the Access Desk lockup with the
  * Access Pensions logo across the top and the caption and descriptor under it; in the middle the
  * illustration (it shrinks with the window's height and goes on short screens), the headline, a
  * line of text and three points; along the bottom the copyright line. The content keeps a readable width on very
@@ -64,7 +64,7 @@ export function LoginBrandPanel() {
 
         {/* The caption, and (small) the name it replaces, under the lockup at every size. */}
         <div className="mt-3 lg:mt-4">
-          <p className="text-sm font-semibold text-servio-navy lg:text-base">
+          <p className="text-sm font-semibold text-desk-navy lg:text-base">
             {BRAND.caption}
           </p>
           <p className="mt-0.5 text-xs text-login-unit">{BRAND.descriptor}</p>
@@ -77,7 +77,7 @@ export function LoginBrandPanel() {
           </div>
 
           <div className="mt-8 [@media(max-height:46rem)]:mt-0">
-            <h2 className="max-w-xl text-3xl leading-tight font-bold tracking-tight text-servio-navy xl:text-4xl 2xl:text-[2.6rem]">
+            <h2 className="max-w-xl text-3xl leading-tight font-bold tracking-tight text-desk-navy xl:text-4xl 2xl:text-[2.6rem]">
               Every request, to the right team, on time.
             </h2>
             <p className="mt-3 max-w-lg text-base leading-relaxed text-body">
@@ -105,7 +105,7 @@ export function LoginBrandPanel() {
 
         {/* Bottom (desktop): the copyright. Phones and tablets show it under the form. */}
         <p className="hidden border-t border-login-divider/60 pt-4 text-xs text-login-legal lg:block">
-          © {new Date().getFullYear()} Access ARM Pensions Plc
+          © {new Date().getFullYear()} {BRAND.legalName}
         </p>
       </div>
       <BrandBand />

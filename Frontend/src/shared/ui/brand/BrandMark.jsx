@@ -7,7 +7,7 @@ const COLOURS = {
 };
 
 /**
- * The Servio mark (an inline SVG). `title` names it for screen readers; pass `decorative` when the
+ * The Access Desk mark (an inline SVG). `title` names it for screen readers; pass `decorative` when the
  * name is written next to it (it is then hidden from them).
  */
 export default function BrandMark({

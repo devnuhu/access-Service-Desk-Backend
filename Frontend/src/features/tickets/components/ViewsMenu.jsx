@@ -216,7 +216,7 @@ export default function ViewsMenu({ builtIns, filterJson, matches, onApply }) {
           aria-label="Views"
           className="absolute top-12 left-0 z-30 w-80 rounded-card border border-line bg-white p-2 shadow-xl"
         >
-          <p className="px-2.5 pt-1 pb-1 text-[11px] font-semibold tracking-wider text-muted uppercase">
+          <p className="px-2.5 pt-1 pb-1 text-[12px] font-semibold tracking-wider text-muted uppercase">
             Views
           </p>
           <ul aria-label="Built-in views">
@@ -234,7 +234,7 @@ export default function ViewsMenu({ builtIns, filterJson, matches, onApply }) {
             ))}
           </ul>
 
-          <p className="mt-2 border-t border-line px-2.5 pt-3 pb-1 text-[11px] font-semibold tracking-wider text-muted uppercase">
+          <p className="mt-2 border-t border-line px-2.5 pt-3 pb-1 text-[12px] font-semibold tracking-wider text-muted uppercase">
             My views
           </p>
           {views.isLoading ? (

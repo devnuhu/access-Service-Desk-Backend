@@ -76,7 +76,7 @@ export default function AppLayout() {
     [place.eyebrow],
   );
 
-  // The browser tab: "Servio" on Home, "<Page> · Servio" elsewhere.
+  // The browser tab: "Access Desk" on Home, "<Page> · Access Desk" elsewhere.
   useDocumentTitle(pathname === "/" ? null : (header?.title ?? null));
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function AppLayout() {
           <Sidebar user={user} onNavigate={() => setMenuOpen(false)} />
         </div>
         <p className="shrink-0 border-t border-line px-5 py-4 text-xs text-muted">
-          © {new Date().getFullYear()} {BRAND.company}. All rights reserved.
+          © {new Date().getFullYear()} {BRAND.legalName}. All rights reserved.
         </p>
       </aside>
 

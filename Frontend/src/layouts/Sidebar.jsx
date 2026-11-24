@@ -1,11 +1,30 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { ChevronDown } from "lucide-react";
 import { useNavigationSections } from "./useNavigation.js";
 
 const EXACT = new Set(["/", "/availability"]);
 
-function Item({ item, onNavigate }) {
+/**
+ * The one menu link to mark as the current page: the item whose link is the path, or the longest
+ * one the path sits under (/knowledge/manage/new is Write articles, not Knowledge base). Home and My
+ * availability count only on their own page; /availability/units/... is its own item.
+ */
+function activeLink(sections, pathname) {
+  let best = null;
+  for (const item of sections.flatMap((section) => section.items)) {
+    if (!item.to) continue;
+    const inside = !EXACT.has(item.to) && pathname.startsWith(`${item.to}/`);
+    if (
+      (pathname === item.to || inside) &&
+      (!best || item.to.length > best.length)
+    )
+      best = item.to;
+  }
+  return best;
+}
+
+function Item({ item, active, onNavigate }) {
   const Icon = item.icon;
   if (item.comingSoon) {
     return (
@@ -15,25 +34,22 @@ function Item({ item, onNavigate }) {
       >
         <Icon aria-hidden="true" size={17} strokeWidth={1.75} />
         <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+        <span className="rounded-full bg-white px-1.5 py-0.5 text-[11px] font-semibold tracking-wide uppercase">
           Coming soon
         </span>
       </span>
     );
   }
   return (
-    <NavLink
+    <Link
       to={item.to}
-      // Home and My availability match exactly; /availability/units/... is its own item.
-      end={EXACT.has(item.to)}
+      aria-current={active ? "page" : undefined}
       onClick={onNavigate}
-      className={({ isActive }) =>
-        `group flex items-start gap-2.5 rounded-lg px-3 py-2 text-sm leading-snug transition-colors ${
-          isActive
-            ? "bg-white font-semibold text-brand-navy shadow-[inset_3px_0_0_var(--color-brand-orange),0_1px_2px_rgba(11,31,58,0.06)]"
-            : "text-ink hover:bg-white/70 hover:text-brand-navy"
-        }`
-      }
+      className={`group flex items-start gap-2.5 rounded-lg px-3 py-2 text-sm leading-snug transition-colors ${
+        active
+          ? "bg-white font-semibold text-brand-navy shadow-[inset_3px_0_0_var(--color-brand-orange),0_1px_2px_rgba(11,31,58,0.06)]"
+          : "text-ink hover:bg-white/70 hover:text-brand-navy"
+      }`}
     >
       <Icon
         aria-hidden="true"
@@ -42,12 +58,12 @@ function Item({ item, onNavigate }) {
         className="mt-px shrink-0 text-muted group-hover:text-brand-navy group-aria-[current=page]:text-brand-orange"
       />
       <span className="min-w-0 break-words">{item.label}</span>
-    </NavLink>
+    </Link>
   );
 }
 
 /** A titled section folds away with its heading (open by default). */
-function Section({ section, onNavigate }) {
+function Section({ section, activeTo, onNavigate }) {
   const [open, setOpen] = useState(true);
   const listId = `nav-${section.id}`;
   return (
@@ -59,7 +75,7 @@ function Section({ section, onNavigate }) {
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
             aria-controls={listId}
-            className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-[11px] leading-snug font-semibold tracking-[0.14em] text-muted uppercase hover:text-ink"
+            className="flex w-full items-center justify-between gap-2 rounded-lg px-3 py-1.5 text-left text-[12px] leading-snug font-semibold tracking-[0.14em] text-muted uppercase hover:text-ink"
           >
             <span className="min-w-0 break-words">{section.title}</span>
             <ChevronDown
@@ -78,7 +94,11 @@ function Section({ section, onNavigate }) {
       <ul id={listId} hidden={!open} className="mt-1 space-y-0.5">
         {section.items.map((item) => (
           <li key={item.label}>
-            <Item item={item} onNavigate={onNavigate} />
+            <Item
+              item={item}
+              active={item.to === activeTo}
+              onNavigate={onNavigate}
+            />
           </li>
         ))}
       </ul>
@@ -92,10 +112,17 @@ function Section({ section, onNavigate }) {
  */
 export default function Sidebar({ user, onNavigate }) {
   const sections = useNavigationSections(user);
+  const { pathname } = useLocation();
+  const activeTo = activeLink(sections, pathname);
   return (
     <nav aria-label="Main" className="flex flex-col gap-5 px-3 py-4">
       {sections.map((section) => (
-        <Section key={section.id} section={section} onNavigate={onNavigate} />
+        <Section
+          key={section.id}
+          section={section}
+          activeTo={activeTo}
+          onNavigate={onNavigate}
+        />
       ))}
     </nav>
   );

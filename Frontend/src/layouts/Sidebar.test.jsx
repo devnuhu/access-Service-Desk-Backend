@@ -32,14 +32,23 @@ const HOU_ORG = {
   ],
 };
 
-function renderSidebar(roles, org, departments = [], kbOptions = []) {
+function renderSidebar(
+  roles,
+  org,
+  departments = [],
+  kbOptions = [],
+  route = "/",
+) {
   const queryClient = createTestQueryClient();
   const api = installFakeApi(queryClient, {
     "GET /api/org/me": () => [200, org],
     "GET /api/org/departments": () => [200, departments],
     "GET /api/kb/options": () => [200, kbOptions],
   });
-  renderWithProviders(<Sidebar user={makeUser({ roles })} />, { queryClient });
+  renderWithProviders(<Sidebar user={makeUser({ roles })} />, {
+    queryClient,
+    route,
+  });
   return api;
 }
 
@@ -260,6 +269,39 @@ describe("Sidebar from org/me", () => {
       await screen.findByRole("link", { name: "Write articles" }),
     ).toHaveAttribute("href", "/knowledge/manage");
     expect(linkNames().slice(-2)).toEqual(["Knowledge base", "Write articles"]);
+  });
+
+  it("marks one item only: the longest link the page sits under", async () => {
+    const writer = [
+      {
+        id: "d-cp",
+        name: "Contribution Processing",
+        canPublish: false,
+        categories: [],
+      },
+    ];
+    renderSidebar(
+      ["CaseWorker"],
+      { departments: [] },
+      [],
+      writer,
+      "/knowledge/manage/new",
+    );
+    const write = await screen.findByRole("link", { name: "Write articles" });
+    expect(write).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.getAllByRole("link").filter((a) => a.getAttribute("aria-current")),
+    ).toEqual([write]);
+  });
+
+  it("an article page marks Knowledge base", async () => {
+    renderSidebar(["Requester"], { departments: [] }, [], [], "/knowledge/a-1");
+    expect(
+      await screen.findByRole("link", { name: "Knowledge base" }),
+    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute(
+      "aria-current",
+    );
   });
 
   it("a Super Admin with no departments gets sections from /api/org/departments", async () => {

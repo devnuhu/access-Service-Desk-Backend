@@ -216,7 +216,9 @@ export default function LoginPage() {
         </div>
 
         <footer className="mx-auto mt-10 w-full max-w-sm border-t lg:hidden xl:max-w-md border-line pt-5 text-xs text-muted">
-          <p>© {year} Access ARM Pensions Plc</p>
+          <p>
+            © {year} {BRAND.legalName}
+          </p>
         </footer>
       </main>
     </div>

@@ -616,6 +616,7 @@ describe("Raise a ticket: arriving with ?categoryId=", () => {
   });
 });
 
+// These wait through real 500 ms debounces on a heavy form, so each gets 20 s (the default is 5 s).
 describe("Raise a ticket: knowledge base suggestions", () => {
   const SUGGESTION = (id, title) => ({
     id,
@@ -654,12 +655,14 @@ describe("Raise a ticket: knowledge base suggestions", () => {
     await user.clear(subject);
     await user.type(subject, "Refund");
     expect(
-      await screen.findByRole("link", {
+      await within(screen.getByTestId("kb-suggestions")).findByRole("link", {
         name: /Refund of excess contributions/,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: /Unmatched contributions/ }),
+      within(screen.getByTestId("kb-suggestions")).queryByRole("link", {
+        name: /Unmatched contributions/,
+      }),
     ).toBeNull();
     // Debounced: the category alone, then the full subject (nothing for 1 or 2 letters).
     expect(asked.map((p) => p.text ?? "")).toEqual(["", "Refund"]);
@@ -675,7 +678,7 @@ describe("Raise a ticket: knowledge base suggestions", () => {
     await new Promise((resolve) => setTimeout(resolve, 700));
     expect(screen.queryByTestId("kb-suggestions")).not.toBeInTheDocument();
     expect(asked).toHaveLength(2);
-  });
+  }, 20_000);
 
   it("an answer for older text never replaces the one for the current text", async () => {
     const user = userEvent.setup();
@@ -696,15 +699,18 @@ describe("Raise a ticket: knowledge base suggestions", () => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     await user.type(subject, " late");
     expect(
-      await screen.findByRole("link", { name: /For Refund late/ }),
+      await within(await screen.findByTestId("kb-suggestions")).findByRole(
+        "link",
+        { name: /For Refund late/ },
+      ),
     ).toBeInTheDocument();
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(
-      screen
-        .getAllByRole("link", { name: /^For Refund/ })
+      within(screen.getByTestId("kb-suggestions"))
+        .getAllByRole("link")
         .map((a) => a.getAttribute("href")),
     ).toEqual(["/knowledge/a-Refund late"]);
-  });
+  }, 20_000);
 
   it("shows nothing when the list is empty or the call fails, and the ticket still goes", async () => {
     const user = userEvent.setup();
@@ -727,5 +733,5 @@ describe("Raise a ticket: knowledge base suggestions", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Raise ticket" }));
     await waitFor(() => expect(calls.create).toHaveLength(1));
-  });
+  }, 20_000);
 });

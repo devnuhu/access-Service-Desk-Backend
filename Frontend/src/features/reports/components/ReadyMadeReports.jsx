@@ -96,7 +96,7 @@ export default function ReadyMadeReports({
                     <Icon size={19} strokeWidth={1.9} />
                   </span>
                   <div className="min-w-0">
-                    <h3 className="text-[15px] leading-snug font-semibold text-ink">
+                    <h3 className="text-[16px] leading-snug font-semibold text-ink">
                       {report.name}
                     </h3>
                     <p

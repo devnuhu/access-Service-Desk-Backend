@@ -117,7 +117,7 @@ export default function TimeChart({
             height={height}
             className="absolute inset-0 overflow-visible"
           >
-            <g fontSize="11" style={{ fill: "var(--viz-text)" }}>
+            <g fontSize="12" style={{ fill: "var(--viz-text)" }}>
               {ticks.map((tick) => (
                 <g key={tick}>
                   <line

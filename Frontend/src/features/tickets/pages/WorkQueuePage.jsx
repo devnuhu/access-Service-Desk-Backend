@@ -393,7 +393,7 @@ function WorkQueue({
                 {label}
                 {id === POOL && poolCount > 0 && (
                   <span
-                    className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[11px] leading-5 font-bold text-ink"
+                    className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[12px] leading-5 font-bold text-ink"
                     data-testid="pool-count"
                   >
                     {poolCount}
@@ -500,7 +500,7 @@ function WorkQueue({
                       </option>
                     ))}
                   </select>
-                  <span id={ageHint} className="px-1 text-[11px] text-muted">
+                  <span id={ageHint} className="px-1 text-[12px] text-muted">
                     Open tickets only
                   </span>
                 </div>

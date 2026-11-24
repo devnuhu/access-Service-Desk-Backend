@@ -51,7 +51,7 @@ export default function PoolTable({
         New tickets nobody holds yet, oldest first. Pick one to make it yours.
       </p>
       <table className="mt-2 w-full text-left text-sm">
-        <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
+        <thead className="border-b border-line bg-page/60 text-[12px] font-semibold tracking-wider text-muted uppercase">
           <tr>
             {selected && (
               <th scope="col" className="w-10 py-4 pl-5">

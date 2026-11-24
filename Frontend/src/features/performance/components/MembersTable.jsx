@@ -10,7 +10,7 @@ const COLUMNS = headlineIndicators({}).map(({ key, label }) => ({
 
 function HeadMark() {
   return (
-    <span className="ml-1.5 rounded bg-brand-navy-light px-1.5 py-0.5 text-[10px] font-semibold text-brand-navy uppercase">
+    <span className="ml-1.5 rounded bg-brand-navy-light px-1.5 py-0.5 text-[11px] font-semibold text-brand-navy uppercase">
       Head
     </span>
   );
@@ -46,7 +46,7 @@ function Indicator({ item, align = "right" }) {
       {item.lines.map((line) => (
         <span
           key={line.key}
-          className={`text-[11px] ${line.alert ? "font-semibold text-danger" : "text-muted"}`}
+          className={`text-[12px] ${line.alert ? "font-semibold text-danger" : "text-muted"}`}
         >
           {line.text}
         </span>
@@ -94,7 +94,7 @@ export default function MembersTable({ members, onSelect }) {
         <button
           type="button"
           onClick={() => sortBy(key)}
-          className={`inline-flex items-center gap-1 text-[11px] font-semibold tracking-wider uppercase ${active ? "text-brand-navy" : "text-muted"} hover:text-brand-navy`}
+          className={`inline-flex items-center gap-1 text-[12px] font-semibold tracking-wider uppercase ${active ? "text-brand-navy" : "text-muted"} hover:text-brand-navy`}
         >
           {label}
           {active && <Arrow aria-hidden="true" size={12} />}

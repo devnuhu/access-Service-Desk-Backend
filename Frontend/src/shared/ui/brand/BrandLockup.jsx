@@ -8,8 +8,7 @@ const SIZES = {
 };
 
 /**
- * The Servio lockup: the mark and the lowercase wordmark "servio" (a logo; in running text the name
- * is "Servio"). tone "dark" sits on light backgrounds (navy word, colour mark); "light" on dark.
+ * The Access Desk lockup: the mark and the wordmark "Access Desk", written as the name is. tone "dark" sits on light backgrounds (navy word, colour mark); "light" on dark.
  * The lockup carries the accessible name once.
  */
 export default function BrandLockup({ size = "md", tone = "dark" }) {
@@ -28,9 +27,9 @@ export default function BrandLockup({ size = "md", tone = "dark" }) {
       />
       <span
         aria-hidden="true"
-        className={`font-brand leading-none font-extrabold tracking-[-0.03em] ${s.text} ${onDark ? "text-white" : "text-servio-navy"}`}
+        className={`font-brand leading-none font-extrabold whitespace-nowrap tracking-[-0.03em] ${s.text} ${onDark ? "text-white" : "text-desk-navy"}`}
       >
-        {BRAND.name.toLowerCase()}
+        {BRAND.name}
       </span>
     </span>
   );

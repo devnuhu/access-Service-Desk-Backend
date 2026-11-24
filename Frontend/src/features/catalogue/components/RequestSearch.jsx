@@ -153,7 +153,7 @@ export default function RequestSearch({
                   <span className="text-sm font-semibold text-ink">
                     <Marked text={result.category.name} terms={result.terms} />
                   </span>
-                  <span className="rounded bg-page px-1.5 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line ring-inset">
+                  <span className="rounded bg-page px-1.5 py-0.5 text-[12px] font-medium text-muted ring-1 ring-line ring-inset">
                     <Marked
                       text={result.department.name}
                       terms={result.terms}

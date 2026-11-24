@@ -89,7 +89,7 @@ export default function TicketTable({
     <>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-line bg-page/60 text-[11px] font-semibold tracking-wider text-muted uppercase">
+          <thead className="border-b border-line bg-page/60 text-[12px] font-semibold tracking-wider text-muted uppercase">
             <tr>
               {selectable && (
                 <th scope="col" className="w-10 px-4 py-3">

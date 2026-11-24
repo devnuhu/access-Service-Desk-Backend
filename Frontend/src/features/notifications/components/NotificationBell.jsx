@@ -100,7 +100,7 @@ export default function NotificationBell() {
         {count > 0 && (
           <span
             data-testid="bell-count"
-            className="absolute -top-0.5 -right-0.5 min-w-5 rounded-full border-2 border-white bg-brand-orange px-1 text-center text-[10px] leading-4 font-bold text-ink"
+            className="absolute -top-0.5 -right-0.5 min-w-5 rounded-full border-2 border-white bg-brand-orange px-1 text-center text-[11px] leading-4 font-bold text-ink"
           >
             {badgeText(count)}
           </span>
@@ -177,7 +177,7 @@ export default function NotificationBell() {
                         <span className="mt-0.5 line-clamp-2 block text-xs text-body">
                           {item.message}
                         </span>
-                        <span className="mt-1 block text-[11px] text-muted">
+                        <span className="mt-1 block text-[12px] text-muted">
                           <span className="sr-only">{style.label}, </span>
                           {formatWat(item.createdAt)}
                         </span>

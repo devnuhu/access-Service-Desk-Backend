@@ -31,7 +31,7 @@ const cellTone = (key, count) =>
       : "text-ink";
 
 const th =
-  "px-4 py-3 text-[11px] font-semibold tracking-wider text-muted uppercase";
+  "px-4 py-3 text-[12px] font-semibold tracking-wider text-muted uppercase";
 
 /**
  * The HOD's, Department Admin's and Super Admin's home: one row per unit they oversee

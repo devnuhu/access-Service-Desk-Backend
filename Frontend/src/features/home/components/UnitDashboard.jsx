@@ -34,7 +34,7 @@ function formatDay(value) {
 const th = "px-4 py-3 font-semibold";
 const td = "px-4 py-3 align-top";
 const thead =
-  "border-b border-line bg-page/60 text-left text-[11px] font-semibold tracking-wider text-muted uppercase";
+  "border-b border-line bg-page/60 text-left text-[12px] font-semibold tracking-wider text-muted uppercase";
 
 /** A table in a card, or a quiet line when there is nothing to list. */
 function Section({ id, title, description, actions, empty, children }) {
