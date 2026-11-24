@@ -1,4 +1,5 @@
 import { BRAND } from "@/shared/brand";
+import { useIsKbWriter } from "@/features/knowledge";
 import { useMyOrganisation, useOrgDepartments } from "@/features/org";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { buildNavigation } from "./navigation.js";
@@ -10,7 +11,8 @@ export function useNavigationSections(user) {
   const all = useOrgDepartments({
     enabled: isSuperAdmin && org.isSuccess && !org.data.departments.length,
   });
-  return buildNavigation(user, org.data, all.data);
+  const kbWriter = useIsKbWriter();
+  return buildNavigation(user, org.data, all.data, { kbWriter });
 }
 
 const sectionLabel = (section) => section?.title ?? section?.label ?? null;

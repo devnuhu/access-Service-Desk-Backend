@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { searchPeople } from "@/features/admin-people";
 import { useSession } from "@/features/auth";
+import { KbSuggestions } from "@/features/knowledge";
 import { searchColleagues } from "@/features/people";
 import {
   IMPACT_FALLBACK,
@@ -622,6 +623,13 @@ function TicketForm({ user, departments }) {
             )}
             <FieldError id="ticket-subject-error" message={errors.subject} />
           </div>
+
+          {form.categoryId && (
+            <KbSuggestions
+              categoryId={form.categoryId}
+              subject={form.subject}
+            />
+          )}
 
           <div data-field="descriptionHtml">
             <p

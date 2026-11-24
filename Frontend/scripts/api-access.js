@@ -54,6 +54,13 @@ import {
 } from "../src/features/my-unit/api/endpoints.js";
 import { searchPeople } from "../src/features/people/api/endpoints.js";
 import {
+  getArticle,
+  getKbOptions,
+  listArticles,
+  listManagedArticles,
+  suggestArticles,
+} from "../src/features/knowledge/api/endpoints.js";
+import {
   getTicket,
   getSlaSummary,
   getTicketActions,
@@ -340,6 +347,35 @@ export const ACCESS_TABLE = [
   write("PUT", "/api/units/{unitId}/skills/{userId}", UNIT_LIBRARY),
   write("PATCH", "/api/canned-replies/{replyId}", SIGNED_IN),
   write("DELETE", "/api/canned-replies/{replyId}", SIGNED_IN),
+
+  // Knowledge base: everyone signed in reads published articles, votes and gets suggestions; the
+  // service decides who writes, publishes and deletes per department (403 otherwise)
+  get("/api/kb", SIGNED_IN, {
+    probe: { page: 1, pageSize: 5 },
+    schema: listArticles.response,
+  }),
+  get("/api/kb/manage", SIGNED_IN, {
+    probe: { page: 1, pageSize: 5 },
+    schema: listManagedArticles.response,
+  }),
+  get("/api/kb/options", SIGNED_IN, {
+    probe: {},
+    schema: getKbOptions.response,
+  }),
+  get("/api/kb/suggest", SIGNED_IN, {
+    probe: {},
+    schema: suggestArticles.response,
+  }),
+  get("/api/kb/{id}", SIGNED_IN, {
+    ...from("/api/kb", "id", { page: 1, pageSize: 1 }),
+    schema: getArticle.response,
+  }),
+  write("POST", "/api/kb", SIGNED_IN),
+  write("PUT", "/api/kb/{id}", SIGNED_IN),
+  write("POST", "/api/kb/{id}/publish", SIGNED_IN),
+  write("POST", "/api/kb/{id}/unpublish", SIGNED_IN),
+  write("DELETE", "/api/kb/{id}", SIGNED_IN),
+  write("POST", "/api/kb/{id}/vote", SIGNED_IN),
 
   // Tickets: any signed-in person raises and reads; the service decides per ticket (404 for others)
   write("POST", "/api/tickets", SIGNED_IN),

@@ -32,11 +32,12 @@ const HOU_ORG = {
   ],
 };
 
-function renderSidebar(roles, org, departments = []) {
+function renderSidebar(roles, org, departments = [], kbOptions = []) {
   const queryClient = createTestQueryClient();
   const api = installFakeApi(queryClient, {
     "GET /api/org/me": () => [200, org],
     "GET /api/org/departments": () => [200, departments],
+    "GET /api/kb/options": () => [200, kbOptions],
   });
   renderWithProviders(<Sidebar user={makeUser({ roles })} />, { queryClient });
   return api;
@@ -60,6 +61,7 @@ describe("Sidebar from org/me", () => {
       "Work queue",
       "Team availability",
       "My unit",
+      "Knowledge base",
       "Reports",
     ]);
     expect(screen.getByRole("link", { name: "Work queue" })).toHaveAttribute(
@@ -92,6 +94,7 @@ describe("Sidebar from org/me", () => {
     ).toHaveAttribute("href", "/availability/departments/d-cp");
     expect(linkNames()).toEqual([
       "Home",
+      "Knowledge base",
       "Work queue",
       "Department availability",
       "Reports",
@@ -116,6 +119,7 @@ describe("Sidebar from org/me", () => {
       "My requests",
       "My availability",
       "Work queue",
+      "Knowledge base",
     ]);
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(screen.queryByText("Refund")).not.toBeInTheDocument();
@@ -219,6 +223,43 @@ describe("Sidebar from org/me", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByText("Administration")).not.toBeInTheDocument();
     expect(screen.queryByText("Reports")).not.toBeInTheDocument();
+  });
+
+  it("everyone gets Knowledge base; Write articles only when kb/options is not empty", async () => {
+    const reader = renderSidebar(["Requester"], { departments: [] });
+    expect(
+      await screen.findByRole("link", { name: "Knowledge base" }),
+    ).toHaveAttribute("href", "/knowledge");
+    await expect
+      .poll(() =>
+        reader.adapter.mock.calls.some(([c]) =>
+          c.url.includes("/api/kb/options"),
+        ),
+      )
+      .toBe(true);
+    expect(
+      screen.queryByRole("link", { name: "Write articles" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("a writer gets Write articles under Knowledge base", async () => {
+    renderSidebar(
+      ["CaseWorker"],
+      { departments: [] },
+      [],
+      [
+        {
+          id: "d-cp",
+          name: "Contribution Processing",
+          canPublish: false,
+          categories: [],
+        },
+      ],
+    );
+    expect(
+      await screen.findByRole("link", { name: "Write articles" }),
+    ).toHaveAttribute("href", "/knowledge/manage");
+    expect(linkNames().slice(-2)).toEqual(["Knowledge base", "Write articles"]);
   });
 
   it("a Super Admin with no departments gets sections from /api/org/departments", async () => {

@@ -16,6 +16,12 @@ import {
   UnitAvailabilityPage,
 } from "@/features/availability";
 import { HomePage, UnitDashboardPage } from "@/features/home";
+import {
+  ArticleEditorPage,
+  ArticlePage,
+  KnowledgePage,
+  ManageArticlesPage,
+} from "@/features/knowledge";
 import { MyUnitPage } from "@/features/my-unit";
 import { ReportsPage } from "@/features/reports";
 import {
@@ -45,6 +51,14 @@ export default function AppRoutes() {
           <Route path="tickets/new" element={<NewTicketPage />} />
           <Route path="tickets/id/:id" element={<TicketPage />} />
           <Route path="tickets/:reference" element={<TicketPage />} />
+          <Route path="knowledge" element={<KnowledgePage />} />
+          <Route path="knowledge/manage" element={<ManageArticlesPage />} />
+          <Route path="knowledge/manage/new" element={<ArticleEditorPage />} />
+          <Route
+            path="knowledge/manage/:id/edit"
+            element={<ArticleEditorPage />}
+          />
+          <Route path="knowledge/:id" element={<ArticlePage />} />
           <Route
             path="departments/:departmentId/tickets"
             element={<WorkQueuePage />}

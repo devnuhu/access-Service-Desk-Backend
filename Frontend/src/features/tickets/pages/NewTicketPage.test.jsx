@@ -615,3 +615,117 @@ describe("Raise a ticket: arriving with ?categoryId=", () => {
     expect(screen.queryByTestId("chosen-category")).not.toBeInTheDocument();
   });
 });
+
+describe("Raise a ticket: knowledge base suggestions", () => {
+  const SUGGESTION = (id, title) => ({
+    id,
+    title,
+    summary: `About ${title.toLowerCase()}.`,
+    departmentName: "Contribution Processing",
+  });
+
+  it("offers articles once a category is chosen, refined by the subject; each opens in a new tab; Hide dismisses them", async () => {
+    const user = userEvent.setup();
+    const asked = [];
+    renderForm({
+      route: "/tickets/new?categoryId=c-uc",
+      routes: {
+        "GET /api/kb/suggest": ({ params }) => {
+          asked.push(params);
+          return [
+            200,
+            params.text
+              ? [SUGGESTION("a-2", "Refund of excess contributions")]
+              : [SUGGESTION("a-1", "Unmatched contributions")],
+          ];
+        },
+      },
+    });
+    const panel = await screen.findByTestId("kb-suggestions");
+    expect(panel).toHaveTextContent("These articles may answer your question");
+    const link = within(panel).getByRole("link", {
+      name: /Unmatched contributions/,
+    });
+    expect(link).toHaveAttribute("href", "/knowledge/a-1");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+
+    const subject = screen.getByLabelText("Subject");
+    await user.clear(subject);
+    await user.type(subject, "Refund");
+    expect(
+      await screen.findByRole("link", {
+        name: /Refund of excess contributions/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Unmatched contributions/ }),
+    ).toBeNull();
+    // Debounced: the category alone, then the full subject (nothing for 1 or 2 letters).
+    expect(asked.map((p) => p.text ?? "")).toEqual(["", "Refund"]);
+    expect(asked.every((p) => p.categoryId === "c-uc")).toBe(true);
+
+    await user.click(
+      within(screen.getByTestId("kb-suggestions")).getByRole("button", {
+        name: "Hide",
+      }),
+    );
+    expect(screen.queryByTestId("kb-suggestions")).not.toBeInTheDocument();
+    await user.type(subject, "s");
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.queryByTestId("kb-suggestions")).not.toBeInTheDocument();
+    expect(asked).toHaveLength(2);
+  });
+
+  it("an answer for older text never replaces the one for the current text", async () => {
+    const user = userEvent.setup();
+    renderForm({
+      route: "/tickets/new?categoryId=c-uc",
+      routes: {
+        "GET /api/kb/suggest": async ({ params }) => {
+          if (params.text === "Refund")
+            await new Promise((resolve) => setTimeout(resolve, 900));
+          return [200, [SUGGESTION(`a-${params.text}`, `For ${params.text}`)]];
+        },
+      },
+    });
+    const subject = await screen.findByLabelText("Subject");
+    await user.clear(subject);
+    await user.type(subject, "Refund");
+    // Wait past the debounce so "Refund" is asked (slowly), then type on.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await user.type(subject, " late");
+    expect(
+      await screen.findByRole("link", { name: /For Refund late/ }),
+    ).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(
+      screen
+        .getAllByRole("link", { name: /^For Refund/ })
+        .map((a) => a.getAttribute("href")),
+    ).toEqual(["/knowledge/a-Refund late"]);
+  });
+
+  it("shows nothing when the list is empty or the call fails, and the ticket still goes", async () => {
+    const user = userEvent.setup();
+    const { calls } = renderForm({
+      route: "/tickets/new?categoryId=c-uc",
+      draft: {
+        impact: 1,
+        urgency: 1,
+        subject: "Contribution missing",
+        descriptionHtml: "<p>Please check.</p>",
+      },
+      routes: {
+        "GET /api/kb/suggest": ({ params }) =>
+          params.text ? [500, { message: "Boom." }] : [200, []],
+      },
+    });
+    await screen.findByTestId("chosen-category");
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.queryByTestId("kb-suggestions")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Raise ticket" }));
+    await waitFor(() => expect(calls.create).toHaveLength(1));
+  });
+});

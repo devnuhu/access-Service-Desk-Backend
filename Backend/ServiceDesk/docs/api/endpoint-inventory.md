@@ -68,6 +68,16 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/units/{unitId}/skills` | Head of Unit, HOD, Department Admin, Super Admin | The unit's skills matrix and cover warnings |
 | PUT | `/api/units/{unitId}/skills/{userId}` | Head of Unit, Department Admin, Super Admin | One member's whole set of categories (the HOD reads only) |
 | PATCH, DELETE | `/api/canned-replies/{id}` | signed in (the library's keepers; others 403) | Change or remove a saved reply |
+| GET | `/api/kb?search=&departmentId=&categoryId=&page=&pageSize=` | signed in | Published articles: `{ items: [{ id, title, summary, department, category, status, updatedAt, yes, no }], total, page, pageSize, departments: [{ id, name, count }] }`; departments counts matches per department ignoring the department filter. pageSize at most 50 |
+| GET | `/api/kb/manage?...&status=draft|published` | signed in (empty for anyone who writes for no department) | Drafts and published articles of the departments I write for; same shape |
+| GET | `/api/kb/options` | signed in | Departments I write for `[{ id, name, canPublish, categories }]`; empty: no writing screens |
+| GET | `/api/kb/suggest?categoryId=&text=` | signed in | Up to 3 published articles for the raise form `[{ id, title, summary, departmentName }]` |
+| GET | `/api/kb/{id}` | signed in (a draft is 404 outside its department) | One article: bodyHtml (cleaned), author, dates, yes, no, myVote, canEdit, canPublish, canDelete |
+| POST | `/api/kb` | signed in (writers of the department; others 403) | Create a draft `{ departmentId, categoryId, title, summary, bodyHtml }`: title 5 to 200 and unique in the department, summary 10 to 500, body 20+ characters of text; 400 errors.title / summary / bodyHtml / categoryId |
+| PUT | `/api/kb/{id}` | signed in (staff change drafts, publishers any article; others 403) | Change an article (departmentId ignored; same rules) |
+| POST | `/api/kb/{id}/publish`, `/unpublish` | signed in (a head of unit, the HOD, the Department Admin, Super Admin; others 403) | Publish, or back to draft; returns the article |
+| DELETE | `/api/kb/{id}` | signed in (staff their own drafts, publishers any article; others 403) | Delete an article |
+| POST | `/api/kb/{id}/vote` | signed in (published articles only) | "Was this helpful?" `{ helpful }`, one answer per person (again changes it); returns `{ yes, no, myVote }` |
 | POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, impact, urgency (the priority comes from the priority matrix; priority? only when both are missing), subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
 | POST | `/api/tickets/duplicate-check` | signed in | Open tickets in the same category from the last 7 days with the same RSA PIN |
 | GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; filters: unitId, status or open, search, waitingToStart, slaBreached, escalated, priority (1 Low to 4 Critical), ageBand (1 Under 1 day, 2 1 to 2 days, 3 3 to 5 days, 4 6 to 10 days, 5 Over 10 days: the unit chart's age bars; with open=true; anything else 400), sort. Each row carries pendingReason (1 requester, 2 third party) and pendingSince while Pending, null otherwise |
