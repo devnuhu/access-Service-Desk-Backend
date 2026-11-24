@@ -154,6 +154,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var reference = ticket.Reference;
             _db.ChangeTracker.Clear();
             var assigned = await _assignment.AssignAsync(ticket.Id, "raised");
+            try { await ServiceDeskAPI.Infrastructure.Sla.SlaDueStore.RefreshAsync(_db, _slaOptions, DateTime.UtcNow, ticket.Id); }
+            catch (Exception ex) { _logger.LogWarning(ex, "The due time of {Reference} could not be saved yet; the SLA check will do it", reference); }
             return (null, new CreatedTicketDto(ticket.Id, reference, "Ticket " + reference + " raised."
                 + (assigned ? string.Empty : " It is waiting for an available case worker.")));
         }
@@ -261,7 +263,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             {
                 "assignedat" => query.OrderBy(t => t.AssignedAt == null).ThenBy(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
                 "assignedat_desc" => query.OrderBy(t => t.AssignedAt == null).ThenByDescending(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
-                "pendingsince" => query.OrderBy(t => t.PendingSince == null).ThenBy(t => t.PendingSince).ThenByDescending(t => t.CreatedAt),
+                "pendingsince" => query.OrderBy(t => t.PendingSince == null).ThenBy(t => t.PendingSince).ThenByDescending(t => t.CreatedAt),
+                "due" => query.OrderBy(t => t.SlaDueAt == null).ThenBy(t => t.SlaDueAt).ThenByDescending(t => t.CreatedAt),
                 _ => query.OrderByDescending(t => t.CreatedAt)
             };
             var total = await query.CountAsync();

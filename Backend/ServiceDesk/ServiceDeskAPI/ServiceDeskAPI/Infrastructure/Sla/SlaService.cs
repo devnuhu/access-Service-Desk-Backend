@@ -40,6 +40,9 @@ namespace ServiceDeskAPI.Infrastructure.Sla
             await CheckFirstResponseAsync(clock, nowUtc, cancellationToken);
             await CheckPendingAsync(clock, nowUtc, cancellationToken);
             await CheckTasksAsync(nowUtc, cancellationToken);
+            try { await SlaDueStore.RefreshAsync(_db, _options, nowUtc, null, cancellationToken); }
+            catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogError(ex, "Saving the SLA due times failed; the checks go on"); }
+            finally { _db.ChangeTracker.Clear(); } // the refresh changes the row version behind the context; drop copies an earlier check left in memory so the alerts below read fresh rows
             var query = _db.Tickets.AsNoTracking().Where(t => Running.Contains(t.Status) && t.SlaL2At == null);
             if (DateTime.TryParse(_options.TrackFrom, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var trackFrom))
                 query = query.Where(t => t.CreatedAt >= trackFrom);

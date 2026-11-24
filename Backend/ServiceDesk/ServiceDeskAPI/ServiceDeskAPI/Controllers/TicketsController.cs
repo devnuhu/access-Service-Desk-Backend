@@ -66,7 +66,7 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && result != null ? Ok(result) : Fail(problem!);
         }
 
-        /// <summary>view = mine (default), copied, assigned, or department (with departmentId). departmentId and unitId narrow any view; open=true: New, Assigned, In progress, Pending, Reopened. priority: 1 Low, 2 Medium, 3 High, 4 Critical. ageBand: how long ago it was raised, the bands of the unit performance chart (1 under 1 day, 2 one to two days, 3 three to five days, 4 six to ten days, 5 over ten days); use it with open=true. pendingReason: 1 waiting on the requester, 2 waiting on a third party (Pending tickets only). sort: assignedat, assignedat_desc, pendingsince (longest waiting first). Newest first by default.</summary>
+        /// <summary>view = mine (default), copied, assigned, or department (with departmentId). departmentId and unitId narrow any view; open=true: New, Assigned, In progress, Pending, Reopened. priority: 1 Low, 2 Medium, 3 High, 4 Critical. ageBand: how long ago it was raised, the bands of the unit performance chart (1 under 1 day, 2 one to two days, 3 three to five days, 4 six to ten days, 5 over ten days); use it with open=true. pendingReason: 1 waiting on the requester, 2 waiting on a third party (Pending tickets only). sort: assignedat, assignedat_desc, pendingsince (longest waiting first), due (time runs out soonest first; tickets without a due time last). Newest first by default.</summary>
         [HttpGet]
         [ProducesResponseType(typeof(TicketPageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]

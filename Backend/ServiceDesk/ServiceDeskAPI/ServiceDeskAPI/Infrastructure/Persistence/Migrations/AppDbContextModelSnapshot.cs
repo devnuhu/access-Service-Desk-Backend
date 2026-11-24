@@ -1445,6 +1445,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("SlaBreachedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("SlaDueAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("SlaL2At")
                         .HasColumnType("datetime2");
 

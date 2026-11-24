@@ -76,6 +76,8 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? SlaBreachedAt { get; set; }
         /// <summary>SLA level 2: when the Head of Department and the Department Admin were told.</summary>
         public DateTime? SlaL2At { get; set; }
+        /// <summary>When the time allowed runs out (business hours, paused while Pending or Resolved). Kept up to date by the SLA check; null when the ticket is not running or has no target. Used to sort by due time.</summary>
+        public DateTime? SlaDueAt { get; set; }
         public PendingReason? PendingReason { get; set; }
         public DateTime? PendingSince { get; set; }
         /// <summary>When the first reminder for the current wait went to the requester. A reminder belongs to the current wait when it is on or after PendingSince.</summary>
