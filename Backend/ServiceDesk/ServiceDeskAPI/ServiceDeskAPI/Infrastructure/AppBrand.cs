@@ -6,6 +6,6 @@ namespace ServiceDeskAPI.Infrastructure
     /// </summary>
     public static class AppBrand
     {
-        public const string Name = "Servio";
+        public const string Name = "Access Desk";
     }
 }

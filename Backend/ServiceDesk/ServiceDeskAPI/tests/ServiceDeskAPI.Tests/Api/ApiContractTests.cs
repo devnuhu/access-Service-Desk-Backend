@@ -61,7 +61,7 @@ namespace ServiceDeskAPI.Tests.Api
         public async Task The_health_check_names_the_platform_not_a_department()
         {
             var body = await ApiTestHelpers.Client(_factory).GetFromJsonAsync<JsonElement>("/api/health");
-            Assert.Equal("Servio", body.GetProperty("app").GetString());
+            Assert.Equal("Access Desk", body.GetProperty("app").GetString());
         }
 
         [Fact]
