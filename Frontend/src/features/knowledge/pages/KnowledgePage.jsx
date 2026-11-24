@@ -3,18 +3,13 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useCatalogue } from "@/features/catalogue";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
 import { formatWatDay } from "@/shared/lib/time";
-import { Card, InlineRetry, PageHeader, Spinner } from "@/shared/ui";
+import { Card, InlineRetry, PageHeader, Pager, Spinner } from "@/shared/ui";
 import DepartmentArticles from "../components/DepartmentArticles.jsx";
-import KbPager from "../components/KbPager.jsx";
-import {
-  KB_PAGE_SIZE,
-  useArticles,
-  useKbOptions,
-} from "../hooks/useKnowledge.js";
+import { useArticles, useKbOptions } from "../hooks/useKnowledge.js";
 import { LIBRARY, TAB_MINE } from "../places.js";
-
-export const SEARCH_DELAY = 300;
 
 function DepartmentChips({ departments, value, onChange }) {
   if (!departments.length) return null;
@@ -138,17 +133,16 @@ function Library() {
   const [text, setText] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [categoryId, setCategoryId] = useState("");
-  const search = useDebouncedValue(text.trim(), SEARCH_DELAY);
-  const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${search}|${departmentId}|${categoryId}`;
-  const page = pageState.key === key ? pageState.page : 1;
+  const search = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS);
+  const paging = usePaging(`${search}|${departmentId}|${categoryId}`);
   const list = useArticles({
     search,
     departmentId,
     categoryId,
-    page,
-    pageSize: KB_PAGE_SIZE,
+    page: paging.page,
+    pageSize: LIST_PAGE_SIZE,
   });
+  useLastPageClamp(paging, list.data?.total);
   const catalogue = useCatalogue({ enabled: Boolean(departmentId) });
   const categories =
     catalogue.data?.find((d) => d.departmentId === departmentId)?.categories ??
@@ -225,11 +219,10 @@ function Library() {
               <ArticleCard key={item.id} item={item} />
             ))}
           </ul>
-          <KbPager
+          <Pager
             total={list.data.total}
-            page={page}
-            pageSize={KB_PAGE_SIZE}
-            onPage={(next) => setPageState({ page: next, key })}
+            page={paging.page}
+            onPage={paging.setPage}
           />
         </>
       )}

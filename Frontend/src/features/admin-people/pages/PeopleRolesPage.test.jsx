@@ -177,3 +177,41 @@ describe("PeopleRolesPage", () => {
     );
   });
 });
+
+describe("People and roles: 10 per page, search on the server", () => {
+  it("asks for 10 people, shows the pager from the server's total, and a search goes back to page 1", async () => {
+    const user = userEvent.setup();
+    const asked = [];
+    renderPage({
+      "GET /api/admin/users": (config) => {
+        asked.push(config.params);
+        return [
+          200,
+          {
+            items: [PERSON],
+            total: 134,
+            page: config.params.page,
+            pageSize: 10,
+          },
+        ];
+      },
+    });
+    expect(await screen.findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 134",
+    );
+    expect(asked.at(-1)).toMatchObject({ page: 1, pageSize: 10 });
+    await user.click(screen.getByRole("button", { name: "Page 14" }));
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ page: 14 }));
+    expect(screen.getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 131-134 of 134",
+    );
+    await user.type(screen.getByLabelText("Search"), "tunde");
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({
+        search: "tunde",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+  });
+});

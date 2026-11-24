@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import { saveBlob } from "@/shared/lib/files";
 import {
@@ -28,8 +33,6 @@ import {
   resumeTicket,
   setTicketPending,
 } from "../api/endpoints.js";
-
-export const PAGE_SIZE = 20;
 
 export const ticketKeys = {
   /** Prefix of every ticket query (lists, counts, ticket pages): a pushed "Ticket" refetches them. */
@@ -166,17 +169,27 @@ export function refreshTickets(queryClient) {
 const POOL_POLL = 60_000;
 
 /**
- * The unit pool (unit members and heads only): polled every 60 s while the browser tab is visible
- * (React Query pauses the interval while it is hidden).
+ * One page of the unit pool (unit members and heads only): `{ search, unitId, page, pageSize }`.
+ * Polled every 60 s while the browser tab is visible (React Query pauses it while hidden). Under
+ * "tickets", so a pick or any ticket change refetches it.
  */
-export function usePool({ enabled = true } = {}) {
+export function usePool(query, { enabled = true } = {}) {
   return useQuery({
-    queryKey: ticketKeys.pool,
-    queryFn: () => request(listPool),
+    queryKey: [...ticketKeys.pool, query],
+    queryFn: () => request(listPool, { query }),
     enabled,
+    placeholderData: keepPreviousData,
     refetchInterval: POOL_POLL,
     refetchIntervalInBackground: false,
   });
+}
+
+/**
+ * How many tickets wait in the pool, per unit (`units`) and in all (`total`): one row is asked for
+ * and never counted. For the work queue's Pool tab badge and the member home.
+ */
+export function usePoolCounts({ enabled = true } = {}) {
+  return usePool({ page: 1, pageSize: 1 }, { enabled });
 }
 
 /** Pick a ticket from the pool; every ticket query refreshes after (the pool, lists, the ticket). */

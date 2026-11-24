@@ -104,13 +104,36 @@ const RESULT = {
   generatedAt: "2026-11-19T09:00:00Z",
 };
 
+/** What GET /api/reports/saved answers: the scope (mine / shared / both), the search and one page. */
+function savedPage(list, { scope, search, page = 1, pageSize = 10 } = {}) {
+  const term = (search ?? "").toLowerCase();
+  const rows = list
+    .filter((r) =>
+      scope === "mine" ? r.isMine : scope === "shared" ? !r.isMine : true,
+    )
+    .filter(
+      (r) =>
+        !term ||
+        [r.name, r.description, r.ownerName].some((v) =>
+          (v ?? "").toLowerCase().includes(term),
+        ),
+    );
+  return {
+    items: rows.slice((page - 1) * pageSize, page * pageSize),
+    total: rows.length,
+    page,
+    pageSize,
+  };
+}
+
 function renderReports({ route = "/reports", saved, schedules, routes = {} }) {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(
     SESSION_KEY,
     makeUser({ roles: ["Requester", "HeadOfUnit"] }),
   );
-  const state = { saved, schedules };
+  // lists: every GET /api/reports/saved query (kept apart from the changes in sent).
+  const state = { saved, schedules, lists: [] };
   const sent = [];
   const api = installFakeApi(queryClient, {
     "GET /api/reports/catalogue": () => [200, CATALOGUE],
@@ -152,7 +175,10 @@ function renderReports({ route = "/reports", saved, schedules, routes = {} }) {
       state.saved = [created, ...state.saved];
       return [200, created];
     },
-    "GET /api/reports/saved": () => [200, state.saved],
+    "GET /api/reports/saved": (config) => {
+      state.lists.push(config.params);
+      return [200, savedPage(state.saved, config.params)];
+    },
     "GET /api/reports/schedules": () => [200, state.schedules],
     "POST /api/reports/schedules": (config) => {
       sent.push(["POST", config.body]);
@@ -427,6 +453,9 @@ describe("Reports: saved reports", () => {
       ],
       schedules: [schedule("s-1", "r-1", "My units")],
     });
+    await user.click(
+      await screen.findByRole("tab", { name: "Shared with me" }),
+    );
     const shared = await screen.findByTestId("report-Shared backlog");
     expect(shared).toHaveTextContent("Tunde Ade");
     expect(
@@ -441,7 +470,8 @@ describe("Reports: saved reports", () => {
     expect(within(dialog).getByLabelText("Saved report")).toHaveValue("r-2");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
-    const mine = screen.getByTestId("report-My units");
+    await user.click(screen.getByRole("tab", { name: "Mine" }));
+    const mine = await screen.findByTestId("report-My units");
     expect(mine).toHaveTextContent("Every working day at 08:00");
     await user.click(
       within(mine).getByRole("button", { name: /Change email/ }),
@@ -849,6 +879,9 @@ describe("Reports: run view, charts and saved-report changes", () => {
       schedules: [],
       routes: { "POST /api/reports/saved/:id/run": () => [200, RESULT] },
     });
+    await user.click(
+      await screen.findByRole("tab", { name: "Shared with me" }),
+    );
     const row = await screen.findByTestId("report-Their report");
     expect(within(row).queryByRole("button", { name: /Edit/ })).toBeNull();
     expect(within(row).queryByRole("button", { name: /Delete/ })).toBeNull();
@@ -1456,5 +1489,209 @@ describe("Reports: links from the unit dashboard, and Show as chart", () => {
     expect(within(dialog).getByRole("img")).toHaveAccessibleName(
       /Within time % by Assignee/,
     );
+  });
+});
+
+describe("Reports: saved reports, paged on the server", () => {
+  it("Mine and Shared with me each ask with their scope, 10 a page, with their own search and pager", async () => {
+    const user = userEvent.setup();
+    const many = Array.from({ length: 23 }, (_, i) =>
+      report(`r-${i + 1}`, `Mine ${i + 1}`),
+    );
+    const { state } = renderReports({
+      saved: [
+        ...many,
+        report("x-1", "Their backlog", {
+          isMine: false,
+          ownerName: "Tunde Ade",
+        }),
+      ],
+      schedules: [],
+    });
+    const mine = await screen.findByTestId("saved-mine");
+    expect(screen.getByRole("tab", { name: "Mine" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await within(mine).findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 23",
+    );
+    expect(state.lists).toContainEqual({
+      scope: "mine",
+      page: 1,
+      pageSize: 10,
+    });
+
+    await user.click(within(mine).getByRole("button", { name: "Page 3" }));
+    expect(
+      await within(mine).findByTestId("report-Mine 21"),
+    ).toBeInTheDocument();
+    expect(within(mine).getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 21-23 of 23",
+    );
+
+    // Search goes to the server and back to page 1.
+    await user.type(
+      within(mine).getByLabelText("Search saved reports"),
+      "Mine 2",
+    );
+    await waitFor(() =>
+      expect(state.lists.at(-1)).toEqual({
+        scope: "mine",
+        search: "Mine 2",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+
+    // The other tab: its own call, search and pager; the address keeps it.
+    await user.click(screen.getByRole("tab", { name: "Shared with me" }));
+    const shared = await screen.findByTestId("saved-shared");
+    expect(
+      await within(shared).findByTestId("report-Their backlog"),
+    ).toBeInTheDocument();
+    expect(within(shared).getByLabelText("Search saved reports")).toHaveValue(
+      "",
+    );
+    expect(within(shared).getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-1 of 1",
+    );
+    expect(state.lists.at(-1)).toEqual({
+      scope: "shared",
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it("?saved=shared opens on Shared with me", async () => {
+    renderReports({
+      route: "/reports?saved=shared",
+      saved: [
+        report("x-1", "Their backlog", {
+          isMine: false,
+          ownerName: "Tunde Ade",
+        }),
+      ],
+      schedules: [],
+    });
+    expect(await screen.findByTestId("saved-shared")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Shared with me" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+});
+
+describe("Reports: the result table, 10 rows a page", () => {
+  /** 25 units: "Unit 01" opened 1 ticket ... "Unit 25" opened 25. */
+  const BIG = {
+    ...RESULT,
+    rows: Array.from({ length: 25 }, (_, i) => [
+      `Unit ${String(i + 1).padStart(2, "0")}`,
+      i + 1,
+      50,
+    ]),
+    totals: [null, 325, 50],
+  };
+
+  async function openBig(routes = {}) {
+    const user = userEvent.setup();
+    renderReports({
+      saved: [],
+      schedules: [],
+      routes: { "POST /api/reports/run": () => [200, BIG], ...routes },
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Run Tickets by unit" }),
+    );
+    const dialog = await screen.findByRole("dialog", {
+      name: "Tickets by unit",
+    });
+    await within(dialog).findByText("Unit 01");
+    const bodyRows = () =>
+      within(within(dialog).getByTestId("report-table"))
+        .getAllByRole("row")
+        .slice(1, -1)
+        .map((tr) => tr.firstChild.textContent);
+    return { user, dialog, bodyRows };
+  }
+
+  it("shows 10 rows a page with the pager; the totals are the whole result's", async () => {
+    const { user, dialog, bodyRows } = await openBig();
+    expect(bodyRows()).toHaveLength(10);
+    expect(bodyRows()[0]).toBe("Unit 01");
+    expect(within(dialog).getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 25",
+    );
+    expect(within(dialog).getByText("325")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Page 3" }));
+    expect(bodyRows()).toEqual([
+      "Unit 21",
+      "Unit 22",
+      "Unit 23",
+      "Unit 24",
+      "Unit 25",
+    ]);
+  });
+
+  it("the search looks through every loaded row, not just the page, and the pager counts the matches", async () => {
+    const { user, dialog, bodyRows } = await openBig();
+    await user.type(
+      within(dialog).getByLabelText("Search the results"),
+      "unit 2",
+    );
+    await waitFor(() =>
+      expect(bodyRows()).toEqual([
+        "Unit 20",
+        "Unit 21",
+        "Unit 22",
+        "Unit 23",
+        "Unit 24",
+        "Unit 25",
+      ]),
+    );
+    expect(within(dialog).getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-6 of 6",
+    );
+  });
+
+  it("a column header sorts all rows, not the page", async () => {
+    const { user, dialog, bodyRows } = await openBig();
+    const opened = within(dialog).getByRole("button", { name: "Opened" });
+    await user.click(opened);
+    expect(bodyRows()[0]).toBe("Unit 01");
+    await user.click(opened);
+    // Descending over all 25: the biggest first, from what was page 3.
+    expect(bodyRows().slice(0, 2)).toEqual(["Unit 25", "Unit 24"]);
+    expect(
+      within(dialog).getByRole("columnheader", { name: /Opened/ }),
+    ).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("export is the server's complete result: the search and the page do not change it", async () => {
+    URL.createObjectURL = vi.fn(() => "blob:report");
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const exports = [];
+    const { user, dialog } = await openBig({
+      "POST /api/reports/export": (config) => {
+        exports.push(config.body);
+        return [
+          200,
+          new Blob(["x"]),
+          { "content-disposition": 'attachment; filename="R1.csv"' },
+        ];
+      },
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Page 2" }));
+    await user.type(
+      within(dialog).getByLabelText("Search the results"),
+      "unit 2",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Download CSV" }),
+    );
+    expect(await screen.findByText("R1.csv downloaded.")).toBeInTheDocument();
+    expect(exports).toEqual([R1_DEFINITION]);
   });
 });

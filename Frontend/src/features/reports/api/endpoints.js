@@ -153,14 +153,23 @@ export const updateSavedReport = defineEndpoint({
   response: savedReportSchema,
 });
 
-/** Yours and the ones shared with you, newest first. */
+/**
+ * Saved reports, newest first, one page at a time (pageSize default 10). scope: mine or shared.
+ * search covers the name, description and owner across everything I can see.
+ */
 export const listSavedReports = defineEndpoint({
   method: "GET",
   path: "/api/reports/saved",
-  response: z
-    .array(savedReportSchema)
-    .nullable()
-    .transform((items) => items ?? []),
+  query: ["search", "scope", "page", "pageSize"],
+  response: z.object({
+    items: z
+      .array(savedReportSchema)
+      .nullable()
+      .transform((items) => items ?? []),
+    total: z.number().int(),
+    page: z.number().int(),
+    pageSize: z.number().int(),
+  }),
 });
 
 /** The owner deletes it; its email schedules go with it. 403 / 404. */

@@ -1,8 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { PriorityChip } from "@/features/catalogue";
 import { formatWat } from "@/shared/lib/time";
-import { Button, Chip, Spinner } from "@/shared/ui";
+import { Chip, Pager, Spinner } from "@/shared/ui";
 import { SLA_LEVEL, STATUS } from "../api/endpoints.js";
 import { personName } from "../ticketText.js";
 import Ago from "./Ago.jsx";
@@ -47,7 +46,7 @@ function When({ at }) {
 /**
  * A list of tickets; a row opens the ticket. `queue` adds Unit, Requester and Assignee (work queue);
  * a New ticket's assignee shows an orange "Waiting" chip (no one available yet).
- * The pager shows when `pages` > 1. An unread row (someone else wrote since I last opened it) is
+ * Under it the shared pager, from the server's `total`. An unread row (someone else wrote since I last opened it) is
  * bold with a dot; markers show comments, files and, in the queue, "Requester replied".
  * `selected` (a Set of ids) with `onSelect(ticket, on)` and `onSelectAll(on)` adds checkboxes.
  */
@@ -60,7 +59,6 @@ export default function TicketTable({
   empty,
   total,
   page,
-  pages,
   onPage,
   selected,
   onSelect,
@@ -266,36 +264,11 @@ export default function TicketTable({
           </tbody>
         </table>
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm">
-        <span className="text-muted">
-          {total} {total === 1 ? "ticket" : "tickets"}
-        </span>
-        {pages > 1 && (
-          <nav aria-label="Pages" className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => onPage(page - 1)}
-              disabled={page <= 1}
-              aria-label="Previous page"
-            >
-              <ChevronLeft aria-hidden="true" size={16} />
-            </Button>
-            <span>
-              Page {page} of {pages}
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => onPage(page + 1)}
-              disabled={page >= pages}
-              aria-label="Next page"
-            >
-              <ChevronRight aria-hidden="true" size={16} />
-            </Button>
-          </nav>
-        )}
-      </div>
+      {total > 0 && (
+        <div className="border-t border-line px-5 py-3">
+          <Pager total={total} page={page} onPage={onPage} />
+        </div>
+      )}
     </>
   );
 }

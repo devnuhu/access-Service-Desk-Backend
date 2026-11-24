@@ -8,12 +8,14 @@ import {
   useOrgDepartments,
 } from "@/features/org";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { parseUtc } from "@/shared/lib/time";
 import { Card, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import { STATUS, STATUS_LABELS, TICKET_SORT } from "../api/endpoints.js";
 import BulkActions from "../components/BulkActions.jsx";
-import PoolTable from "../components/PoolTable.jsx";
+import PoolPanel from "../components/PoolPanel.jsx";
 import SlaSummary from "../components/SlaSummary.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import ViewsMenu from "../components/ViewsMenu.jsx";
@@ -24,8 +26,7 @@ import {
   readPriority,
 } from "../filters.js";
 import {
-  PAGE_SIZE,
-  usePool,
+  usePoolCounts,
   useSlaSummary,
   useTicketList,
 } from "../hooks/useTickets.js";
@@ -137,13 +138,12 @@ function WorkQueue({
       ]
     : [];
   // The unit pool is for unit members and heads (ownUnit); only this department's units here.
-  const pool = usePool({ enabled: Boolean(ownUnit) });
+  // The server counts it per unit (one row asked for, never counted here).
+  const poolCounts = usePoolCounts({ enabled: Boolean(ownUnit) });
   const unitIds = new Set(units.map((unit) => unit.id));
-  const poolHere = {
-    ...pool,
-    data: pool.data?.filter((ticket) => unitIds.has(ticket.unitId)),
-  };
-  const poolCount = poolHere.data?.length ?? 0;
+  const poolCount = (poolCounts.data?.units ?? [])
+    .filter((u) => unitIds.has(u.id))
+    .reduce((sum, u) => sum + u.count, 0);
   const [searchParams, setSearchParams] = useSearchParams();
   const priority = readPriority(searchParams.get("priority"));
   const ageBand = readAgeBand(searchParams.get("ageBand"));
@@ -199,12 +199,10 @@ function WorkQueue({
   const sort =
     sortChoice ?? (assigned ? TICKET_SORT.LongestWaiting : TICKET_SORT.Newest);
   const [text, setText] = useState("");
-  const search = useDebouncedValue(text.trim(), 300);
-  const [pageState, setPageState] = useState({ page: 1, key: "" });
+  const search = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS);
   const filtersKey = `${tab}|${unitId}|${status}|${waiting}|${breached}|${escalated}|${priority}|${ageBand}|${sort}|${search}`;
-  const key = filtersKey;
-  const page = pageState.key === key ? pageState.page : 1;
-  const setPage = (next) => setPageState({ page: next, key });
+  const paging = usePaging(filtersKey);
+  const { page, setPage } = paging;
 
   const base = assigned
     ? { view: "assigned", departmentId }
@@ -226,8 +224,9 @@ function WorkQueue({
     sort:
       sort === TICKET_SORT.Newest || sort === DUE_SOONEST ? undefined : sort,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize: LIST_PAGE_SIZE,
   });
+  useLastPageClamp(paging, list.data?.total);
 
   // Oversight counts: a head for their unit on "All open"; the Admin tab, the HOD and a
   // Super Admin for the whole department.
@@ -416,12 +415,15 @@ function WorkQueue({
         )}
         <div key={tab ?? "all"} className="tab-in">
           {pooled ? (
-            <PoolTable
-              pool={poolHere}
-              showUnit={new Set(poolHere.data?.map((t) => t.unitId)).size > 1}
+            <PoolPanel
+              departmentUnitIds={unitIds}
+              fallbackUnitId={ownUnit?.id}
+              counts={
+                poolCounts.data ?? (poolCounts.isError ? null : undefined)
+              }
               selected={selectedIds}
               onSelect={(ticket, on) => select([ticket], on)}
-              onSelectAll={(on) => select(poolHere.data ?? [], on)}
+              onSelectAll={(items, on) => select(items, on)}
             />
           ) : (
             <>
@@ -540,7 +542,6 @@ function WorkQueue({
                 dimmed={list.isPlaceholderData}
                 total={total}
                 page={page}
-                pages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
                 onPage={setPage}
                 selected={selectable ? selectedIds : undefined}
                 onSelect={(ticket, on) => select([ticket], on)}

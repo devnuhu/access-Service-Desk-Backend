@@ -1,4 +1,4 @@
-import { formatWatDay, parseUtc, watDaysSince } from "@/shared/lib/time";
+import { formatWatDay, watDaysSince } from "@/shared/lib/time";
 import { PENDING_REASON } from "./api/endpoints.js";
 
 /**
@@ -11,15 +11,6 @@ export const PENDING_WAIT_DAYS = Object.freeze({
   /** From this many days the wait shows red. */
   red: 10,
 });
-
-/** Oldest pendingSince first; tickets without one last. */
-export function oldestWaitingFirst(tickets) {
-  const at = (t) => parseUtc(t.pendingSince)?.getTime() ?? Infinity;
-  return tickets
-    .map((ticket, index) => [at(ticket), index, ticket])
-    .sort(([a, i], [b, j]) => (a === b ? i - j : a < b ? -1 : 1))
-    .map(([, , ticket]) => ticket);
-}
 
 /** "neutral" (up to 4 days), "amber" (from 5) or "red" (from 10). */
 export function waitTone(days) {

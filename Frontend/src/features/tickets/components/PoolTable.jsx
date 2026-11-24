@@ -9,19 +9,21 @@ import { sinceText } from "../ticketText.js";
 const waited = (createdAt) => sinceText(createdAt).replace(/ ago$/, "");
 
 /**
- * The unit pool: New tickets nobody holds yet, oldest first. Pick takes one and opens it; the
- * server decides who may (members: their categories; a head: the whole unit). `selected` (a Set of
- * ids) with `onSelect(ticket, on)` and `onSelectAll(on)` adds checkboxes for Pick in bulk.
+ * One page of the unit pool: New tickets nobody holds yet, oldest first, each with its subject.
+ * Pick takes one and opens it; the server decides who may (members: their categories; a head: the
+ * whole unit). `selected` (a Set of ids) with `onSelect(ticket, on)` and `onSelectAll(on)` adds
+ * checkboxes for Pick in bulk (the page shown). PoolPanel adds the search, chips and pager.
  */
 export default function PoolTable({
   pool,
   showUnit,
+  emptyText,
   selected,
   onSelect,
   onSelectAll,
 }) {
   const { pick, picking } = usePickAndOpen();
-  const items = pool.data ?? [];
+  const items = pool.data?.items ?? [];
 
   if (pool.isLoading) {
     return (
@@ -39,17 +41,14 @@ export default function PoolTable({
   }
   if (!items.length) {
     return (
-      <p className="px-5 py-10 text-center text-sm text-muted">
-        Nothing waiting in the pool. New tickets you can take show here.
-      </p>
+      <p className="px-5 py-10 text-center text-sm text-muted">{emptyText}</p>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <p className="px-5 pt-4 text-sm text-muted">
-        New tickets nobody holds yet, oldest first. Pick one to make it yours.
-      </p>
+    <div
+      className={`overflow-x-auto ${pool.isPlaceholderData ? "opacity-60" : ""}`}
+    >
       <table className="mt-2 w-full text-left text-sm">
         <thead className="border-b border-line bg-page/60 text-[12px] font-semibold tracking-wider text-muted uppercase">
           <tr>
@@ -57,7 +56,7 @@ export default function PoolTable({
               <th scope="col" className="w-10 py-4 pl-5">
                 <input
                   type="checkbox"
-                  aria-label="Select every ticket in the pool"
+                  aria-label="Select every ticket on this page"
                   checked={items.every((t) => selected.has(t.id))}
                   onChange={(event) => onSelectAll(event.target.checked)}
                   className="h-4 w-4 accent-brand-navy"
@@ -65,7 +64,7 @@ export default function PoolTable({
               </th>
             )}
             <th scope="col" className="px-5 py-4">
-              Reference
+              Ticket
             </th>
             {showUnit && (
               <th scope="col" className="px-5 py-4">
@@ -100,8 +99,16 @@ export default function PoolTable({
                   />
                 </td>
               )}
-              <td className="px-5 py-3 font-semibold whitespace-nowrap text-brand-navy">
-                {ticket.reference}
+              <td className="max-w-md px-5 py-3">
+                <span className="block font-semibold whitespace-nowrap text-brand-navy">
+                  {ticket.reference}
+                </span>
+                <span
+                  data-testid="pool-subject"
+                  className="line-clamp-2 text-body"
+                >
+                  {ticket.subject}
+                </span>
               </td>
               {showUnit && <td className="px-5 py-3">{ticket.unitName}</td>}
               <td className="px-5 py-3 text-ink">{ticket.categoryName}</td>

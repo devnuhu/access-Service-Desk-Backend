@@ -425,7 +425,10 @@ export const ACCESS_TABLE = [
   write("POST", "/api/tickets/{ticketId}/reassign", SIGNED_IN),
   // Unit pool: any signed-in person; the service lists only units they work in (empty otherwise)
   // and decides each pick (403 not in the unit or category, 400 unavailable, 409 taken).
-  get("/api/pool", SIGNED_IN, { probe: {}, schema: listPool.response }),
+  get("/api/pool", SIGNED_IN, {
+    probe: { page: 1, pageSize: 5 },
+    schema: listPool.response,
+  }),
   write("POST", "/api/tickets/{ticketId}/pick", SIGNED_IN),
   // Queue tools: my own saved views; bulk actions (each ticket follows the single action's rules,
   // always 200 with a result per ticket); marking a ticket read (anyone who can see it)
@@ -502,7 +505,7 @@ export const ACCESS_TABLE = [
   ),
   write("POST", "/api/reports/export", REPORTS, "a POST file download"),
   get("/api/reports/saved", REPORTS, {
-    probe: {},
+    probe: { page: 1, pageSize: 5 },
     schema: listSavedReports.response,
   }),
   write("POST", "/api/reports/saved", REPORTS),

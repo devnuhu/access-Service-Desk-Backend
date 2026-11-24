@@ -4,7 +4,6 @@ import { formatWatDay, watDaysSince } from "@/shared/lib/time";
 import PendingWaitChip from "./components/PendingWaitChip.jsx";
 import {
   daysText,
-  oldestWaitingFirst,
   PENDING_WAIT_DAYS,
   waitChipText,
   waitingLine,
@@ -64,18 +63,6 @@ describe("waiting days", () => {
     expect(waitingLine(ticket(1, null), { now: NOW })).toBeNull();
     expect(waitChipText(1, 5)).toBe("Waiting on requester · 5d");
     expect(waitChipText(2, 0)).toBe("Waiting on third party · 0d");
-  });
-});
-
-describe("oldestWaitingFirst", () => {
-  it("sorts by pendingSince, oldest first; none last, order kept on ties", () => {
-    const ids = oldestWaitingFirst([
-      { id: "a", pendingSince: daysAgo(1) },
-      { id: "b", pendingSince: null },
-      { id: "c", pendingSince: daysAgo(9) },
-      { id: "d", pendingSince: daysAgo(1) },
-    ]).map((t) => t.id);
-    expect(ids).toEqual(["c", "a", "d", "b"]);
   });
 });
 

@@ -1,17 +1,20 @@
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Search, UserPlus } from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
 import { ROLE_ORDER, roleLabel } from "@/shared/lib/roles";
 import { formatWat } from "@/shared/lib/time";
 import {
   Button,
   Card,
   Chip,
+  Pager,
   RoleChips,
   Spinner,
   PageHeader,
 } from "@/shared/ui";
-import { PAGE_SIZE, usePeopleList } from "../hooks/usePeople.js";
+import { usePeopleList } from "../hooks/usePeople.js";
 import PersonPanel from "../components/PersonPanel.jsx";
 import AddFromDirectoryDialog from "../components/AddFromDirectoryDialog.jsx";
 
@@ -30,21 +33,19 @@ function StatusCell({ person }) {
 
 export default function PeopleRolesPage() {
   const [searchText, setSearchText] = useState("");
-  const search = useDebouncedValue(searchText.trim(), 300);
+  const search = useDebouncedValue(searchText.trim(), SEARCH_DEBOUNCE_MS);
   const [role, setRole] = useState("");
-  const [pageState, setPageState] = useState({ page: 1, search: "", role: "" });
   const [selectedId, setSelectedId] = useState(null);
   const [adding, setAdding] = useState(false);
 
   // Back to page 1 whenever the search or the filter changes.
-  const page =
-    pageState.search === search && pageState.role === role ? pageState.page : 1;
-  const setPage = (next) => setPageState({ page: next, search, role });
+  const paging = usePaging(`${search}|${role}`);
+  const { page, setPage } = paging;
 
   const list = usePeopleList({ page, search, role });
   const items = list.data?.items ?? [];
   const total = list.data?.total ?? 0;
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  useLastPageClamp(paging, list.data?.total);
 
   return (
     <div className="space-y-4">
@@ -183,34 +184,11 @@ export default function PeopleRolesPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3 text-sm">
-          <span className="text-muted">
-            {total} {total === 1 ? "person" : "people"}
-          </span>
-          <nav aria-label="Pages" className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setPage(page - 1)}
-              disabled={page <= 1}
-              aria-label="Previous page"
-            >
-              <ChevronLeft aria-hidden="true" size={16} />
-            </Button>
-            <span>
-              Page {page} of {pages}
-            </span>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setPage(page + 1)}
-              disabled={page >= pages}
-              aria-label="Next page"
-            >
-              <ChevronRight aria-hidden="true" size={16} />
-            </Button>
-          </nav>
-        </div>
+        {total > 0 && (
+          <div className="border-t border-line px-5 py-3">
+            <Pager total={total} page={page} onPage={setPage} />
+          </div>
+        )}
       </Card>
 
       {selectedId && (

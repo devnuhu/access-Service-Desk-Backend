@@ -26,7 +26,7 @@ import SchedulesTab from "../components/SchedulesTab.jsx";
 import {
   useReportCatalogue,
   useReportSchedules,
-  useSavedReports,
+  useSavedReportChoices,
 } from "../hooks/useReports.js";
 
 const TABS = [
@@ -60,7 +60,8 @@ export default function ReportsPage() {
   // Ready-made reports for the chosen unit only.
   const forUnit = (definition) =>
     unitId ? { ...definition, unitIds: [unitId] } : definition;
-  const savedReports = useSavedReports();
+  // The newest reports I can see, for the email dialog's picker (the Saved tab pages its own).
+  const savedReports = useSavedReportChoices();
   const schedules = useReportSchedules();
   const catalogue = useReportCatalogue();
   const isSuperAdmin = hasAnyRole(user, [ROLES.SuperAdmin]);
@@ -261,7 +262,6 @@ export default function ReportsPage() {
                 onEmailDaily={emailDaily}
               />
               <SavedReportsTab
-                savedReports={savedReports}
                 schedules={scheduleList}
                 onEmailMe={emailMe}
                 onRun={runSaved}
@@ -271,7 +271,7 @@ export default function ReportsPage() {
           ) : (
             <SchedulesTab
               schedules={schedules}
-              canAdd={Boolean(savedReports.data?.length)}
+              canAdd={Boolean(savedReports.data?.total)}
               onAdd={() => setDialog({ savedReportId: "" })}
               onEdit={(schedule) => setDialog({ schedule })}
             />
@@ -301,7 +301,7 @@ export default function ReportsPage() {
           schedule={dialog.schedule}
           savedReportId={dialog.savedReportId}
           defaults={dialog.defaults}
-          savedReports={savedReports.data ?? []}
+          savedReports={savedReports.data?.items ?? []}
           scheduledReportIds={scheduleList.map((s) => s.savedReportId)}
           onClose={() => setDialog(null)}
           onSaved={saved}

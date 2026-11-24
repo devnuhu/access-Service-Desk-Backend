@@ -618,6 +618,16 @@ describe("Raise a ticket: arriving with ?categoryId=", () => {
 
 // These wait through real 500 ms debounces on a heavy form, so each gets 20 s (the default is 5 s).
 describe("Raise a ticket: knowledge base suggestions", () => {
+  const descriptionFocused = () =>
+    waitFor(
+      () =>
+        expect(
+          document.querySelector(
+            '[data-field="descriptionHtml"] [contenteditable="true"]',
+          ),
+        ).toHaveFocus(),
+      { timeout: 10_000 },
+    );
   const SUGGESTION = (id, title) => ({
     id,
     title,
@@ -651,14 +661,22 @@ describe("Raise a ticket: knowledge base suggestions", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
 
+    // Arriving with ?categoryId= moves focus to the description once the page is ready; wait for
+    // it, or keystrokes typed into the subject while it happens land in the editor.
+    await descriptionFocused();
     const subject = screen.getByLabelText("Subject");
     await user.clear(subject);
     await user.type(subject, "Refund");
-    expect(
-      await within(screen.getByTestId("kb-suggestions")).findByRole("link", {
-        name: /Refund of excess contributions/,
-      }),
-    ).toBeInTheDocument();
+    // The panel is looked up again on every try: it may be drawn anew while the answer arrives.
+    await waitFor(
+      () =>
+        expect(
+          within(screen.getByTestId("kb-suggestions")).getByRole("link", {
+            name: /Refund of excess contributions/,
+          }),
+        ).toBeInTheDocument(),
+      { timeout: 10_000 },
+    );
     expect(
       within(screen.getByTestId("kb-suggestions")).queryByRole("link", {
         name: /Unmatched contributions/,
@@ -692,18 +710,22 @@ describe("Raise a ticket: knowledge base suggestions", () => {
         },
       },
     });
-    const subject = await screen.findByLabelText("Subject");
+    await descriptionFocused();
+    const subject = screen.getByLabelText("Subject");
     await user.clear(subject);
     await user.type(subject, "Refund");
     // Wait past the debounce so "Refund" is asked (slowly), then type on.
     await new Promise((resolve) => setTimeout(resolve, 600));
     await user.type(subject, " late");
-    expect(
-      await within(await screen.findByTestId("kb-suggestions")).findByRole(
-        "link",
-        { name: /For Refund late/ },
-      ),
-    ).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(
+          within(screen.getByTestId("kb-suggestions")).getByRole("link", {
+            name: /For Refund late/,
+          }),
+        ).toBeInTheDocument(),
+      { timeout: 10_000 },
+    );
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(
       within(screen.getByTestId("kb-suggestions"))

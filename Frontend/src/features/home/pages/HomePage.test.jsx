@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { screen, waitFor, within } from "@testing-library/react";
 import { SESSION_KEY } from "@/features/auth";
 import { installFakeApi } from "@/test/fakeApi";
+import { poolPage } from "@/test/pages";
 import {
   createTestQueryClient,
   makeUser,
@@ -44,6 +45,9 @@ const unitRow = (unitId, unitName, departmentId, departmentName, counts) => ({
   ...counts,
 });
 
+/** Every GET /api/pool query of the last render. */
+let poolAsked = [];
+
 function renderHome(
   roles,
   cover = COVER,
@@ -51,6 +55,7 @@ function renderHome(
   summary = { generatedAt: "2026-11-19T13:05:00Z", mine: MINE, overview: null },
 ) {
   const queryClient = createTestQueryClient();
+  poolAsked = [];
   let coverCalls = 0;
   installFakeApi(queryClient, {
     "GET /api/org/me": () => [200, org],
@@ -74,31 +79,38 @@ function renderHome(
         { items: [], total: totals[key] ?? 0, page: 1, pageSize: 1 },
       ];
     },
-    "GET /api/pool": () => [
-      200,
-      [
-        {
-          id: "p-1",
-          reference: "CP-2026-000009",
-          unitId: "u-rf",
-          unitName: "X",
-          categoryId: "c-1",
-          categoryName: "Refund request",
-          priority: 2,
-          createdAt: "2026-11-21T08:00:00Z",
-        },
-        {
-          id: "p-2",
-          reference: "CP-2026-000010",
-          unitId: "u-cm",
-          unitName: "X",
-          categoryId: "c-1",
-          categoryName: "Refund request",
-          priority: 2,
-          createdAt: "2026-11-21T08:00:00Z",
-        },
-      ],
-    ],
+    // The server counts the pool per unit; the home reads units and never counts rows.
+    "GET /api/pool": (config) => {
+      poolAsked.push(config.params);
+      return [
+        200,
+        poolPage(
+          [
+            {
+              id: "p-1",
+              reference: "CP-2026-000009",
+              unitId: "u-rf",
+              unitName: "X",
+              categoryId: "c-1",
+              categoryName: "Refund request",
+              priority: 2,
+              createdAt: "2026-11-21T08:00:00Z",
+            },
+            {
+              id: "p-2",
+              reference: "CP-2026-000010",
+              unitId: "u-cm",
+              unitName: "X",
+              categoryId: "c-1",
+              categoryName: "Refund request",
+              priority: 2,
+              createdAt: "2026-11-21T08:00:00Z",
+            },
+          ],
+          config.params,
+        ),
+      ];
+    },
     "GET /api/availability/me": () => [
       200,
       {
@@ -195,6 +207,8 @@ describe("Home", () => {
     expect(href("mine-escalated")).toBe(`${queue}?tab=assigned&escalated=1`);
     // The pool of this unit only, with Pick up.
     expect(await screen.findByTestId("pool-waiting")).toHaveTextContent("1");
+    // One row asked for: the count is the server's, per unit.
+    expect(poolAsked).toEqual([{ page: 1, pageSize: 1 }]);
     expect(screen.getByRole("link", { name: "Pick up" })).toHaveAttribute(
       "href",
       `${queue}?tab=pool`,

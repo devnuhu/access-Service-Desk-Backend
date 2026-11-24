@@ -1,11 +1,23 @@
 import { useState } from "react";
-import { Download, Mail, Play } from "lucide-react";
-import { Button, Chip, ConfirmDialog, Spinner, useToast } from "@/shared/ui";
+import { useSearchParams } from "react-router-dom";
+import { Download, Mail, Play, Search } from "lucide-react";
+import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
+import {
+  Button,
+  Chip,
+  ConfirmDialog,
+  Pager,
+  Spinner,
+  useToast,
+} from "@/shared/ui";
 import { roleLabel } from "@/shared/lib/roles";
 import {
   downloadReport,
   useDeleteSavedReport,
   useRefreshSavedReports,
+  useSavedReports,
 } from "../hooks/useReports.js";
 import { describeSchedule } from "../schedule.js";
 import { isGone } from "../savedReport.js";
@@ -96,26 +108,37 @@ function ReportRow({
   );
 }
 
+const SCOPES = [
+  ["mine", "Mine"],
+  ["shared", "Shared with me"],
+];
+
+const EMPTY = {
+  mine: "None yet. Run a ready-made report and save it as your own.",
+  shared: "No one has shared a report with you.",
+};
+
 /**
- * My reports and Shared with me (GET /api/reports/saved): run, download, have it emailed to you;
- * your own ones also edit and delete (their email schedules go with them).
+ * One scope of saved reports (GET /api/reports/saved?scope=): its own search (on the server, over
+ * the name, description and owner of every report in the scope), 10 a page, and the shared pager.
  */
-export default function SavedReportsTab({
-  savedReports,
-  schedules,
-  onEmailMe,
-  onRun,
-  onEdit,
-}) {
+function SavedReportList({ scope, schedules, onEmailMe, onRun, onEdit }) {
   const toast = useToast();
   const remove = useDeleteSavedReport();
   const refreshSaved = useRefreshSavedReports();
   const [deleting, setDeleting] = useState(null);
   const [downloading, setDownloading] = useState(null);
-
-  const list = savedReports.data ?? [];
-  const mine = list.filter((r) => r.isMine);
-  const shared = list.filter((r) => !r.isMine);
+  const [text, setText] = useState("");
+  const search = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS);
+  const paging = usePaging(search);
+  const savedReports = useSavedReports({
+    scope,
+    search,
+    page: paging.page,
+    pageSize: LIST_PAGE_SIZE,
+  });
+  useLastPageClamp(paging, savedReports.data?.total);
+  const items = savedReports.data?.items ?? [];
   const scheduleFor = (reportId) =>
     (schedules ?? []).find((s) => s.savedReportId === reportId);
 
@@ -146,74 +169,68 @@ export default function SavedReportsTab({
     }
   };
 
-  const row = (report) => (
-    <ReportRow
-      key={report.id}
-      report={report}
-      schedule={scheduleFor(report.id)}
-      downloading={downloading}
-      onRun={onRun}
-      onDownload={download}
-      onEmailMe={onEmailMe}
-      onEdit={onEdit}
-      onDelete={setDeleting}
-    />
-  );
-
-  if (savedReports.isLoading) {
-    return (
-      <div className="border-t border-line px-5 py-10 text-center text-muted">
-        <Spinner label="Loading saved reports…" />
-      </div>
-    );
-  }
-  if (savedReports.isError) {
-    return (
-      <p
-        role="alert"
-        className="border-t border-line px-5 py-10 text-center text-sm text-danger"
-      >
-        {savedReports.error.message}
-      </p>
-    );
-  }
-
   return (
-    <>
-      <section aria-labelledby="my-reports" className="border-t border-line">
-        <h2 id="my-reports" className="px-5 pt-4 pb-2 text-base font-semibold">
-          My reports
-        </h2>
-        {mine.length ? (
-          <ul className="divide-y divide-line border-t border-line">
-            {mine.map(row)}
-          </ul>
-        ) : (
-          <p className="px-5 pb-4 text-sm text-muted">
-            None yet. Run a ready-made report and save it as your own.
-          </p>
-        )}
-      </section>
-      <section
-        aria-labelledby="shared-reports"
-        className="border-t border-line"
-      >
-        <h2
-          id="shared-reports"
-          className="px-5 pt-4 pb-2 text-base font-semibold"
+    <div data-testid={`saved-${scope}`}>
+      <div className="px-5 py-3">
+        <div className="relative max-w-md">
+          <Search
+            aria-hidden="true"
+            size={16}
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+          />
+          <input
+            type="search"
+            aria-label="Search saved reports"
+            placeholder="Name, description or owner"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            className="h-10 w-full rounded-lg border border-line bg-white pr-3 pl-9 text-sm text-ink"
+          />
+        </div>
+      </div>
+      {savedReports.isLoading ? (
+        <div className="border-t border-line px-5 py-10 text-center text-muted">
+          <Spinner label="Loading saved reports…" />
+        </div>
+      ) : savedReports.isError ? (
+        <p
+          role="alert"
+          className="border-t border-line px-5 py-10 text-center text-sm text-danger"
         >
-          Shared with me
-        </h2>
-        {shared.length ? (
-          <ul className="divide-y divide-line border-t border-line">
-            {shared.map(row)}
+          {savedReports.error.message}
+        </p>
+      ) : items.length === 0 ? (
+        <p className="border-t border-line px-5 py-6 text-sm text-muted">
+          {search ? "No saved reports match." : EMPTY[scope]}
+        </p>
+      ) : (
+        <>
+          <ul
+            className={`divide-y divide-line border-t border-line ${savedReports.isPlaceholderData ? "opacity-60" : ""}`}
+          >
+            {items.map((report) => (
+              <ReportRow
+                key={report.id}
+                report={report}
+                schedule={scheduleFor(report.id)}
+                downloading={downloading}
+                onRun={onRun}
+                onDownload={download}
+                onEmailMe={onEmailMe}
+                onEdit={onEdit}
+                onDelete={setDeleting}
+              />
+            ))}
           </ul>
-        ) : (
-          <p className="px-5 pb-4 text-sm text-muted">
-            No one has shared a report with you.
-          </p>
-        )}
-      </section>
+          <div className="border-t border-line px-5 py-3">
+            <Pager
+              total={savedReports.data.total}
+              page={paging.page}
+              onPage={paging.setPage}
+            />
+          </div>
+        </>
+      )}
 
       <ConfirmDialog
         open={Boolean(deleting)}
@@ -225,6 +242,65 @@ export default function SavedReportsTab({
         onConfirm={confirmDelete}
         onCancel={() => setDeleting(null)}
       />
-    </>
+    </div>
+  );
+}
+
+/**
+ * Saved reports in two tabs, Mine and Shared with me, each its own call (scope=mine / shared) with
+ * its own search, pager and total. The tab is kept in the address (?saved=shared). Run, download,
+ * have it emailed to you; your own ones also edit and delete (their email schedules go with them).
+ */
+export default function SavedReportsTab({
+  schedules,
+  onEmailMe,
+  onRun,
+  onEdit,
+}) {
+  const [params, setParams] = useSearchParams();
+  const scope = params.get("saved") === "shared" ? "shared" : "mine";
+  const choose = (next) =>
+    setParams(
+      (current) => {
+        const url = new URLSearchParams(current);
+        if (next === "shared") url.set("saved", "shared");
+        else url.delete("saved");
+        return url;
+      },
+      { replace: true },
+    );
+
+  return (
+    <section aria-labelledby="saved-reports" className="border-t border-line">
+      <h2 id="saved-reports" className="px-5 pt-4 text-base font-semibold">
+        Saved reports
+      </h2>
+      <div
+        role="tablist"
+        aria-label="Whose reports"
+        className="mt-2 flex gap-1 border-b border-line px-3"
+      >
+        {SCOPES.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={scope === id}
+            onClick={() => choose(id)}
+            className={`-mb-px min-h-11 border-b-2 px-3 text-sm font-semibold ${scope === id ? "border-brand-orange text-brand-navy" : "border-transparent text-muted hover:text-ink"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <SavedReportList
+        key={scope}
+        scope={scope}
+        schedules={schedules}
+        onEmailMe={onEmailMe}
+        onRun={onRun}
+        onEdit={onEdit}
+      />
+    </section>
   );
 }

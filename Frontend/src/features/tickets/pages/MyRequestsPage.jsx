@@ -2,14 +2,23 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
 import { Card, PageHeader } from "@/shared/ui";
-import { STATUS_LABELS } from "../api/endpoints.js";
+import { PENDING_REASON, STATUS_LABELS } from "../api/endpoints.js";
 import RaiseTicketLink from "../components/RaiseTicketLink.jsx";
 import TicketTable from "../components/TicketTable.jsx";
 import { PRIORITY_OPTIONS, readPriority } from "../filters.js";
-import { PAGE_SIZE, useTicketList } from "../hooks/useTickets.js";
+import { useTicketList } from "../hooks/useTickets.js";
 
 const OPEN = "open";
+/** Pending, split by who it waits on (sent as pendingReason). */
+const WAITING_ON_ME = "pending-me";
+const WAITING_ON_OTHERS = "pending-other";
+const PENDING_FILTERS = {
+  [WAITING_ON_ME]: PENDING_REASON.Requester,
+  [WAITING_ON_OTHERS]: PENDING_REASON.ThirdParty,
+};
 
 const TABS = [
   ["mine", "Raised by me"],
@@ -18,7 +27,8 @@ const TABS = [
 
 /**
  * My requests: tickets I raised (or that were raised for me) and tickets I am copied on. Home's
- * tiles open it filtered with ?status=open or ?status=<number> (5: Resolved, waiting for me).
+ * tiles open it filtered with ?status=open or ?status=<number> (5: Resolved, waiting for me);
+ * ?status=pending-me / pending-other are Pending tickets waiting on me / on someone else.
  * The priority filter lives in the address (?priority=3); clearing it removes it. No age filter here.
  */
 export default function MyRequestsPage() {
@@ -37,20 +47,23 @@ export default function MyRequestsPage() {
   const [view, setView] = useState("mine");
   const [text, setText] = useState("");
   const [status, setStatus] = useState(searchParams.get("status") ?? "");
-  const search = useDebouncedValue(text.trim(), 300);
-  const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${view}|${search}|${status}|${priority}`;
-  const page = pageState.key === key ? pageState.page : 1;
+  const search = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS);
+  const paging = usePaging(`${view}|${search}|${status}|${priority}`);
 
   const list = useTicketList({
     view,
     search,
     open: status === OPEN ? true : undefined,
-    status: status && status !== OPEN ? Number(status) : undefined,
+    pendingReason: PENDING_FILTERS[status],
+    status:
+      status && status !== OPEN && !PENDING_FILTERS[status]
+        ? Number(status)
+        : undefined,
     priority: priority ? Number(priority) : undefined,
-    page,
-    pageSize: PAGE_SIZE,
+    page: paging.page,
+    pageSize: LIST_PAGE_SIZE,
   });
+  useLastPageClamp(paging, list.data?.total);
   const total = list.data?.total ?? 0;
   const filtered = Boolean(search || status || priority);
 
@@ -107,6 +120,8 @@ export default function MyRequestsPage() {
           >
             <option value="">All statuses</option>
             <option value={OPEN}>Open</option>
+            <option value={WAITING_ON_ME}>Waiting on me</option>
+            <option value={WAITING_ON_OTHERS}>Waiting on someone else</option>
             {Object.entries(STATUS_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -134,9 +149,8 @@ export default function MyRequestsPage() {
           error={list.error}
           dimmed={list.isPlaceholderData}
           total={total}
-          page={page}
-          pages={Math.max(1, Math.ceil(total / PAGE_SIZE))}
-          onPage={(next) => setPageState({ page: next, key })}
+          page={paging.page}
+          onPage={paging.setPage}
           empty={
             <div className="px-5 py-10 text-center text-sm text-muted">
               {filtered ? (

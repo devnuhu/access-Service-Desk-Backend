@@ -1,6 +1,9 @@
 import { useEffect, useId, useState } from "react";
-import { Download, Save } from "lucide-react";
-import { Button, Dialog, Spinner, Switch, useToast } from "@/shared/ui";
+import { ArrowDown, ArrowUp, Download, Save, Search } from "lucide-react";
+import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
+import usePaging from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
+import { Button, Dialog, Pager, Spinner, Switch, useToast } from "@/shared/ui";
 import { cellValue, formatCell, formatRunAt, NUMERIC_TYPES } from "../cells.js";
 import {
   downloadReport,
@@ -8,6 +11,7 @@ import {
   useRunReport,
   useUpdateSavedReport,
 } from "../hooks/useReports.js";
+import { matchingRows, sortRows } from "../resultRows.js";
 import { isGone, savedReportBody } from "../savedReport.js";
 import ReportChart from "./ReportChart.jsx";
 
@@ -83,55 +87,128 @@ function asBars(data, index) {
   };
 }
 
+/**
+ * The result as a table, 10 rows a page. The whole result is in the browser, so the search box
+ * looks through every row (all columns, any case) and the pager counts the matches; a column
+ * header sorts all of them, not just the page. Totals are the whole result's, on every page.
+ */
 function ResultTable({ data, measures = [] }) {
   const help = new Map(measures.map((m) => [m.key, m.description]));
+  const [text, setText] = useState("");
+  const [sort, setSort] = useState({ index: null, direction: "asc" });
+  const search = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
+  const paging = usePaging(`${search}|${sort.index}|${sort.direction}`);
+  const matches = sortRows(
+    data,
+    matchingRows(data, search),
+    sort.index,
+    sort.direction,
+  );
+  const first = (paging.page - 1) * LIST_PAGE_SIZE;
+  const shown = matches.slice(first, first + LIST_PAGE_SIZE);
+  const sortBy = (index) =>
+    setSort((current) => ({
+      index,
+      direction:
+        current.index === index && current.direction === "asc" ? "desc" : "asc",
+    }));
   const cellClass = (column) =>
     `px-3 py-2 ${numeric(column.type) ? "text-right tabular-nums" : ""}`;
   return (
-    <div className="overflow-x-auto rounded-card border border-line">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-page text-xs font-semibold text-muted">
-          <tr>
-            {data.columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                title={help.get(column.key)}
-                className={`px-3 py-2 whitespace-nowrap ${numeric(column.type) ? "text-right" : ""}`}
-              >
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-line">
-          {data.rows.map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {data.columns.map((column, i) => (
-                <td key={column.key} className={cellClass(column)}>
-                  {formatCell(cellValue(row, column, i), column.type)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-        {data.totals && (
-          <tfoot className="border-t border-line bg-page font-semibold">
+    <div className="space-y-3">
+      <div className="relative max-w-sm">
+        <Search
+          aria-hidden="true"
+          size={16}
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+        />
+        <input
+          type="search"
+          aria-label="Search the results"
+          placeholder="Search every row"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          className="h-10 w-full rounded-lg border border-line bg-white pr-3 pl-9 text-sm text-ink"
+        />
+      </div>
+      <div className="overflow-x-auto rounded-card border border-line">
+        <table className="w-full text-left text-sm" data-testid="report-table">
+          <thead className="bg-page text-xs font-semibold text-muted">
             <tr>
               {data.columns.map((column, i) => {
-                const value = cellValue(data.totals, column, i);
+                const sorted = sort.index === i;
+                const Arrow = sort.direction === "asc" ? ArrowUp : ArrowDown;
                 return (
-                  <td key={column.key} className={cellClass(column)}>
-                    {i === 0 && (value === null || value === undefined)
-                      ? "Total"
-                      : formatCell(value, column.type)}
-                  </td>
+                  <th
+                    key={column.key}
+                    scope="col"
+                    title={help.get(column.key)}
+                    aria-sort={
+                      sorted
+                        ? sort.direction === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : undefined
+                    }
+                    className={`whitespace-nowrap ${numeric(column.type) ? "text-right" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => sortBy(i)}
+                      className={`inline-flex min-h-9 items-center gap-1 px-3 py-2 font-semibold hover:text-ink ${sorted ? "text-ink" : ""}`}
+                    >
+                      {column.label}
+                      {sorted && <Arrow aria-hidden="true" size={12} />}
+                    </button>
+                  </th>
                 );
               })}
             </tr>
-          </tfoot>
-        )}
-      </table>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {shown.map(({ row, index }) => (
+              <tr key={index}>
+                {data.columns.map((column, i) => (
+                  <td key={column.key} className={cellClass(column)}>
+                    {formatCell(cellValue(row, column, i), column.type)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            {shown.length === 0 && (
+              <tr>
+                <td
+                  colSpan={data.columns.length}
+                  className="px-3 py-6 text-center text-muted"
+                >
+                  No rows match.
+                </td>
+              </tr>
+            )}
+          </tbody>
+          {data.totals && (
+            <tfoot className="border-t border-line bg-page font-semibold">
+              <tr>
+                {data.columns.map((column, i) => {
+                  const value = cellValue(data.totals, column, i);
+                  return (
+                    <td key={column.key} className={cellClass(column)}>
+                      {i === 0 && (value === null || value === undefined)
+                        ? "Total"
+                        : formatCell(value, column.type)}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+      <Pager
+        total={matches.length}
+        page={paging.page}
+        onPage={paging.setPage}
+      />
     </div>
   );
 }

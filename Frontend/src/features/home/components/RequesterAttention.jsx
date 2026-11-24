@@ -6,32 +6,29 @@ import {
   CircleCheck,
 } from "lucide-react";
 import {
-  oldestWaitingFirst,
   PENDING_REASON,
   PendingWaitChip,
-  STATUS,
+  TICKET_SORT,
   useTicketList,
 } from "@/features/tickets";
 import { InlineRetry } from "@/shared/ui";
 import { useDashboardSummary } from "../hooks/useDashboard.js";
 
-/** My requests filtered by status (view=mine): 4 Pending, 5 Resolved. */
-const PENDING = "/tickets?status=4";
+/** My requests filtered: waiting on me (Pending, pendingReason 1); 5 Resolved. */
+const WAITING_ON_ME = "/tickets?status=pending-me";
 const RESOLVED = "/tickets?status=5";
 
-/** My Pending requests (the API's largest page): sorted oldest first here, the API has no such sort. */
+/** My requests waiting on me, longest waiting first: the server filters, sorts and counts. */
 const WAITING = {
   view: "mine",
-  status: STATUS.Pending,
+  pendingReason: PENDING_REASON.Requester,
+  sort: TICKET_SORT.PendingSince,
   page: 1,
-  pageSize: 100,
+  pageSize: 5,
 };
-/** How many of the oldest show on Home; the row above opens them all. */
-const SHOWN = 5;
 
-/** The requests waiting for my reply, oldest first, each with how long it has waited. */
-function WaitingOnMe({ count }) {
-  const list = useTicketList(WAITING, { enabled: count > 0 });
+/** The requests waiting for my reply, as the server orders them, each with how long it has waited. */
+function WaitingOnMe({ list }) {
   if (list.isLoading)
     return (
       <span
@@ -48,15 +45,11 @@ function WaitingOnMe({ count }) {
         testId="waiting-error"
       />
     );
-  const items = oldestWaitingFirst(
-    (list.data?.items ?? []).filter(
-      (t) => t.pendingReason === PENDING_REASON.Requester,
-    ),
-  ).slice(0, SHOWN);
+  const items = list.data?.items ?? [];
   if (!items.length) return null;
   return (
     <ul
-      aria-label="Waiting for your reply, oldest first"
+      aria-label="Waiting for your reply, longest waiting first"
       data-testid="waiting-on-me"
       className="mt-1.5 space-y-1 pl-2"
     >
@@ -88,6 +81,9 @@ function WaitingOnMe({ count }) {
  */
 export default function RequesterAttention() {
   const summary = useDashboardSummary();
+  const waiting = useTicketList(WAITING, {
+    enabled: (summary.data?.mine?.waitingOnMe ?? 0) > 0,
+  });
   if (summary.isError && !summary.data)
     return (
       <InlineRetry
@@ -98,12 +94,14 @@ export default function RequesterAttention() {
     );
   const mine = summary.data?.mine;
   if (!mine) return null;
+  // The list's own total once it has answered (the true count), the home summary's until then.
+  const waitingTotal = waiting.data?.total ?? mine.waitingOnMe;
   const rows = [
-    mine.waitingOnMe > 0 && {
+    waitingTotal > 0 && {
       key: "waitingOnMe",
       icon: MessageSquareReply,
-      to: PENDING,
-      text: `${mine.waitingOnMe} ${mine.waitingOnMe === 1 ? "request is" : "requests are"} waiting for your reply`,
+      to: WAITING_ON_ME,
+      text: `You have ${waitingTotal} ${waitingTotal === 1 ? "request" : "requests"} waiting on you`,
     },
     mine.toConfirm > 0 && {
       key: "toConfirm",
@@ -146,7 +144,7 @@ export default function RequesterAttention() {
                 className="shrink-0 text-brand-navy"
               />
             </Link>
-            {key === "waitingOnMe" && <WaitingOnMe count={mine.waitingOnMe} />}
+            {key === "waitingOnMe" && <WaitingOnMe list={waiting} />}
           </li>
         ))}
       </ul>

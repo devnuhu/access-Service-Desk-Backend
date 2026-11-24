@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { SESSION_KEY } from "@/features/auth";
 import { installFakeApi } from "@/test/fakeApi";
+import { poolPage } from "@/test/pages";
 import {
   createTestQueryClient,
   makeUser,
@@ -63,12 +64,14 @@ function renderQueue(roles, me, answer = () => [], search = "", extra = {}) {
       return [200, SUMMARY];
     },
     "GET /api/org/me": () => [200, me],
-    "GET /api/pool": () => [200, []],
+    "GET /api/pool": (config) => [200, poolPage([], config.params)],
     "GET /api/org/departments": () => [200, []],
     "GET /api/tickets": (config) => {
       asked.push(config.params);
-      const items = answer(config.params);
-      return [200, { items, total: items.length, page: 1, pageSize: 20 }];
+      const result = answer(config.params);
+      const items = Array.isArray(result) ? result : result.items;
+      const total = Array.isArray(result) ? items.length : result.total;
+      return [200, { items, total, page: config.params.page, pageSize: 10 }];
     },
     ...extra,
   });
@@ -739,13 +742,14 @@ describe("Unit pool", () => {
   ];
   const member = () => org([CM({ isMember: true }), RF]);
 
-  function renderPool(pick) {
-    let pool = [...POOL];
-    const calls = { pool: 0, pick: [] };
-    renderQueue(["Requester", "CaseWorker"], member(), () => [], "?tab=pool", {
-      "GET /api/pool": () => {
+  function renderPool(pick, rows = POOL, me = member()) {
+    let pool = [...rows];
+    const calls = { pool: 0, pick: [], asked: [] };
+    renderQueue(["Requester", "CaseWorker"], me, () => [], "?tab=pool", {
+      "GET /api/pool": (config) => {
         calls.pool += 1;
-        return [200, pool];
+        calls.asked.push(config.params);
+        return [200, poolPage(pool, config.params)];
       },
       "POST /api/tickets/:ticketId/pick": (config) => {
         calls.pick.push(config.pathParams.ticketId);
@@ -756,6 +760,101 @@ describe("Unit pool", () => {
     });
     return calls;
   }
+
+  const many = (unitId, unitName, count, from = 1) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: `t-${unitId}-${i + from}`,
+      reference: `CP-2026-${String(500 + i + from).padStart(6, "0")}`,
+      subject: `Pool subject ${i + from}`,
+      unitId,
+      unitName,
+      categoryId: "c-1",
+      categoryName: "Account Reconciliation",
+      priority: 2,
+      createdAt: "2026-11-20T09:00:00Z",
+    }));
+
+  it("pages the pool on the server (10 a page, the server's total), shows the subject, and a search goes back to page 1", async () => {
+    const user = userEvent.setup();
+    const calls = renderPool(
+      () => [200, { message: "ok" }],
+      [...many("u-cm", "Contribution Matching", 23), ...POOL.slice(2)],
+    );
+    const panel = await screen.findByTestId("pool-panel");
+    expect(await within(panel).findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 23",
+    );
+    expect(within(panel).getAllByTestId("pool-subject")[0]).toHaveTextContent(
+      "Pool subject 1",
+    );
+    // The tab's badge is the server's count for this department's units (one row asked for).
+    expect(screen.getByTestId("pool-count")).toHaveTextContent("23");
+    expect(calls.asked[0]).toEqual({ page: 1, pageSize: 1 });
+    // Another department's unit is in the person's pool: a unit is always sent here.
+    expect(calls.asked.at(-1)).toEqual({
+      unitId: "u-cm",
+      page: 1,
+      pageSize: 10,
+    });
+
+    await user.click(within(panel).getByRole("button", { name: "Page 3" }));
+    expect(
+      await within(panel).findByText("Showing 21-23 of 23"),
+    ).toBeInTheDocument();
+    await user.type(
+      within(panel).getByLabelText("Search the pool"),
+      "subject 2",
+    );
+    await waitFor(() =>
+      expect(calls.asked.at(-1)).toEqual({
+        search: "subject 2",
+        unitId: "u-cm",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+    // "subject 2", "subject 20" to "subject 23": 5 matches, page 1.
+    expect(
+      await within(panel).findByText("Showing 1-5 of 5"),
+    ).toBeInTheDocument();
+  });
+
+  it("a head of two units here gets unit chips from the server's counts; a chip sends its unitId", async () => {
+    const user = userEvent.setup();
+    const calls = renderPool(
+      () => [200, { message: "ok" }],
+      [
+        ...many("u-cm", "Contribution Matching", 2),
+        ...many("u-rf", "Refund", 1, 3),
+      ],
+      org([
+        CM({ isHead: true, isMember: true }),
+        unit("u-rf", "Refund", { isHead: true }),
+      ]),
+    );
+    const chips = await screen.findByTestId("pool-units");
+    expect(
+      within(chips)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["All units", "Contribution Matching2", "Refund1"]);
+    expect(
+      within(chips).getByRole("button", { name: "All units" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(calls.asked.at(-1)).toEqual({ page: 1, pageSize: 10 });
+
+    await user.click(within(chips).getByRole("button", { name: /Refund/ }));
+    await waitFor(() =>
+      expect(calls.asked.at(-1)).toEqual({
+        unitId: "u-rf",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+    expect(
+      await screen.findByTestId("pool-CP-2026-000503"),
+    ).toBeInTheDocument();
+  });
 
   it("lists this department's pool, oldest first, with a count on the tab", async () => {
     renderPool(() => [200, { message: "ok" }]);
@@ -832,9 +931,9 @@ describe("Unit pool", () => {
       () => [],
       "?tab=pool",
       {
-        "GET /api/pool": () => {
+        "GET /api/pool": (config) => {
           asked += 1;
-          return [200, POOL];
+          return [200, poolPage(POOL, config.params)];
         },
       },
     );
@@ -1047,15 +1146,18 @@ describe("Work queue tools", () => {
       () => [],
       "?tab=pool",
       {
-        "GET /api/pool": () => {
+        "GET /api/pool": (config) => {
           poolCalls += 1;
           return [
             200,
-            [
-              poolItem("CP-2026-000031"),
-              poolItem("CP-2026-000032"),
-              poolItem("CP-2026-000033"),
-            ],
+            poolPage(
+              [
+                poolItem("CP-2026-000031"),
+                poolItem("CP-2026-000032"),
+                poolItem("CP-2026-000033"),
+              ],
+              config.params,
+            ),
           ];
         },
         "POST /api/tickets/bulk/pick": ({ body }) => {
@@ -1096,7 +1198,7 @@ describe("Work queue tools", () => {
     );
     await user.click(
       await screen.findByRole("checkbox", {
-        name: "Select every ticket in the pool",
+        name: "Select every ticket on this page",
       }),
     );
     const bar = screen.getByRole("region", { name: "Selected tickets" });
@@ -1161,5 +1263,44 @@ describe("Work queue: merge two tickets", () => {
         screen.getByRole("region", { name: "Selected tickets" }),
       ).queryByRole("button", { name: "Merge" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("Work queue: 10 per page, search on the server", () => {
+  it("asks for 10 rows, shows the pager from the server's total, and a search goes back to page 1", async () => {
+    const user = userEvent.setup();
+    const asked = renderQueue(
+      ["Requester", "CaseWorker", "HeadOfUnit"],
+      org([CM({ isHead: true, isMember: true }), RF]),
+      () => ({ items: [item("CP-2026-000001", 3)], total: 134 }),
+    );
+    expect(await screen.findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 134",
+    );
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ page: 1, pageSize: 10 }),
+    );
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ page: 2, pageSize: 10 }),
+    );
+    expect(screen.getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 11-20 of 134",
+    );
+    await user.type(
+      screen.getByLabelText("Search by reference, subject or description"),
+      "refund",
+    );
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({
+        search: "refund",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 });

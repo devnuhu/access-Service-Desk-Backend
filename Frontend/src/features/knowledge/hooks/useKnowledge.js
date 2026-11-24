@@ -19,8 +19,6 @@ import {
   voteArticle,
 } from "../api/endpoints.js";
 
-export const KB_PAGE_SIZE = 20;
-
 export const kbKeys = {
   all: ["kb"],
   list: (query) => ["kb", "list", query],

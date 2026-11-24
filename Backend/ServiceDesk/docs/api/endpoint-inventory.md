@@ -80,13 +80,13 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | POST | `/api/kb/{id}/vote` | signed in (published articles only) | "Was this helpful?" `{ helpful }`, one answer per person (again changes it); returns `{ yes, no, myVote }` |
 | POST | `/api/tickets` | signed in (requesterUserId: Super Admin) | Raise a ticket; multipart: categoryId, locationId, impact, urgency (the priority comes from the priority matrix; priority? only when both are missing), subject, descriptionHtml, ccUserIds, files (0-6, 1 MB each) |
 | POST | `/api/tickets/duplicate-check` | signed in | Open tickets in the same category from the last 7 days with the same RSA PIN |
-| GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; filters: unitId, status or open, search, waitingToStart, slaBreached, escalated, priority (1 Low to 4 Critical), ageBand (1 Under 1 day, 2 1 to 2 days, 3 3 to 5 days, 4 6 to 10 days, 5 Over 10 days: the unit chart's age bars; with open=true; anything else 400), sort. Each row carries pendingReason (1 requester, 2 third party) and pendingSince while Pending, null otherwise |
+| GET | `/api/tickets?view=mine\|copied\|assigned\|department` | signed in; department view: its staff or Super Admin | Paged lists, newest first; filters: unitId, status or open, search, waitingToStart, slaBreached, escalated, priority (1 Low to 4 Critical), ageBand (1 Under 1 day, 2 1 to 2 days, 3 3 to 5 days, 4 6 to 10 days, 5 Over 10 days: the unit chart's age bars; with open=true; anything else 400), pendingReason (1 waiting on the requester, 2 a third party), sort (created, assignedAt, assignedAt_desc, pendingsince: longest waiting first). Each row carries pendingReason (1 requester, 2 third party) and pendingSince while Pending, null otherwise |
 | GET | `/api/tickets/{id}`, `/api/tickets/by-reference/{ref}` | requester, raiser, people copied, department staff, Super Admin (others 404) | The ticket, its files and comments (internal notes for staff only) |
 | POST | `/api/tickets/{id}/comments` | same as above; internal notes: department staff | Comment with 0-6 files |
 | GET | `/api/tickets/{id}/attachments/{attachmentId}` | same as above (internal-note files: staff) | Download (always as a file) |
 | GET | `/api/tickets/{id}/reassign-options` | department staff, Super Admin (requester or CC: 403) | Whether I can reassign it and to whom, with workloads |
 | POST | `/api/tickets/{id}/reassign` | holder and unit head/deputy (same unit, mapped); HOD and Super Admin (any unit of the department) | Reassign with a reason (5-500); becomes Assigned |
-| GET | `/api/pool` | signed in | The unit pool: New, unassigned tickets in the units I work in (a member: the categories I handle; a head: the whole unit) |
+| GET | `/api/pool?search=&unitId=&page=&pageSize=` | signed in | The unit pool, one page at a time (pageSize default 10, at most 100), oldest first: New, unassigned tickets in the units I work in (a member: the categories I handle; a head: the whole unit). `{ items: [{ id, reference, subject, unitId, unitName, categoryId, categoryName, priority, createdAt }], total, page, pageSize, units: [{ id, name, count }] }`; units counts the matches per unit, ignoring unitId |
 | POST | `/api/tickets/{id}/pick` | signed in; unit members mapped to the category, or the head | Take a New ticket from the pool (400 unavailable, 409 already taken) |
 | GET | `/api/tickets/{id}/assignments` | department staff, Super Admin | Assignment history with the workloads the engine compared |
 | GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
@@ -111,7 +111,8 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/reports/catalogue` | unit heads, HOD, Department Admin, Super Admin | Ready-made reports (R1 to R9) and the option lists |
 | POST | `/api/reports/run` | same | Run a report definition in your own scope |
 | POST | `/api/reports/export?format=xlsx\|csv` | same | Download a definition as Excel or CSV (up to 50,000 rows) |
-| GET, POST | `/api/reports/saved` | same | My saved reports and ones shared with me; save a report (private, unit, department or roles) |
+| GET | `/api/reports/saved?scope=mine\|shared&search=&page=&pageSize=` | same | Saved reports, newest first, one page at a time (pageSize default 10, at most 100) `{ items, total, page, pageSize }`; scope mine or shared (anything else: both); search covers the name, description and owner |
+| POST | `/api/reports/saved` | same | Save a report (private, unit, department or roles) |
 | PUT, DELETE | `/api/reports/saved/{id}` | the owner | Change or delete a saved report (deleting also removes its schedules) |
 | POST | `/api/reports/saved/{id}/run` | same people as above | Run a saved report in your own scope |
 | POST | `/api/reports/saved/{id}/export?format=xlsx\|csv` | same | Download a saved report |

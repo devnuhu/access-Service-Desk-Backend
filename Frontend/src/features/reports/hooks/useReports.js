@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
 import { saveBlob } from "@/shared/lib/files";
 import {
@@ -30,10 +35,21 @@ export function useReportCatalogue() {
   });
 }
 
-export function useSavedReports() {
+/** One page of saved reports: `{ scope: "mine" | "shared", search, page, pageSize }`. */
+export function useSavedReports(query) {
   return useQuery({
-    queryKey: SAVED_REPORTS_KEY,
-    queryFn: () => request(listSavedReports),
+    queryKey: [...SAVED_REPORTS_KEY, query],
+    queryFn: () => request(listSavedReports, { query }),
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** For pickers (the email schedule dialog): the newest reports I can see, mine and shared. */
+export const SAVED_REPORT_CHOICES = { page: 1, pageSize: 100 };
+export function useSavedReportChoices() {
+  return useQuery({
+    queryKey: [...SAVED_REPORTS_KEY, SAVED_REPORT_CHOICES],
+    queryFn: () => request(listSavedReports, { query: SAVED_REPORT_CHOICES }),
   });
 }
 
@@ -60,30 +76,41 @@ export function useRunReport({ savedReportId, definition }) {
   });
 }
 
-/** Saves a definition as your report; it is in the list straight away (for the email dialog). */
+/** Saves a definition as your report; it is in the choices straight away (for the email dialog). */
 export function useCreateSavedReport() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body) => request(createSavedReport, { body }),
     onSuccess: (report) =>
-      queryClient.setQueryData(SAVED_REPORTS_KEY, (list) => [
-        report,
-        ...(list ?? []).filter((r) => r.id !== report.id),
-      ]),
+      queryClient.setQueryData(
+        [...SAVED_REPORTS_KEY, SAVED_REPORT_CHOICES],
+        (page) =>
+          page && {
+            ...page,
+            items: [report, ...page.items.filter((r) => r.id !== report.id)],
+            total:
+              page.total + (page.items.some((r) => r.id === report.id) ? 0 : 1),
+          },
+      ),
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: SAVED_REPORTS_KEY }),
   });
 }
 
-/** The owner changes a saved report (PUT); the list shows the change straight away. */
+/** The owner changes a saved report (PUT); every page showing it shows the change straight away. */
 export function useUpdateSavedReport() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }) =>
       request(updateSavedReport, { params: { id }, body }),
     onSuccess: (report) =>
-      queryClient.setQueryData(SAVED_REPORTS_KEY, (list) =>
-        (list ?? []).map((r) => (r.id === report.id ? report : r)),
+      queryClient.setQueriesData({ queryKey: SAVED_REPORTS_KEY }, (page) =>
+        page?.items
+          ? {
+              ...page,
+              items: page.items.map((r) => (r.id === report.id ? report : r)),
+            }
+          : page,
       ),
     onSettled: () =>
       Promise.all([

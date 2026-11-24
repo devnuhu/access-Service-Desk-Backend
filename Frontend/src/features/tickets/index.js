@@ -10,8 +10,11 @@ export {
   ageBandLabel,
   priorityFromLabel,
 } from "./filters.js";
-export { ticketKeys, usePool, useTicketList } from "./hooks/useTickets.js";
+export {
+  ticketKeys,
+  usePoolCounts,
+  useTicketList,
+} from "./hooks/useTickets.js";
 export { default as MyRequestsStrip } from "./components/MyRequestsStrip.jsx";
 export { default as PendingWaitChip } from "./components/PendingWaitChip.jsx";
-export { PENDING_REASON } from "./api/endpoints.js";
-export { oldestWaitingFirst } from "./pendingWait.js";
+export { PENDING_REASON, TICKET_SORT } from "./api/endpoints.js";

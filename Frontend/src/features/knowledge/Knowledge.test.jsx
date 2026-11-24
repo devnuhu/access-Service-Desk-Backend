@@ -163,13 +163,51 @@ describe("Knowledge base list", () => {
       "Contribution Processing3",
       "Benefit Processing1",
     ]);
-    expect(screen.getByTestId("kb-total")).toHaveTextContent("45 articles");
-    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
+    // The count and the pages come from the server's total (45), not from the one row on screen.
+    expect(screen.getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 45",
+    );
+    expect(screen.getByRole("button", { name: "Page 5" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next page" }));
     expect(await screen.findByTestId("kb-article-a-2")).toBeInTheDocument();
-    expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
-    expect(listCalls(calls).map((c) => c.query.page)).toEqual([1, 2]);
+    expect(screen.getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 11-20 of 45",
+    );
+    expect(screen.getByRole("button", { name: "Page 2" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(
+      listCalls(calls).map((c) => [c.query.page, c.query.pageSize]),
+    ).toEqual([
+      [1, 10],
+      [2, 10],
+    ]);
+  });
+
+  it("typing a search goes back to page 1 and sends it to the server", async () => {
+    const user = userEvent.setup();
+    const { calls } = renderKb("/knowledge", {
+      "GET /api/kb": ({ params }) => [
+        200,
+        page([item(`a-${params.page}`, `On page ${params.page}`)], {
+          total: 45,
+          page: params.page,
+        }),
+      ],
+    });
+    await screen.findByTestId("kb-article-a-1");
+    await user.click(screen.getByRole("button", { name: "Page 5" }));
+    expect(await screen.findByTestId("kb-article-a-5")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Search articles"), "refund");
+    await waitFor(() =>
+      expect(listCalls(calls).at(-1).query).toMatchObject({
+        search: "refund",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
   });
 
   it("filters by department chip and then by category", async () => {
@@ -449,6 +487,10 @@ describe("Library and My department's articles tabs", () => {
       "/knowledge/manage/new",
     );
 
+    expect(listCalls(calls, "GET /api/kb/manage")[0].query).toMatchObject({
+      page: 1,
+      pageSize: 10,
+    });
     await user.selectOptions(screen.getByLabelText("Status"), "Draft");
     await waitFor(() =>
       expect(listCalls(calls, "GET /api/kb/manage").at(-1).query.status).toBe(

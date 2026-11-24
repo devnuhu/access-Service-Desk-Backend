@@ -3,13 +3,13 @@ import { Link } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import { formatWatDay } from "@/shared/lib/time";
-import { Card, InlineRetry, Spinner } from "@/shared/ui";
-import { KB_PAGE_SIZE, useManagedArticles } from "../hooks/useKnowledge.js";
+import { Card, InlineRetry, Pager, Spinner } from "@/shared/ui";
+import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
+import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
+import { useManagedArticles } from "../hooks/useKnowledge.js";
 import { MY_ARTICLES } from "../places.js";
-import KbPager from "./KbPager.jsx";
 import KbStatusChip from "./KbStatusChip.jsx";
 
-const SEARCH_DELAY = 300;
 /** Opening an article from here: its Back and Delete return to this tab. */
 const FROM_HERE = { from: MY_ARTICLES };
 
@@ -31,16 +31,15 @@ export const NEW_ARTICLE_LINK =
 export default function DepartmentArticles() {
   const [text, setText] = useState("");
   const [status, setStatus] = useState("");
-  const search = useDebouncedValue(text.trim(), SEARCH_DELAY);
-  const [pageState, setPageState] = useState({ page: 1, key: "" });
-  const key = `${search}|${status}`;
-  const page = pageState.key === key ? pageState.page : 1;
+  const search = useDebouncedValue(text.trim(), SEARCH_DEBOUNCE_MS);
+  const paging = usePaging(`${search}|${status}`);
   const list = useManagedArticles({
     search,
     status,
-    page,
-    pageSize: KB_PAGE_SIZE,
+    page: paging.page,
+    pageSize: LIST_PAGE_SIZE,
   });
+  useLastPageClamp(paging, list.data?.total);
 
   const items = list.data?.items ?? [];
   return (
@@ -180,11 +179,10 @@ export default function DepartmentArticles() {
         )}
         {items.length > 0 && (
           <div className="border-t border-line px-5 py-3">
-            <KbPager
+            <Pager
               total={list.data.total}
-              page={page}
-              pageSize={KB_PAGE_SIZE}
-              onPage={(next) => setPageState({ page: next, key })}
+              page={paging.page}
+              onPage={paging.setPage}
             />
           </div>
         )}

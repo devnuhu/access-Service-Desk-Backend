@@ -3,6 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SESSION_KEY } from "@/features/auth";
 import { installFakeApi } from "@/test/fakeApi";
+import { poolPage } from "@/test/pages";
 import {
   createTestQueryClient,
   makeUser,
@@ -114,18 +115,39 @@ function renderHome({
       { generatedAt: "2026-11-23T09:00:00Z", mine: MINE, overview: null },
     ],
     "GET /api/tickets": ({ params }) =>
-      params.view === "mine" && params.open
+      params.pendingReason === 1
         ? [
             200,
             {
-              items: [ticket(1), ticket(2, { status: 3, priority: 4 })],
+              items: [
+                ticket(7, {
+                  status: 4,
+                  pendingReason: 1,
+                  pendingSince: daysAgo(3),
+                }),
+                ticket(8, {
+                  status: 4,
+                  pendingReason: 1,
+                  pendingSince: daysAgo(1),
+                }),
+              ],
               total: 2,
               page: 1,
               pageSize: 5,
             },
           ]
-        : [200, { items: [], total: 0, page: 1, pageSize: 1 }],
-    "GET /api/pool": () => [200, []],
+        : params.view === "mine" && params.open
+          ? [
+              200,
+              {
+                items: [ticket(1), ticket(2, { status: 3, priority: 4 })],
+                total: 2,
+                page: 1,
+                pageSize: 5,
+              },
+            ]
+          : [200, { items: [], total: 0, page: 1, pageSize: 1 }],
+    "GET /api/pool": (config) => [200, poolPage([], config.params)],
     "GET /api/availability/me": () => [
       200,
       {
@@ -216,32 +238,45 @@ describe("Requester Home", () => {
     const card = await screen.findByTestId("needs-attention");
     expect(within(card).getByTestId("attention-waitingOnMe")).toHaveAttribute(
       "href",
-      "/tickets?status=4",
+      "/tickets?status=pending-me",
     );
-    expect(card).toHaveTextContent("2 requests are waiting for your reply");
+    expect(
+      await within(card).findByText("You have 2 requests waiting on you"),
+    ).toBeInTheDocument();
     expect(within(card).queryByTestId("attention-toConfirm")).toBeNull();
   });
 
-  it("lists the requests waiting for my reply, oldest first, each with its wait (not third-party ones)", async () => {
+  it("asks the server for 5 requests waiting on me, longest waiting first, shows them as they come and the true total", async () => {
     const asked = [];
     renderHome({
       routes: {
         "GET /api/tickets": ({ params }) => {
           asked.push(params);
-          if (params.status === 4)
+          if (params.pendingReason === 1)
             return [
               200,
               {
-                // Newest first, as the API sends them.
+                // The server's order (longest waiting first) and its total of 7.
                 items: [
-                  ticket(1, { pendingReason: 1, pendingSince: daysAgo(1) }),
-                  ticket(2, { pendingReason: 2, pendingSince: daysAgo(20) }),
-                  ticket(3, { pendingReason: 1, pendingSince: daysAgo(11) }),
-                  ticket(4, { pendingReason: 1, pendingSince: daysAgo(6) }),
+                  ticket(3, {
+                    status: 4,
+                    pendingReason: 1,
+                    pendingSince: daysAgo(11),
+                  }),
+                  ticket(4, {
+                    status: 4,
+                    pendingReason: 1,
+                    pendingSince: daysAgo(6),
+                  }),
+                  ticket(1, {
+                    status: 4,
+                    pendingReason: 1,
+                    pendingSince: daysAgo(1),
+                  }),
                 ],
-                total: 4,
+                total: 7,
                 page: 1,
-                pageSize: 100,
+                pageSize: 5,
               },
             ];
           return [200, { items: [], total: 0, page: 1, pageSize: 5 }];
@@ -249,7 +284,9 @@ describe("Requester Home", () => {
       },
     });
     const list = await screen.findByTestId("waiting-on-me");
-    expect(list).toHaveAccessibleName("Waiting for your reply, oldest first");
+    expect(list).toHaveAccessibleName(
+      "Waiting for your reply, longest waiting first",
+    );
     const rows = within(list).getAllByRole("link");
     expect(rows.map((r) => r.getAttribute("href"))).toEqual([
       "/tickets/BE-2026-000003",
@@ -263,14 +300,19 @@ describe("Requester Home", () => {
       "Waiting on you · 6d",
       "Waiting on you · 1d",
     ]);
-    expect(
-      rows.map((r) =>
-        within(r).getByTestId("pending-wait").getAttribute("data-tone"),
-      ),
-    ).toEqual(["red", "amber", "neutral"]);
-    expect(asked.find((p) => p.status === 4)).toMatchObject({
+    // The total is the server's (7), not the summary's or the rows'.
+    const card = screen.getByTestId("needs-attention");
+    expect(card).toHaveTextContent("You have 7 requests waiting on you");
+    expect(within(card).getByTestId("attention-waitingOnMe")).toHaveAttribute(
+      "href",
+      "/tickets?status=pending-me",
+    );
+    expect(asked.find((p) => p.pendingReason === 1)).toEqual({
       view: "mine",
-      pageSize: 100,
+      pendingReason: 1,
+      sort: "pendingsince",
+      page: 1,
+      pageSize: 5,
     });
   });
 

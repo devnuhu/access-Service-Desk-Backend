@@ -5,6 +5,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { request } from "@/shared/lib/http";
+import { LIST_PAGE_SIZE } from "@/shared/lib/paging";
 import {
   assignRole,
   ensureDirectoryUser,
@@ -15,8 +16,6 @@ import {
   searchDirectory,
   setUserStatus,
 } from "../api/endpoints.js";
-
-export const PAGE_SIZE = 20;
 
 export const peopleKeys = {
   all: ["admin-people"],
@@ -39,7 +38,7 @@ export function usePeopleList({ page, search, role }) {
     queryKey: peopleKeys.list({ page, search, role }),
     queryFn: () =>
       request(listUsers, {
-        query: { page, pageSize: PAGE_SIZE, search, role },
+        query: { page, pageSize: LIST_PAGE_SIZE, search, role },
       }),
     placeholderData: keepPreviousData,
   });

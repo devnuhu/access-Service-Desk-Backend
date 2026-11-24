@@ -32,6 +32,8 @@ export const TICKET_SORT = Object.freeze({
   Newest: "created",
   LongestWaiting: "assignedAt",
   RecentlyAssigned: "assignedAt_desc",
+  /** Pending the longest first (with pendingReason). */
+  PendingSince: "pendingsince",
 });
 
 /**
@@ -232,6 +234,8 @@ export const checkDuplicates = defineEndpoint({
  * escalated=true: tickets passed up to the head of the unit (escalatedToHeadAt set).
  * priority: 1 Low to 4 Critical. ageBand: 1 to 5, how long ago it was raised (../filters.js
  * AGE_BANDS, the bars of the unit chart); always sent with open=true, anything else is 400.
+ * pendingReason: 1 waiting on the requester, 2 on a third party (PENDING_REASON). sort=pendingsince:
+ * longest waiting first (TICKET_SORT.PendingSince).
  */
 export const listTickets = defineEndpoint({
   method: "GET",
@@ -247,6 +251,7 @@ export const listTickets = defineEndpoint({
     "escalated",
     "priority",
     "ageBand",
+    "pendingReason",
     "sort",
     "search",
     "page",
@@ -319,23 +324,34 @@ export const ASSIGNMENT_METHOD = Object.freeze({
 
 /**
  * The unit pool: New, unassigned tickets in units I work in (a member: the categories I handle; a
- * Head of Unit: every category of the unit). Oldest first, at most 200.
+ * Head of Unit: every category of the unit). Oldest first, one page at a time (pageSize default 10,
+ * at most 100); search covers every row. `units` counts the matches per unit, ignoring unitId.
  */
 export const listPool = defineEndpoint({
   method: "GET",
   path: "/api/pool",
-  response: list(
-    z.object({
-      id: z.string(),
-      reference: z.string(),
-      unitId: z.string(),
-      unitName: z.string(),
-      categoryId: z.string(),
-      categoryName: z.string(),
-      priority: z.number().int(),
-      createdAt: z.string(),
-    }),
-  ),
+  query: ["search", "unitId", "page", "pageSize"],
+  response: z.object({
+    items: list(
+      z.object({
+        id: z.string(),
+        reference: z.string(),
+        subject: z.string(),
+        unitId: z.string(),
+        unitName: z.string(),
+        categoryId: z.string(),
+        categoryName: z.string(),
+        priority: z.number().int(),
+        createdAt: z.string(),
+      }),
+    ),
+    total: z.number().int(),
+    page: z.number().int(),
+    pageSize: z.number().int(),
+    units: list(
+      z.object({ id: z.string(), name: z.string(), count: z.number().int() }),
+    ),
+  }),
 });
 
 /**

@@ -28,13 +28,13 @@ const row = (n, status, overrides = {}) => ({
   ...overrides,
 });
 
-function renderMyRequests(search, items = []) {
+function renderMyRequests(search, items = [], total = items.length) {
   const queryClient = createTestQueryClient();
   const asked = [];
   installFakeApi(queryClient, {
     "GET /api/tickets": (config) => {
       asked.push(config.params);
-      return [200, { items, total: items.length, page: 1, pageSize: 20 }];
+      return [200, { items, total, page: config.params.page, pageSize: 10 }];
     },
   });
   const { router } = renderWithProviders(<MyRequestsPage />, {
@@ -117,5 +117,60 @@ describe("My requests", () => {
     await user.selectOptions(priority, "All priorities");
     await waitFor(() => expect(asked.at(-1).priority).toBeUndefined());
     expect(asked.router.state.location.search).toBe("");
+  });
+});
+
+describe("My requests: 10 per page, search on the server", () => {
+  it("asks for 10 rows, shows the pager from the server's total, and a search goes back to page 1", async () => {
+    const user = userEvent.setup();
+    const asked = renderMyRequests("", [row(1, 3)], 134);
+    expect(await screen.findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 134",
+    );
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ page: 1, pageSize: 10 }),
+    );
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ page: 2, pageSize: 10 }),
+    );
+    expect(screen.getByTestId("pager-summary")).toHaveTextContent(
+      "Showing 11-20 of 134",
+    );
+    await user.type(
+      screen.getByLabelText("Search by reference or subject"),
+      "refund",
+    );
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({
+        search: "refund",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Page 1" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+});
+
+describe("My requests: waiting on me or on someone else", () => {
+  it("sends pendingReason (1 me, 2 someone else) and no status; the Home link opens it", async () => {
+    const user = userEvent.setup();
+    const asked = renderMyRequests("?status=pending-me", [row(1, 4)]);
+    expect(await screen.findByLabelText("Status")).toHaveValue("pending-me");
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ view: "mine", pendingReason: 1 }),
+    );
+    expect(asked.at(-1).status).toBeUndefined();
+    await user.selectOptions(
+      screen.getByLabelText("Status"),
+      "Waiting on someone else",
+    );
+    await waitFor(() =>
+      expect(asked.at(-1)).toMatchObject({ pendingReason: 2, page: 1 }),
+    );
+    expect(asked.at(-1).status).toBeUndefined();
   });
 });

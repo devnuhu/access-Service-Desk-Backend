@@ -4,7 +4,11 @@ import { CalendarCheck2, CalendarX2, CircleAlert, Hand } from "lucide-react";
 import { firstNameOf, useSession } from "@/features/auth";
 import { ABSENCE_KIND, useMyAvailability } from "@/features/availability";
 import { MyPerformancePanel } from "@/features/performance";
-import { RaiseTicketLink, usePool, useTicketList } from "@/features/tickets";
+import {
+  RaiseTicketLink,
+  usePoolCounts,
+  useTicketList,
+} from "@/features/tickets";
 import { formatWatClock } from "@/shared/lib/time";
 import { Card, PageHeader, Spinner } from "@/shared/ui";
 import { useDashboardSummary } from "../hooks/useDashboard.js";
@@ -139,8 +143,11 @@ export default function MemberHome({ units }) {
     page: 1,
     pageSize: 1,
   });
-  const pool = usePool();
-  const poolCount = pool.data?.filter((t) => t.unitId === unit.id).length;
+  // The server counts the pool per unit; the rows are never counted here.
+  const pool = usePoolCounts();
+  const poolCount = pool.data
+    ? (pool.data.units.find((u) => u.id === unit.id)?.count ?? 0)
+    : undefined;
   const mine = summary.data?.mine;
 
   const queue = `/departments/${unit.departmentId}/tickets`;
