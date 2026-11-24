@@ -24,6 +24,9 @@ namespace ServiceDeskAPI.Application.Interfaces
         /// <summary>New tickets waiting in the units the person works in: members see their mapped categories, a head sees every category of the unit.</summary>
         Task<List<PoolTicketDto>> ListPoolAsync(Guid actorUserId);
 
+        /// <summary>The unit pool one page at a time: search, unit filter, per-unit counts. Oldest first.</summary>
+        Task<PoolPageDto> ListPoolPageAsync(Guid actorUserId, string? search, Guid? unitId, int page, int pageSize);
+
         /// <summary>Claims a New ticket from the unit pool. Members: only categories they handle. Head: any category of the unit.</summary>
         Task<(TicketProblem? Problem, string? Message)> PickAsync(Guid ticketId, Guid actorUserId);
         /// <summary>The person searching is left out of their own results.</summary>

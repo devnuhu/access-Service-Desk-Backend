@@ -422,6 +422,51 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
             return rows;
         }
 
+        /// <summary>
+        /// The unit pool, one page at a time (oldest first). Members see their mapped categories, a head sees every category of the unit.
+        /// search matches the reference, subject, category and unit name across the whole pool; unitId narrows to one unit; Units counts the matches per unit.
+        /// </summary>
+        public async Task<PoolPageDto> ListPoolPageAsync(Guid actorUserId, string? search, Guid? unitId, int page, int pageSize)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+            var memberUnits = await _db.UnitMembers.AsNoTracking()
+                .Where(m => m.UserId == actorUserId && m.IsActive && m.Unit!.IsActive)
+                .Select(m => m.UnitId).ToListAsync();
+            if (memberUnits.Count == 0) return new PoolPageDto { Page = page, PageSize = pageSize };
+            var headOf = await _db.Units.AsNoTracking().Where(u => u.HeadUserId == actorUserId).Select(u => u.Id).ToListAsync();
+            var mySkills = await _db.CategorySkills.AsNoTracking().Where(s => s.UserId == actorUserId && s.IsActive).Select(s => s.CategoryId).ToListAsync();
+
+            IQueryable<Ticket> pool = _db.Tickets.AsNoTracking()
+                .Where(t => t.Status == TicketStatus.New && t.AssigneeUserId == null && memberUnits.Contains(t.UnitId))
+                .Where(t => headOf.Contains(t.UnitId) || mySkills.Contains(t.CategoryId));
+            var term = (search ?? string.Empty).Trim();
+            if (term.Length > 0)
+                pool = pool.Where(t => t.Reference.Contains(term) || t.Subject.Contains(term) || t.Category!.Name.Contains(term) || t.Unit!.Name.Contains(term));
+
+            var unitCounts = await pool.GroupBy(t => t.UnitId).Select(g => new { Id = g.Key, Count = g.Count() }).ToListAsync();
+            var unitIds = unitCounts.Select(c => c.Id).ToList();
+            var unitNames = await _db.Units.AsNoTracking().Where(u => unitIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Name);
+            if (unitId.HasValue)
+            {
+                var one = unitId.Value;
+                pool = pool.Where(t => t.UnitId == one);
+            }
+            var total = await pool.CountAsync();
+            var rows = await pool.OrderBy(t => t.CreatedAt).ThenBy(t => t.Id).Skip((page - 1) * pageSize).Take(pageSize)
+                .Select(t => new PoolRowDto
+                {
+                    Id = t.Id, Reference = t.Reference, Subject = t.Subject, UnitId = t.UnitId, UnitName = t.Unit!.Name, CategoryId = t.CategoryId,
+                    CategoryName = t.Category!.Name, Priority = t.Priority, CreatedAt = t.CreatedAt
+                }).ToListAsync();
+            return new PoolPageDto
+            {
+                Items = rows, Total = total, Page = page, PageSize = pageSize,
+                Units = unitCounts.Select(c => new PoolUnitCountDto { Id = c.Id, Name = unitNames.TryGetValue(c.Id, out var n) ? n : string.Empty, Count = c.Count })
+                    .OrderBy(u => u.Name).ToList()
+            };
+        }
+
         public async Task<(TicketProblem? Problem, string? Message)> PickAsync(Guid ticketId, Guid actorUserId)
         {
             await Gate.WaitAsync();

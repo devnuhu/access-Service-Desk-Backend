@@ -89,6 +89,28 @@ namespace ServiceDeskAPI.Infrastructure.Reports
             return (null, visible.Select(r => ToDto(r, names.TryGetValue(r.OwnerUserId, out var n) ? n : string.Empty, userId)).ToList());
         }
 
+        /// <summary>
+        /// One page of the reports the person can see, newest first. scope: mine or shared (anything else: both). search matches the name, description and owner across all of them.
+        /// </summary>
+        public async Task<(ReportProblem? Problem, SavedReportPageDto? Page)> ListPageAsync(Guid userId, bool isSuperAdmin, IReadOnlyCollection<string> roles, string? search, string? scope, int page, int pageSize)
+        {
+            var (problem, all) = await ListAsync(userId, isSuperAdmin, roles);
+            if (problem != null || all == null) return (problem, null);
+            IEnumerable<SavedReportDto> rows = all;
+            var kind = (scope ?? string.Empty).Trim().ToLowerInvariant();
+            if (kind == "mine") rows = rows.Where(r => r.IsMine);
+            else if (kind == "shared") rows = rows.Where(r => !r.IsMine);
+            var term = (search ?? string.Empty).Trim();
+            if (term.Length > 0)
+                rows = rows.Where(r => r.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (r.Description ?? string.Empty).Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || r.OwnerName.Contains(term, StringComparison.OrdinalIgnoreCase));
+            var list = rows.ToList();
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize <= 0 ? 10 : pageSize, 1, 100);
+            return (null, new SavedReportPageDto { Items = list.Skip((page - 1) * pageSize).Take(pageSize).ToList(), Total = list.Count, Page = page, PageSize = pageSize });
+        }
+
         public async Task<(ReportProblem? Problem, SavedReportDto? Report)> SaveAsync(Guid? id, SaveReportRequest request, Guid userId, bool isSuperAdmin, IReadOnlyCollection<string> roles)
         {
             var (scopeProblem, _) = await _reports.CatalogueAsync(userId, isSuperAdmin);

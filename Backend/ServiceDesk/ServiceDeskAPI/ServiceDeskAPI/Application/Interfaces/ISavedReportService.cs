@@ -7,6 +7,9 @@ namespace ServiceDeskAPI.Application.Interfaces
     {
         Task<(ReportProblem? Problem, List<SavedReportDto>? Reports)> ListAsync(Guid userId, bool isSuperAdmin, IReadOnlyCollection<string> roles);
 
+        /// <summary>One page of the same list, with search and scope (mine or shared).</summary>
+        Task<(ReportProblem? Problem, SavedReportPageDto? Page)> ListPageAsync(Guid userId, bool isSuperAdmin, IReadOnlyCollection<string> roles, string? search, string? scope, int page, int pageSize);
+
         /// <summary>Creates a report (id null) or updates one (owner or Super Admin).</summary>
         Task<(ReportProblem? Problem, SavedReportDto? Report)> SaveAsync(Guid? id, SaveReportRequest request, Guid userId, bool isSuperAdmin, IReadOnlyCollection<string> roles);
 

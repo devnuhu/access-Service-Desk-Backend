@@ -121,7 +121,7 @@ namespace ServiceDeskAPI.Tests.Assignment
         }
 
         private static async Task<List<PoolTicketDto>> PoolOf(HttpClient client) =>
-            await Ok<List<PoolTicketDto>>(await client.GetAsync("/api/pool"));
+            (await Ok<PoolPageDto>(await client.GetAsync("/api/pool?pageSize=100"))).Items.Cast<PoolTicketDto>().ToList();
 
         [Fact]
         public async Task A_mapped_member_picks_it_and_the_history_audit_and_requester_show_it()

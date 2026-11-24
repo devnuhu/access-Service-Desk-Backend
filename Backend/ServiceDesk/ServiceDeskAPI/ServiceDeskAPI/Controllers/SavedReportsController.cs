@@ -28,13 +28,13 @@ namespace ServiceDeskAPI.Controllers
 
         private ObjectResult Fail(ReportProblem problem) => StatusCode(problem.Status, new ApiError(problem.Message));
 
-        /// <summary>Your saved reports and those shared with you, newest first.</summary>
+        /// <summary>Your saved reports and those shared with you, newest first, one page at a time. search covers the name, description and owner of all of them; scope is mine or shared; pageSize defaults to 10 (at most 100).</summary>
         [HttpGet]
-        [ProducesResponseType(typeof(List<SavedReportDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(SavedReportPageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
-        public async Task<ActionResult<List<SavedReportDto>>> List()
+        public async Task<ActionResult<SavedReportPageDto>> List([FromQuery] string? search, [FromQuery] string? scope, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var (problem, reports) = await _saved.ListAsync(Me(), IsSuperAdmin(), Roles());
+            var (problem, reports) = await _saved.ListPageAsync(Me(), IsSuperAdmin(), Roles(), search, scope, page, pageSize);
             return problem == null && reports != null ? Ok(reports) : Fail(problem!);
         }
 

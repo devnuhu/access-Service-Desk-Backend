@@ -188,7 +188,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         // ---------------- reading ----------------
 
         public async Task<(TicketProblem? Problem, TicketPageDto? Page)> ListAsync(string? view, Guid? departmentId, Guid? unitId, TicketStatus? status,
-            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null, TicketPriority? priority = null, int? ageBand = null)
+            bool? open, string? search, int page, int pageSize, Guid actorUserId, bool actorIsSuperAdmin, bool? waitingToStart = null, string? sort = null, bool? slaBreached = null, bool? escalated = null, TicketPriority? priority = null, int? ageBand = null, int? pendingReason = null)
         {
             page = Math.Max(1, page);
             pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
@@ -226,6 +226,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             else if (open == false) query = query.Where(t => !OpenStatuses.Contains(t.Status));
             if (waitingToStart == true) query = query.Where(t => t.Status == TicketStatus.Assigned || t.Status == TicketStatus.Reopened);
             if (priority.HasValue) query = query.Where(t => t.Priority == priority.Value);
+            if (pendingReason.HasValue && pendingReason.Value != 1 && pendingReason.Value != 2) return (new TicketProblem(400, "pendingReason must be 1 (the requester) or 2 (a third party).", "pendingReason"), null);
+            if (pendingReason.HasValue) query = query.Where(t => t.Status == TicketStatus.Pending && (int?)t.PendingReason == pendingReason.Value);
             if (ageBand.HasValue)
             {
                 if (ageBand.Value < 1 || ageBand.Value > 5) return (new TicketProblem(400, "ageBand must be 1 to 5.", "ageBand"), null);
@@ -258,7 +260,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             IOrderedQueryable<Ticket> ordered = sortKey switch
             {
                 "assignedat" => query.OrderBy(t => t.AssignedAt == null).ThenBy(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
-                "assignedat_desc" => query.OrderBy(t => t.AssignedAt == null).ThenByDescending(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
+                "assignedat_desc" => query.OrderBy(t => t.AssignedAt == null).ThenByDescending(t => t.AssignedAt).ThenByDescending(t => t.CreatedAt),
+                "pendingsince" => query.OrderBy(t => t.PendingSince == null).ThenBy(t => t.PendingSince).ThenByDescending(t => t.CreatedAt),
                 _ => query.OrderByDescending(t => t.CreatedAt)
             };
             var total = await query.CountAsync();

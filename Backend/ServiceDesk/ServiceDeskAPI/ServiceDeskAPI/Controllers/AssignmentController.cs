@@ -90,9 +90,9 @@ namespace ServiceDeskAPI.Controllers
         public PoolController(IAssignmentService assignment) => _assignment = assignment;
 
         [HttpGet]
-        [ProducesResponseType(typeof(List<PoolTicketDto>), StatusCodes.Status200OK)]
-        public async Task<ActionResult<List<PoolTicketDto>>> List() =>
-            Ok(await _assignment.ListPoolAsync(Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value)));
+        [ProducesResponseType(typeof(PoolPageDto), StatusCodes.Status200OK)]
+        public async Task<ActionResult<PoolPageDto>> List([FromQuery] string? search, [FromQuery] Guid? unitId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10) =>
+            Ok(await _assignment.ListPoolPageAsync(Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value), search, unitId, page, pageSize));
     }
     /// <summary>Looking people up to copy them on a ticket (any signed-in person): name, login name and department only.</summary>
     [ApiController]
