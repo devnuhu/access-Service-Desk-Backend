@@ -36,7 +36,7 @@ export function useTicketTasks(ticketId, { enabled = true } = {}) {
 /** Under "tickets" too, so a ticket change (and any task change) refetches it. */
 export const MY_TASKS_KEY = ["tickets", "my-tasks"];
 
-/** Tasks given to me, one page at a time: `{ includeFinished, page, pageSize }`. */
+/** Tasks given to me, one page at a time: `{ status, dateField, from, to, page, pageSize }`. */
 export function useMyTasks(query, { enabled = true } = {}) {
   return useQuery({
     queryKey: [...MY_TASKS_KEY, query],
@@ -46,7 +46,7 @@ export function useMyTasks(query, { enabled = true } = {}) {
   });
 }
 
-/** The My tasks badge: openCount from one row (it ignores the page and includeFinished). */
+/** The My tasks badge: openCount from one row (it ignores every filter). */
 export const useMyTaskCount = ({ enabled = true } = {}) =>
   useMyTasks({ page: 1, pageSize: 1 }, { enabled });
 

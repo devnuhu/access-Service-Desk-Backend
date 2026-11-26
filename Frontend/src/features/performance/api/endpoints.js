@@ -39,6 +39,40 @@ export const figuresSchema = z.looseObject({
   resolutionRatePercent: maybe,
 });
 
+/**
+ * Ticket tasks given to a person (or a unit's people) in the period. onTimePercent = done on time /
+ * (done + overdue open + cancelled after overdue), null when there is nothing to measure; rejected
+ * and cancelled-in-time are neutral (not counted against).
+ */
+export const taskFiguresSchema = z.looseObject({
+  given: z.number().int(),
+  done: z.number().int(),
+  doneOnTime: z.number().int(),
+  doneLate: z.number().int(),
+  openNow: z.number().int(),
+  overdueOpen: z.number().int(),
+  rejected: z.number().int(),
+  cancelled: z.number().int(),
+  /** Cancelled after its due date had passed: counted against. */
+  cancelledLate: z.number().int(),
+  onTimePercent: maybe,
+});
+
+/** Before the API sent task figures: nothing given. */
+const NO_TASKS = {
+  given: 0,
+  done: 0,
+  doneOnTime: 0,
+  doneLate: 0,
+  openNow: 0,
+  overdueOpen: 0,
+  rejected: 0,
+  cancelled: 0,
+  cancelledLate: 0,
+  onTimePercent: null,
+};
+const tasksField = taskFiguresSchema.optional().default(NO_TASKS);
+
 const periodSchema = z.looseObject({
   from: z.string().nullable().optional(),
   to: z.string().nullable().optional(),
@@ -74,6 +108,16 @@ export const performanceSchema = z.looseObject({
    * ones, are not shown); null when in no unit.
    */
   team: figuresSchema.nullable().optional().default(null),
+  tasks: tasksField,
+  /** The latest 10 tasks this person sent back, newest first. */
+  taskRejections: list(
+    z.looseObject({
+      ticketReference: z.string(),
+      title: z.string(),
+      reason: z.string(),
+      rejectedAt: z.string(),
+    }),
+  ),
   series: list(pointSchema),
   openByStatus: list(countSchema),
   targets: list(targetSchema),
@@ -90,9 +134,12 @@ export const unitPerformanceSchema = z.looseObject({
       userId: z.string().nullable().optional().default(null),
       name: z.string(),
       isHead: z.boolean(),
+      tasks: tasksField,
       figures: figuresSchema,
     }),
   ),
+  /** The members' task figures summed. */
+  tasks: tasksField,
   series: list(pointSchema),
   openByStatus: list(countSchema),
   openByPriority: list(countSchema),

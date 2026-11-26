@@ -18,13 +18,14 @@ import ChartCard from "./ChartCard.jsx";
 import Figure from "./Figure.jsx";
 import HeadlinePanel from "./HeadlinePanel.jsx";
 import TargetTile from "./TargetTile.jsx";
+import TaskFigures from "./TaskFigures.jsx";
 
 const BUCKET_WORD = { day: "day", week: "week", month: "month" };
 
 /**
  * One person's performance (their own on the dashboard, or one of a head's people in the side
  * panel): the six headline indicators, then the detail: assigned and reopened, first response and
- * resolution against the Medium target and the team,
+ * resolution against the Medium target and the team, ticket tasks (on time, rejections and why),
  * assigned and resolved over time, within-time share over time, and what is open now by status.
  */
 export default function PersonPerformance({ data }) {
@@ -82,6 +83,8 @@ export default function PersonPerformance({ data }) {
           testId="resolution"
         />
       </div>
+
+      <TaskFigures tasks={data.tasks} rejections={data.taskRejections} />
 
       <div className="grid gap-3 @5xl:grid-cols-2">
         <ChartCard

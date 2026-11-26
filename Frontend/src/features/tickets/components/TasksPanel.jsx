@@ -234,10 +234,13 @@ const STATUS_TONES = {
   [TASK_STATUS.Cancelled]: "grey",
 };
 
-export function TaskStatusChip({ status }) {
+export function TaskStatusChip({ status, handedOver = false }) {
   return (
-    <Chip tone={STATUS_TONES[status] ?? "grey"} data-testid="task-status">
-      {status}
+    <Chip
+      tone={handedOver ? "grey" : (STATUS_TONES[status] ?? "grey")}
+      data-testid="task-status"
+    >
+      {handedOver ? "Handed over" : status}
     </Chip>
   );
 }
@@ -364,9 +367,11 @@ function TaskReasonDialog({ ticketId, task, kind, onClose }) {
 
 /**
  * One task: its state, owner, due date and outcome ("Rejected by …: reason"), and the buttons the
- * API allows for it (canComplete, canReject, canCancel), never decided from the role. Edit and
- * Remove are for staff (canEdit; Remove is for a task added by mistake, Cancel drops a real one);
- * a cancelled task cannot be edited.
+ * API allows for it (canComplete, canReject, canCancel, canRemove), never decided from the role.
+ * Edit is for staff (canEdit); a cancelled task cannot be edited, and editing a rejected one with
+ * another owner makes a new task (the list refetches after saving). Remove (canRemove: a task added
+ * by mistake, unowned or one's own) is not Cancel, which drops someone else's task with a reason.
+ * A handed-over task (rejected, then given to someone else) is history: no buttons at all.
  */
 function TaskRow({ ticketId, task, canEdit, onRemove }) {
   const toast = useToast();
@@ -396,14 +401,21 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
   };
   const due = formatTaskDue(task.dueDate);
   const cancelled = task.status === TASK_STATUS.Cancelled;
-  const rejected = task.status === TASK_STATUS.Rejected;
-  const finished = cancelled || task.status === TASK_STATUS.Done;
+  const handedOver = Boolean(task.handedOver);
+  // A handed-over rejection is history; only a live one needs attention.
+  const rejected = task.status === TASK_STATUS.Rejected && !handedOver;
+  const finished = cancelled || handedOver || task.status === TASK_STATUS.Done;
+  const canEditThis = canEdit && !cancelled && !handedOver;
+  const canRemove = task.canRemove && !handedOver;
+  const actions =
+    !handedOver && (task.canComplete || task.canReject || task.canCancel);
   const outcome = taskOutcomeText(task);
 
   return (
     <li
       data-testid={`task-${task.id}`}
       data-status={task.status}
+      data-handed-over={handedOver ? "true" : undefined}
       data-overdue={task.isOverdue ? "true" : undefined}
       className="py-3"
     >
@@ -412,7 +424,7 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
           className={`min-w-0 flex-1 ${rejected ? "border-l-4 border-brand-orange pl-2" : ""}`}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <TaskStatusChip status={task.status} />
+            <TaskStatusChip status={task.status} handedOver={handedOver} />
             <p
               data-testid="task-title"
               title={task.isDone ? doneText(task) || undefined : undefined}
@@ -448,9 +460,9 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
             </p>
           )}
         </div>
-        {canEdit && (
+        {(canEditThis || canRemove) && (
           <span className="flex shrink-0">
-            {!cancelled && (
+            {canEditThis && (
               <button
                 type="button"
                 aria-label={`Edit task: ${task.title}`}
@@ -461,19 +473,21 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
                 <Pencil aria-hidden="true" size={16} />
               </button>
             )}
-            <button
-              type="button"
-              aria-label={`Remove task: ${task.title}`}
-              title="Remove a task added by mistake"
-              onClick={() => onRemove(task)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-danger-light hover:text-danger"
-            >
-              <Trash2 aria-hidden="true" size={16} />
-            </button>
+            {canRemove && (
+              <button
+                type="button"
+                aria-label={`Remove task: ${task.title}`}
+                title="Remove a task added by mistake"
+                onClick={() => onRemove(task)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-danger-light hover:text-danger"
+              >
+                <Trash2 aria-hidden="true" size={16} />
+              </button>
+            )}
           </span>
         )}
       </div>
-      {(task.canComplete || task.canReject || task.canCancel) && (
+      {actions && (
         <div className="mt-2 flex flex-wrap gap-2">
           {task.canComplete && (
             <Button

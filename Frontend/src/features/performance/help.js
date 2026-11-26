@@ -18,6 +18,20 @@ export const HELP = {
     "Tickets resolved in the period and reopened at least once, and their share of all resolved.",
   noResponseInTime:
     "Tickets raised in the period that were not answered within their response time.",
+  /** Ticket tasks (components/TaskFigures.jsx). */
+  tasks: {
+    onTime:
+      "On time = done on time ÷ (done + overdue and still open + cancelled after it was overdue). Rejected tasks are neutral.",
+    given: "Tasks given in the period.",
+    doneOnTime: "Done by their due date (or with no due date).",
+    doneLate: "Done after their due date.",
+    openNow: "Open right now, whatever the period.",
+    overdueOpen: "Open right now and past their due date: counted against.",
+    rejected:
+      "Sent back with a reason. Not counted against: the task goes to someone else.",
+    cancelled:
+      "Cancelled because they were no longer needed. Not counted against, unless cancelled after the due date had passed (shown apart).",
+  },
   /** The six headline indicators (../headline.js). */
   headline: {
     resolved:

@@ -68,12 +68,15 @@ export function tasksMarkerText(tasks) {
   return parts.join(", ");
 }
 
-/** "Rejected by Name: reason" / "Cancelled by Name: reason" / "Done by Name"; "" while open. */
+/**
+ * "Rejected by Name: reason" (with " - handed over" once given to someone else as a new task) /
+ * "Cancelled by Name: reason" / "Done by Name"; "" while open.
+ */
 export function taskOutcomeText(task) {
   const by = (person) => (person ? ` by ${personName(person)}` : "");
   switch (task?.status) {
     case "Rejected":
-      return `Rejected${by(task.rejectedBy)}${task.rejectedReason ? `: ${task.rejectedReason}` : ""}`;
+      return `Rejected${by(task.rejectedBy)}${task.rejectedReason ? `: ${task.rejectedReason}` : ""}${task.handedOver ? " - handed over" : ""}`;
     case "Cancelled":
       return `Cancelled${by(task.cancelledBy)}${task.cancelledReason ? `: ${task.cancelledReason}` : ""}`;
     case "Done":

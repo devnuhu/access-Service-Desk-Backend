@@ -1,12 +1,62 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { headlineIndicators } from "../headline.js";
+import { formatShare, headlineIndicators } from "../headline.js";
 
 /** The six headline indicators as columns (labels and order from ../headline.js). */
 const COLUMNS = headlineIndicators({}).map(({ key, label }) => ({
   key,
   label,
 }));
+
+/**
+ * Ticket tasks per member: given, on time (%), overdue (amber above 0), and rejected and cancelled
+ * (neutral). `sort` is the number a column sorts by (no share sorts below 0%).
+ */
+const TASK_COLUMNS = [
+  {
+    key: "tasksGiven",
+    label: "Tasks given",
+    sort: (t) => t.given,
+    text: (t) => t.given,
+  },
+  {
+    key: "tasksOnTime",
+    label: "Tasks on time",
+    sort: (t) => t.onTimePercent ?? -1,
+    text: (t) => formatShare(t.onTimePercent),
+  },
+  {
+    key: "tasksOverdue",
+    label: "Tasks overdue",
+    sort: (t) => t.overdueOpen,
+    text: (t) => t.overdueOpen,
+    alert: (t) => t.overdueOpen > 0,
+  },
+  {
+    key: "tasksRejected",
+    label: "Tasks rejected",
+    sort: (t) => t.rejected,
+    text: (t) => t.rejected,
+  },
+  {
+    key: "tasksCancelled",
+    label: "Tasks cancelled",
+    sort: (t) => t.cancelled,
+    text: (t) => t.cancelled,
+  },
+];
+
+function TaskValue({ column, tasks }) {
+  const alert = column.alert?.(tasks) ?? false;
+  return (
+    <span
+      data-alert={alert ? "true" : undefined}
+      className={`font-semibold tabular-nums ${alert ? "text-brand-orange-ink" : "text-ink"}`}
+    >
+      {column.text(tasks)}
+    </span>
+  );
+}
 
 function HeadMark() {
   return (
@@ -56,7 +106,8 @@ function Indicator({ item, align = "right" }) {
 }
 
 /**
- * Every member (the head's own row too, marked Head) with the six headline indicators. A table
+ * Every member (the head's own row too, marked Head) with the six headline indicators and their
+ * ticket tasks (given, on time, overdue, rejected, cancelled). A table
  * from md up, each column sorting (again to reverse); one card per member on a phone, in the same
  * order. A member with a userId opens their performance (name button or the row).
  */
@@ -66,8 +117,11 @@ export default function MembersTable({ members, onSelect }) {
     member: m,
     items: headlineIndicators(m.figures),
   }));
+  const taskColumn = TASK_COLUMNS.find((c) => c.key === sort.key);
   const count = (row) =>
-    row.items.find((item) => item.key === sort.key)?.count ?? 0;
+    taskColumn
+      ? taskColumn.sort(row.member.tasks)
+      : (row.items.find((item) => item.key === sort.key)?.count ?? 0);
   const sorted = [...rows].sort((a, b) => {
     const byName = a.member.name.localeCompare(b.member.name);
     if (sort.key === "name") return (sort.desc ? -1 : 1) * byName;
@@ -115,6 +169,7 @@ export default function MembersTable({ members, onSelect }) {
             <tr>
               {header("name", "Name", false)}
               {COLUMNS.map(({ key, label }) => header(key, label))}
+              {TASK_COLUMNS.map(({ key, label }) => header(key, label))}
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -141,6 +196,15 @@ export default function MembersTable({ members, onSelect }) {
                       className="px-3 py-2.5 text-right align-top"
                     >
                       <Indicator item={item} />
+                    </td>
+                  ))}
+                  {TASK_COLUMNS.map((column) => (
+                    <td
+                      key={column.key}
+                      data-testid={`member-${column.key}`}
+                      className="px-3 py-2.5 text-right align-top"
+                    >
+                      <TaskValue column={column} tasks={m.tasks} />
                     </td>
                   ))}
                 </tr>
@@ -173,6 +237,18 @@ export default function MembersTable({ members, onSelect }) {
                     <dt className="text-xs text-muted">{item.label}</dt>
                     <dd className="text-sm">
                       <Indicator item={item} align="left" />
+                    </dd>
+                  </div>
+                ))}
+                {TASK_COLUMNS.map((column) => (
+                  <div
+                    key={column.key}
+                    data-testid={`member-${column.key}`}
+                    className="min-w-0"
+                  >
+                    <dt className="text-xs text-muted">{column.label}</dt>
+                    <dd className="text-sm">
+                      <TaskValue column={column} tasks={m.tasks} />
                     </dd>
                   </div>
                 ))}

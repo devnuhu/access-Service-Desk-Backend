@@ -761,6 +761,11 @@ describe("Headline indicators", () => {
       "First response in time",
       "First response missed",
       "Outstanding",
+      "Tasks given",
+      "Tasks on time",
+      "Tasks overdue",
+      "Tasks rejected",
+      "Tasks cancelled",
     ]);
     const cell = (card, key) =>
       within(card).getByTestId(`member-${key}`).textContent;
@@ -774,10 +779,191 @@ describe("Headline indicators", () => {
     const head = screen.getByTestId("member-card-Hope Head");
     expect(head).toHaveTextContent("Head");
     expect(cell(head, "openNow")).toBe("Outstanding2on hold: 1");
-    // The same six in the table (md and up).
+    // The same six and the five task columns in the table (md and up).
     const row = within(screen.getByTestId("members-table")).getByTestId(
       "member-row-Chidi One",
     );
-    expect(within(row).getAllByRole("cell")).toHaveLength(6);
+    expect(within(row).getAllByRole("cell")).toHaveLength(11);
+  });
+});
+
+describe("Task figures (appraisal)", () => {
+  const taskFigures = (overrides = {}) => ({
+    given: 0,
+    done: 0,
+    doneOnTime: 0,
+    doneLate: 0,
+    openNow: 0,
+    overdueOpen: 0,
+    rejected: 0,
+    cancelled: 0,
+    cancelledLate: 0,
+    onTimePercent: null,
+    ...overrides,
+  });
+  const queueLink = (filter) =>
+    `/departments/d-cp/tickets?tab=department&unit=u-cm${filter}`;
+
+  it("a person's Tasks card: the on-time share, the counts, rejected and cancelled apart, and the rejection reasons", async () => {
+    renderPanel(<MyPerformancePanel />, {
+      "GET /api/performance/me": () => [
+        200,
+        me({
+          tasks: taskFigures({
+            given: 9,
+            done: 6,
+            doneOnTime: 5,
+            doneLate: 1,
+            openNow: 2,
+            overdueOpen: 1,
+            rejected: 2,
+            cancelled: 1,
+            cancelledLate: 1,
+            onTimePercent: 62.5,
+          }),
+          taskRejections: [
+            {
+              ticketReference: "CP-2026-000007",
+              title: "Post the missing months",
+              reason: "Records holds this, not us.",
+              rejectedAt: "2026-11-24T09:00:00Z",
+            },
+          ],
+        }),
+      ],
+    });
+    const card = await screen.findByTestId("perf-tasks");
+    expect(within(card).getByTestId("perf-tasks-ontime")).toHaveTextContent(
+      "63%",
+    );
+    const value = (key) =>
+      within(card).getByTestId(`perf-tasks-${key}`).textContent;
+    expect(value("given")).toBe("9");
+    expect(value("doneOnTime")).toBe("5");
+    expect(value("doneLate")).toBe("1");
+    expect(value("openNow")).toBe("2");
+    expect(value("overdueOpen")).toBe("1");
+    expect(within(card).getByTestId("perf-tasks-overdueOpen")).toHaveAttribute(
+      "data-alert",
+      "true",
+    );
+    expect(card).toHaveTextContent("Not counted against");
+    expect(value("rejected")).toBe("2");
+    expect(value("cancelled")).toBe("1");
+    expect(
+      within(card).getByTestId("perf-tasks-cancelledLate"),
+    ).toHaveTextContent("1 cancelled after the due date (counted against).");
+    // The rule is in the on-time help.
+    expect(
+      within(card).getByRole("button", { name: "About on time" }),
+    ).toBeInTheDocument();
+
+    const reasons = within(card).getByTestId("perf-tasks-rejections");
+    expect(reasons).toHaveTextContent(
+      "CP-2026-000007 · Post the missing months",
+    );
+    expect(reasons).toHaveTextContent("Records holds this, not us.");
+    expect(reasons).toHaveTextContent("24 Nov 2026, 10:00");
+    expect(
+      within(reasons).getByRole("link", { name: "CP-2026-000007" }),
+    ).toHaveAttribute("href", "/tickets/CP-2026-000007");
+  });
+
+  it('nothing to measure says "No data" (never 0%), and no rejections list', async () => {
+    renderPanel(<MyPerformancePanel />, {
+      "GET /api/performance/me": () => [200, me({ tasks: taskFigures() })],
+    });
+    const card = await screen.findByTestId("perf-tasks");
+    expect(within(card).getByTestId("perf-tasks-ontime")).toHaveTextContent(
+      "No data",
+    );
+    expect(within(card).queryByTestId("perf-tasks-rejections")).toBeNull();
+    expect(within(card).queryByTestId("perf-tasks-cancelledLate")).toBeNull();
+  });
+
+  it("the unit has a totals card and task columns per member that sort", async () => {
+    const user = userEvent.setup();
+    const base = unit();
+    const withTasks = {
+      "Chidi One": taskFigures({
+        given: 4,
+        overdueOpen: 2,
+        rejected: 1,
+        onTimePercent: 50,
+      }),
+      "Hope Head": taskFigures({ given: 7, cancelled: 2, onTimePercent: 100 }),
+    };
+    renderPanel(
+      <UnitPerformance
+        unitId="u-cm"
+        unitName="Contribution Matching"
+        queueLink={queueLink}
+      />,
+      {
+        "GET /api/performance/units/:unitId": () => [
+          200,
+          {
+            ...base,
+            tasks: taskFigures({
+              given: 11,
+              overdueOpen: 2,
+              rejected: 1,
+              cancelled: 2,
+              onTimePercent: 75,
+            }),
+            members: base.members.map((m) => ({
+              ...m,
+              tasks: withTasks[m.name] ?? taskFigures(),
+            })),
+          },
+        ],
+      },
+    );
+    const totals = await screen.findByTestId("unit-tasks");
+    expect(totals).toHaveTextContent("Tasks, all members");
+    expect(within(totals).getByTestId("unit-tasks-ontime")).toHaveTextContent(
+      "75%",
+    );
+    expect(within(totals).getByTestId("unit-tasks-given")).toHaveTextContent(
+      "11",
+    );
+    expect(within(totals).queryByTestId("unit-tasks-rejections")).toBeNull();
+
+    const table = screen.getByTestId("members-table");
+    const chidi = within(table).getByTestId("member-row-Chidi One");
+    const cell = (row, key) =>
+      within(row).getByTestId(`member-${key}`).textContent;
+    expect(cell(chidi, "tasksGiven")).toBe("4");
+    expect(cell(chidi, "tasksOnTime")).toBe("50%");
+    expect(cell(chidi, "tasksOverdue")).toBe("2");
+    expect(
+      within(within(chidi).getByTestId("member-tasksOverdue")).getByText("2"),
+    ).toHaveAttribute("data-alert", "true");
+    expect(cell(chidi, "tasksRejected")).toBe("1");
+    expect(
+      cell(within(table).getByTestId("member-row-Idle Ike"), "tasksOnTime"),
+    ).toBe("–");
+
+    const order = () =>
+      within(table)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.getAttribute("data-testid"));
+    await user.click(
+      within(table).getByRole("button", { name: "Tasks given" }),
+    );
+    expect(order().slice(0, 2)).toEqual([
+      "member-row-Hope Head",
+      "member-row-Chidi One",
+    ]);
+    await user.click(
+      within(table).getByRole("button", { name: "Tasks on time" }),
+    );
+    expect(order()[0]).toBe("member-row-Hope Head");
+    // No share (–) sorts below 0%.
+    expect(order().slice(2)).toEqual([
+      "member-row-Former Staff",
+      "member-row-Idle Ike",
+    ]);
   });
 });

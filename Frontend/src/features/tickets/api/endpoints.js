@@ -735,6 +735,10 @@ const taskSchema = z.object({
   canComplete: z.boolean(),
   canReject: z.boolean(),
   canCancel: z.boolean(),
+  /** Remove (for a task added by mistake): staff, and only an unowned task or one's own. */
+  canRemove: z.boolean().default(false),
+  /** Rejected, then given to someone else as a new task: history only, nothing to do. */
+  handedOver: z.boolean().default(false),
 });
 
 const taskBody = z.object({
@@ -818,14 +822,38 @@ export const cancelTicketTask = defineEndpoint({
   response: taskSchema,
 });
 
+/** My tasks' filters: which state (MY_TASK_STATUS) and which date the From/To window applies to. */
+export const MY_TASK_STATUS = Object.freeze({
+  Open: "open",
+  Done: "done",
+  Rejected: "rejected",
+  Cancelled: "cancelled",
+  All: "all",
+});
+export const MY_TASK_DATE = Object.freeze({
+  Given: "given",
+  Due: "due",
+  Finished: "finished",
+});
+
+const myTaskCounts = z.object({
+  open: z.number().int(),
+  done: z.number().int(),
+  rejected: z.number().int(),
+  cancelled: z.number().int(),
+  all: z.number().int(),
+});
+
 /**
- * Tasks given to me on any ticket, soonest due first (undated last). openCount (for the tab's
- * badge) ignores the page and includeFinished.
+ * Tasks given to me on any ticket, finished ones kept: status (open by default, done, rejected,
+ * cancelled, all), dateField (given by default, due, finished) with from and to (yyyy-MM-dd, both
+ * included). 400 errors.status / dateField / from / to. counts: every state inside the date
+ * window (the chips); openCount (the tab's badge): open tasks on running tickets, ignoring filters.
  */
 export const listMyTasks = defineEndpoint({
   method: "GET",
   path: "/api/tasks/mine",
-  query: ["includeFinished", "page", "pageSize"],
+  query: ["status", "dateField", "from", "to", "page", "pageSize"],
   response: z.object({
     items: list(
       z.object({
@@ -839,11 +867,16 @@ export const listMyTasks = defineEndpoint({
         dueDate: z.string().nullable(),
         isOverdue: z.boolean(),
         givenBy: personSchema.nullable(),
+        /** When it was done, rejected or cancelled; null while open. */
+        finishedAt: z.string().nullable().default(null),
+        /** The rejection or cancel reason. */
+        reason: z.string().nullable().default(null),
         createdAt: z.string(),
       }),
     ),
     total: z.number().int(),
     openCount: z.number().int(),
+    counts: myTaskCounts.nullable().default(null),
     page: z.number().int(),
     pageSize: z.number().int(),
   }),

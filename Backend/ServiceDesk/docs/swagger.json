@@ -5621,29 +5621,55 @@
         ],
         "parameters": [
           {
+            "name": "Status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "DateField",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "From",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "To",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "PageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
             "name": "includeFinished",
             "in": "query",
             "schema": {
               "type": "boolean",
               "default": false
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 20
             }
           }
         ],
@@ -5654,6 +5680,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MyTasksDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
                 }
               }
             }
@@ -12914,6 +12950,32 @@
         },
         "additionalProperties": false
       },
+      "MyTaskCounts": {
+        "type": "object",
+        "properties": {
+          "open": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rejected": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "all": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "MyTaskDto": {
         "type": "object",
         "properties": {
@@ -12959,6 +13021,15 @@
             ],
             "nullable": true
           },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -12982,6 +13053,13 @@
           "openCount": {
             "type": "integer",
             "format": "int32"
+          },
+          "counts": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MyTaskCounts"
+              }
+            ]
           },
           "page": {
             "type": "integer",
@@ -13129,6 +13207,19 @@
             ],
             "nullable": true
           },
+          "tasks": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskFigures"
+              }
+            ]
+          },
+          "taskRejections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskRejectionDto"
+            }
+          },
           "series": {
             "type": "array",
             "items": {
@@ -13239,6 +13330,13 @@
           },
           "isHead": {
             "type": "boolean"
+          },
+          "tasks": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskFigures"
+              }
+            ]
           },
           "figures": {
             "allOf": [
@@ -14718,6 +14816,72 @@
         },
         "additionalProperties": false
       },
+      "TaskFigures": {
+        "type": "object",
+        "properties": {
+          "given": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doneOnTime": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "doneLate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "openNow": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "overdueOpen": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "rejected": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelled": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cancelledLate": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "onTimePercent": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskRejectionDto": {
+        "type": "object",
+        "properties": {
+          "ticketReference": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "rejectedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "TicketActionsDto": {
         "type": "object",
         "properties": {
@@ -15489,6 +15653,12 @@
           },
           "canCancel": {
             "type": "boolean"
+          },
+          "canRemove": {
+            "type": "boolean"
+          },
+          "handedOver": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -15803,6 +15973,13 @@
             "items": {
               "$ref": "#/components/schemas/CategoryPerformanceDto"
             }
+          },
+          "tasks": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskFigures"
+              }
+            ]
           },
           "targets": {
             "type": "array",

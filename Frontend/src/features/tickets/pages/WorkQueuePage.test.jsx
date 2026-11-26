@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Route, Routes } from "react-router-dom";
 import { SESSION_KEY } from "@/features/auth";
@@ -1331,27 +1331,36 @@ describe("Work queue: My tasks", () => {
     dueDate: null,
     isOverdue: false,
     givenBy: GIVER,
+    finishedAt: null,
+    reason: null,
     createdAt: "2026-11-03T10:00:00Z",
     ...overrides,
   });
-  /** `answer(params)` gives the items; openCount stays 3 whatever is asked (as the API does). */
-  function renderTasks(answer, search = "?tab=tasks") {
+  const COUNTS = { open: 3, done: 2, rejected: 1, cancelled: 1, all: 7 };
+  /**
+   * `answer(params)` gives the items; `counts(params)` the chips' counts (inside the date window);
+   * openCount stays 3 whatever is asked, as the API does. A [status, body] answer is sent as is.
+   */
+  function renderTasks(answer, { counts = () => COUNTS } = {}) {
     const asked = [];
     const queue = renderQueue(
       ["Requester", "CaseWorker"],
       org([CM({ isMember: true }), RF]),
       () => [],
-      search,
+      "?tab=tasks",
       {
         "GET /api/tasks/mine": (config) => {
           asked.push(config.params);
-          const items = answer(config.params);
+          const result = answer(config.params);
+          if (!Array.isArray(result) || typeof result[0] === "number")
+            return result;
           return [
             200,
             {
-              items,
-              total: items.length,
+              items: result,
+              total: result.length,
               openCount: 3,
+              counts: counts(config.params),
               page: config.params.page ?? 1,
               pageSize: config.params.pageSize ?? 20,
             },
@@ -1361,13 +1370,11 @@ describe("Work queue: My tasks", () => {
     );
     return { asked, queue };
   }
+  const listCalls = (asked) => asked.filter((p) => p.pageSize !== 1);
 
-  it("shows the open count as the tab's badge, and lists each task with its ticket, giver, due date, Overdue and status", async () => {
+  it("shows the open count as the tab's badge, and open tasks with ticket, giver, due date and Overdue", async () => {
     const { asked, queue } = renderTasks(() => [
-      myTask("k-1", {
-        dueDate: "2026-11-10",
-        isOverdue: true,
-      }),
+      myTask("k-1", { dueDate: "2026-11-10", isOverdue: true }),
       myTask("k-2", { dueDate: "2026-12-20" }),
       myTask("k-3", { givenBy: null }),
     ]);
@@ -1382,7 +1389,7 @@ describe("Work queue: My tasks", () => {
     expect(first).toHaveTextContent("CP-2026-000001");
     expect(first).toHaveTextContent("Subject k-1");
     expect(within(first).getByTestId("my-task-given-by")).toHaveTextContent(
-      "From Chidi Worker",
+      "Chidi Worker",
     );
     expect(within(first).getByTestId("my-task-due")).toHaveTextContent(
       "Overdue · 10 Nov",
@@ -1394,40 +1401,174 @@ describe("Work queue: My tasks", () => {
     expect(
       within(screen.getByTestId("my-task-k-3")).getByTestId("my-task-due"),
     ).toHaveTextContent("No due date");
+    // Open tasks have no Finished or Reason column.
+    expect(screen.queryByRole("columnheader", { name: "Finished" })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Reason" })).toBeNull();
 
-    // 10 a page, finished ones left out; the badge asks for one row.
-    expect(asked).toContainEqual({ page: 1, pageSize: 10 });
+    // Open by default, 10 a page, no date window; the badge asks for one row.
+    expect(listCalls(asked)).toEqual([
+      { status: "open", page: 1, pageSize: 10 },
+    ]);
     expect(asked).toContainEqual({ page: 1, pageSize: 1 });
     // The tab asks for no ticket list.
     expect(queue).toHaveLength(0);
 
     const user = userEvent.setup();
-    await user.click(within(first).getByRole("link"));
+    await user.click(within(first).getByRole("link", { name: "Task k-1" }));
     expect(queue.router.state.location.pathname).toBe(
       "/tickets/CP-2026-000001",
     );
   });
 
-  it("Show finished asks for includeFinished=true and back to page 1", async () => {
+  it("the status chips carry the server's counts; choosing one asks for it, and finished rows show when and why", async () => {
     const user = userEvent.setup();
     const { asked } = renderTasks((params) =>
-      params.includeFinished
-        ? [myTask("k-1"), myTask("k-2", { status: "Done" })]
+      params.status === "rejected"
+        ? [
+            myTask("k-4", {
+              status: "Rejected",
+              dueDate: "2026-11-10",
+              finishedAt: "2026-11-24T09:00:00Z",
+              reason: "Records holds this, not us.",
+            }),
+          ]
         : [myTask("k-1")],
     );
     await screen.findByTestId("my-task-k-1");
-    expect(screen.queryByTestId("my-task-k-2")).toBeNull();
-    await user.click(screen.getByRole("switch", { name: "Show finished" }));
-    const done = await screen.findByTestId("my-task-k-2");
-    expect(within(done).getByTestId("task-status")).toHaveTextContent("Done");
-    expect(asked).toContainEqual({
-      includeFinished: true,
+    const chip = (status) => screen.getByTestId(`my-tasks-chip-${status}`);
+    expect(chip("open")).toHaveAttribute("aria-pressed", "true");
+    expect(
+      ["open", "done", "rejected", "cancelled", "all"].map(
+        (s) => chip(s).textContent,
+      ),
+    ).toEqual(["Open3", "Done2", "Rejected1", "Cancelled1", "All7"]);
+
+    await user.click(chip("rejected"));
+    const row = await screen.findByTestId("my-task-k-4");
+    expect(chip("rejected")).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("columnheader", { name: "Finished" }),
+    ).toBeInTheDocument();
+    expect(within(row).getByTestId("my-task-finished")).toHaveTextContent(
+      "24 Nov 2026, 10:00",
+    );
+    expect(within(row).getByTestId("my-task-reason")).toHaveTextContent(
+      "Records holds this, not us.",
+    );
+    // A finished task's due date is plain (no Overdue).
+    expect(within(row).getByTestId("my-task-due")).toHaveTextContent("10 Nov");
+    expect(within(row).getByTestId("my-task-due")).not.toHaveTextContent(
+      "Overdue",
+    );
+    expect(within(row).getByTestId("task-status")).toHaveTextContent(
+      "Rejected",
+    );
+    expect(listCalls(asked).at(-1)).toEqual({
+      status: "rejected",
       page: 1,
       pageSize: 10,
     });
   });
 
-  it('says "No tasks are waiting for you." when there are none, and the badge hides at 0', async () => {
+  it("All keeps done, rejected and cancelled tasks in the list next to open ones", async () => {
+    const user = userEvent.setup();
+    renderTasks((params) =>
+      params.status === "all"
+        ? [
+            myTask("k-1"),
+            myTask("k-2", {
+              status: "Done",
+              finishedAt: "2026-11-20T09:00:00Z",
+            }),
+            myTask("k-3", {
+              status: "Cancelled",
+              finishedAt: "2026-11-21T09:00:00Z",
+              reason: "Sorted by phone.",
+            }),
+          ]
+        : [myTask("k-1")],
+    );
+    await screen.findByTestId("my-task-k-1");
+    await user.click(screen.getByTestId("my-tasks-chip-all"));
+    expect(await screen.findByTestId("my-task-k-3")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("my-task-k-2")).getByTestId("my-task-reason"),
+    ).toHaveTextContent("—");
+    // The open row in All has no finish time or reason.
+    expect(
+      within(screen.getByTestId("my-task-k-1")).getByTestId("my-task-finished"),
+    ).toHaveTextContent("—");
+  });
+
+  it("the date window (type, From, To) goes to the server and the counts follow it; Clear removes it", async () => {
+    const user = userEvent.setup();
+    const { asked } = renderTasks(() => [myTask("k-1")], {
+      counts: (params) =>
+        params.from
+          ? { open: 1, done: 0, rejected: 0, cancelled: 0, all: 1 }
+          : COUNTS,
+    });
+    await screen.findByTestId("my-task-k-1");
+    await user.selectOptions(screen.getByLabelText("Date"), "due");
+    fireEvent.change(screen.getByLabelText("From"), {
+      target: { value: "2026-11-01" },
+    });
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "2026-11-30" },
+    });
+    await waitFor(() =>
+      expect(listCalls(asked).at(-1)).toEqual({
+        status: "open",
+        dateField: "due",
+        from: "2026-11-01",
+        to: "2026-11-30",
+        page: 1,
+        pageSize: 10,
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("my-tasks-chip-all")).toHaveTextContent("All1"),
+    );
+
+    // Clear goes back to the list without dates (here from the cache: it was asked for first).
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("my-tasks-chip-all")).toHaveTextContent("All7"),
+    );
+    expect(screen.getByLabelText("From")).toHaveValue("");
+    expect(screen.getByLabelText("Date")).toHaveValue("given");
+    expect(screen.getByRole("button", { name: "Clear" })).toBeDisabled();
+  });
+
+  it("shows the API's date error (400 errors.from)", async () => {
+    renderTasks((params) =>
+      params.from === "2026-12-01"
+        ? [
+            400,
+            {
+              message: "From must not be after To.",
+              errors: { from: "From must not be after To." },
+            },
+          ]
+        : [myTask("k-1")],
+    );
+    await screen.findByTestId("my-task-k-1");
+    fireEvent.change(screen.getByLabelText("To"), {
+      target: { value: "2026-11-30" },
+    });
+    fireEvent.change(screen.getByLabelText("From"), {
+      target: { value: "2026-12-01" },
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "From must not be after To.",
+    );
+    expect(screen.getByLabelText("From")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+
+  it('says "No tasks are waiting for you." when nothing is open, and the badge hides at 0', async () => {
     renderQueue(
       ["Requester", "CaseWorker"],
       org([CM({ isMember: true }), RF]),
@@ -1440,6 +1581,7 @@ describe("Work queue: My tasks", () => {
             items: [],
             total: 0,
             openCount: 0,
+            counts: { open: 0, done: 0, rejected: 0, cancelled: 0, all: 0 },
             page: 1,
             pageSize: config.params.pageSize,
           },
@@ -1470,6 +1612,7 @@ describe("Work queue: My tasks", () => {
               items: [myTask(`p${page}`)],
               total: 23,
               openCount: 23,
+              counts: { ...COUNTS, open: 23 },
               page,
               pageSize: 10,
             },
@@ -1482,6 +1625,6 @@ describe("Work queue: My tasks", () => {
     );
     await user.click(screen.getByRole("button", { name: "Page 2" }));
     expect(await screen.findByTestId("my-task-p2")).toBeInTheDocument();
-    expect(asked).toContainEqual({ page: 2, pageSize: 10 });
+    expect(asked).toContainEqual({ status: "open", page: 2, pageSize: 10 });
   });
 });

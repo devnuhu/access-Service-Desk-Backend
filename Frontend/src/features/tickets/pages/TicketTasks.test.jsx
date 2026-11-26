@@ -120,6 +120,8 @@ const task = (id, title, overrides = {}) => ({
   canComplete: true,
   canReject: false,
   canCancel: true,
+  canRemove: true,
+  handedOver: false,
   ...overrides,
 });
 const finished = { canComplete: false, canReject: false, canCancel: false };
@@ -792,6 +794,107 @@ describe("Tasks panel", () => {
     expect(open).not.toHaveAttribute("title");
   });
 
+  it("shows Remove only when canRemove; someone else's task offers Cancel instead", async () => {
+    renderPage({
+      items: [
+        task("k-1", "Mine to remove"),
+        task("k-2", "Ola's task", { assignee: OTHER, canRemove: false }),
+      ],
+    });
+    expect(
+      within(await rowOf("k-1")).getByRole("button", {
+        name: "Remove task: Mine to remove",
+      }),
+    ).toBeInTheDocument();
+    const theirs = await rowOf("k-2");
+    expect(
+      within(theirs).queryByRole("button", { name: /Remove task/ }),
+    ).toBeNull();
+    expect(
+      within(theirs).getByRole("button", { name: "Cancel task: Ola's task" }),
+    ).toBeInTheDocument();
+  });
+
+  it("a handed-over task is history: grey, 'Rejected by X: reason - handed over', and no buttons at all", async () => {
+    renderPage({
+      items: [
+        task("k-1", "Post the months", {
+          status: "Rejected",
+          assignee: OTHER,
+          rejectedBy: OTHER,
+          rejectedReason: "Not mine.",
+          handedOver: true,
+          // Even if a flag came through, a handed-over task offers nothing.
+          canCancel: true,
+          canRemove: true,
+          canComplete: false,
+        }),
+        task("k-2", "Post the months", { assignee: WORKER }),
+      ],
+    });
+    const old = await rowOf("k-1");
+    expect(old).toHaveAttribute("data-handed-over", "true");
+    expect(within(old).getByTestId("task-status")).toHaveTextContent(
+      "Handed over",
+    );
+    expect(within(old).getByTestId("task-status")).not.toHaveClass(
+      "text-brand-orange-ink",
+    );
+    const outcome = within(old).getByTestId("task-outcome");
+    expect(outcome).toHaveTextContent(
+      "Rejected by Ola Other: Not mine. - handed over",
+    );
+    expect(outcome).not.toHaveClass("text-brand-orange-ink");
+    expect(within(old).getByTestId("task-title")).toHaveClass("line-through");
+    expect(within(old).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("changing a rejected task's owner saves and refetches the list (the API makes a new task)", async () => {
+    const user = userEvent.setup();
+    const { calls, store } = renderPage({
+      items: [
+        task("k-1", "Post the months", {
+          status: "Rejected",
+          assignee: OTHER,
+          rejectedBy: OTHER,
+          rejectedReason: "Not mine.",
+          canComplete: false,
+        }),
+      ],
+      routes: {
+        "PUT /api/tickets/:ticketId/tasks/:taskId": (config) => {
+          calls.push(["PUT", config.body, config.pathParams]);
+          // The old task becomes history; a new one goes to the new owner.
+          store.items = [
+            { ...store.items[0], handedOver: true, ...finished },
+            task("k-2", "Post the months", { assignee: WORKER }),
+          ];
+          return [200, store.items[1]];
+        },
+      },
+    });
+    await user.click(
+      within(await rowOf("k-1")).getByRole("button", {
+        name: "Edit task: Post the months",
+      }),
+    );
+    const form = await within(await panel()).findByTestId("task-form-k-1");
+    await user.selectOptions(
+      within(form).getByLabelText("Owner (optional)"),
+      "Chidi Worker",
+    );
+    const before = calls.filter(labelled("GET")).length;
+    await user.click(within(form).getByRole("button", { name: "Save" }));
+    expect(await rowOf("k-2")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("task-k-1")).getByTestId("task-status"),
+    ).toHaveTextContent("Handed over");
+    expect(calls.filter(labelled("GET")).length).toBeGreaterThan(before);
+    expect(calls.find(labelled("PUT"))[1]).toMatchObject({
+      assigneeUserId: "u-cw",
+    });
+  });
+
   it("removes a task after confirming", async () => {
     const user = userEvent.setup();
     const { calls } = renderPage({
@@ -815,7 +918,7 @@ describe("Tasks panel", () => {
   it("is read only with the reason once the ticket is resolved", async () => {
     renderPage({
       data: ticket({ status: 5, resolvedAt: "2026-11-04T10:00:00Z" }),
-      items: [task("k-1", "Call the PFA", finished)],
+      items: [task("k-1", "Call the PFA", { ...finished, canRemove: false })],
       canEdit: false,
     });
     const box = await panel();
@@ -841,6 +944,7 @@ describe("A task owner from another unit", () => {
           canComplete: true,
           canReject: true,
           canCancel: false,
+          canRemove: false,
         }),
       ],
     });

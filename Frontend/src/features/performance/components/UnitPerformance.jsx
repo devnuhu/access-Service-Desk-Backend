@@ -25,6 +25,7 @@ import ChartCard from "./ChartCard.jsx";
 import Figure from "./Figure.jsx";
 import HeadlinePanel from "./HeadlinePanel.jsx";
 import MembersTable from "./MembersTable.jsx";
+import TaskFigures from "./TaskFigures.jsx";
 import PeriodPicker from "./PeriodPicker.jsx";
 import PersonPanel from "./PersonPanel.jsx";
 
@@ -486,6 +487,12 @@ function UnitBody({ data, unitName, stale, error, onPerson, onFilter }) {
           ]}
         />
       </ChartCard>
+
+      <TaskFigures
+        tasks={data.tasks}
+        title="Tasks, all members"
+        testId="unit-tasks"
+      />
 
       <div className="space-y-2">
         <h3 className="text-sm font-semibold text-ink">Members</h3>
