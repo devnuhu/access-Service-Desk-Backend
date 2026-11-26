@@ -62,8 +62,16 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         private static bool CanResolve(Ticket t, Who w) => w.IsAssignee && t.Status is TicketStatus.InProgress or TicketStatus.Pending;
         private static bool CanConfirm(Ticket t, Who w) => w.IsRequester && t.Status == TicketStatus.Resolved;
         private static bool CanReopen(Ticket t, Who w) => w.IsRequester && t.Status == TicketStatus.Resolved;
-        private static bool CanCancel(Ticket t, Who w) =>
-            (w.IsRequester && t.Status is TicketStatus.New or TicketStatus.Assigned) || (w.IsSuperAdmin && Unfinished.Contains(t.Status));
+                private static readonly TicketStatus[] HeldStatuses = { TicketStatus.Assigned, TicketStatus.InProgress, TicketStatus.Pending, TicketStatus.Reopened };
+
+        /// <summary>Past its deadline or first-response time: a case worker can no longer cancel it (reports leave cancelled tickets out, so a late ticket must stay visible). The head decides.</summary>
+        private static bool PastDeadline(Ticket t) => t.SlaBreachedAt != null || t.FirstResponseMissedAt != null;
+
+        private static bool CanCancel(Ticket t, Who w, bool isHead) =>
+            (w.IsRequester && t.Status is TicketStatus.New or TicketStatus.Assigned)
+            || (w.IsSuperAdmin && Unfinished.Contains(t.Status))
+            || (isHead && (t.Status == TicketStatus.New || HeldStatuses.Contains(t.Status)))
+            || (w.IsAssignee && HeldStatuses.Contains(t.Status) && !PastDeadline(t));
 
         public async Task<(TicketProblem? Problem, TicketActionsDto? Actions)> GetActionsAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin)
         {
@@ -77,7 +85,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 CanResolve = CanResolve(ticket!, who!),
                 CanConfirm = CanConfirm(ticket!, who!),
                 CanReopen = CanReopen(ticket!, who!),
-                CanCancel = CanCancel(ticket!, who!),
+                CanCancel = CanCancel(ticket!, who!, await IsUnitHeadAsync(ticket!, actorUserId)),
                 CanEscalate = CanEscalate(ticket!, who!) && !await IsUnitHeadAsync(ticket!, actorUserId),
                 ResolutionCodes = CodeLabels.Select(c => new ResolutionCodeDto(c.Key, c.Value)).ToList()
             });
@@ -283,19 +291,27 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 
             var (problem, ticket, who) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin);
             if (problem != null) return (problem, null);
-            if (!CanCancel(ticket!, who!))
-                return (Refuse(ticket!, who!.IsRequester || who.IsSuperAdmin,
-                    "The requester can cancel it before work starts (New or Assigned); a Super Admin can cancel any open ticket."), null);
+            var isHead = await IsUnitHeadAsync(ticket!, actorUserId);
+            if (!CanCancel(ticket!, who!, isHead))
+            {
+                if (who!.IsAssignee && !isHead && PastDeadline(ticket!) && HeldStatuses.Contains(ticket!.Status))
+                    return (new TicketProblem(400, "This ticket has passed its deadline or its first-response time, so only the head of the unit can cancel it. Ask them."), null);
+                return (Refuse(ticket!, who!.IsRequester || who.IsSuperAdmin || who.IsAssignee || isHead,
+                    "The requester can cancel it before work starts (New or Assigned); the case worker can cancel it while it is open and not past its deadline; the head of the unit or a Super Admin can cancel any open ticket."), null);
+            }
 
             var now = DateTime.UtcNow;
             Change(ticket!, TicketStatus.Cancelled, actorUserId, "Cancelled", now);
             ticket!.CancelledAt = now;
             Comment(ticket, actorUserId, "Cancelled", reason, now);
-            Stage(AuditAction.Cancelled, ticket, null);
+            Stage(AuditAction.Cancelled, ticket, new { by = who!.IsAssignee ? "case worker" : isHead ? "head of unit" : who.IsRequester ? "requester" : "Super Admin" });
             var actorName = await NameOfAsync(actorUserId);
             if (ticket.AssigneeUserId.HasValue)
                 Tell(ticket.AssigneeUserId.Value, actorUserId, ticket, "Ticket " + ticket.Reference + " cancelled", actorName + " cancelled it. No further work is needed.", NotificationType.Info);
-            Tell(ticket.RequesterUserId, actorUserId, ticket, "Ticket " + ticket.Reference + " cancelled", actorName + " cancelled your " + ticket.Category!.Name + " request.", NotificationType.Info);
+            Tell(ticket.RequesterUserId, actorUserId, ticket, "Ticket " + ticket.Reference + " cancelled", actorName + " cancelled your " + ticket.Category!.Name + " request, \"" + ticket.Subject + "\". The reason is on the ticket.", NotificationType.Info);
+            if (who!.IsAssignee && !isHead)
+                foreach (var head in (await ServiceDeskAPI.Infrastructure.Organisation.HeadContacts.ForAsync(_db, ticket.UnitId)).Distinct())
+                    Tell(head, actorUserId, ticket, "Ticket " + ticket.Reference + " cancelled by " + actorName, actorName + " cancelled a " + ticket.Category!.Name + " request. The reason is on the ticket.", NotificationType.Info);
             return await SaveAsync(ticket.Reference + " is cancelled.");
         }
 
