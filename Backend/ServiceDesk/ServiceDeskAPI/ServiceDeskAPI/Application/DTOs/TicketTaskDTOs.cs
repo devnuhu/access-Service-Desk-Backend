@@ -30,6 +30,10 @@ namespace ServiceDeskAPI.Application.DTOs
         public bool CanComplete { get; set; }
         public bool CanReject { get; set; }
         public bool CanCancel { get; set; }
+        /// <summary>Staff may remove only a task nobody else owns (a mistake). A task given to someone else is cancelled with a reason instead.</summary>
+        public bool CanRemove { get; set; }
+        /// <summary>Rejected, then given to someone else as a new task. Kept as history.</summary>
+        public bool HandedOver { get; set; }
     }
 
     /// <summary>
@@ -78,15 +82,42 @@ namespace ServiceDeskAPI.Application.DTOs
         public string? DueDate { get; set; }
         public bool IsOverdue { get; set; }
         public PersonDto? GivenBy { get; set; }
+        /// <summary>When it was done, rejected or cancelled.</summary>
+        public DateTime? FinishedAt { get; set; }
+        /// <summary>Why it was rejected or cancelled.</summary>
+        public string? Reason { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
-    /// <summary>The tasks given to the signed-in person. OpenCount is the open tasks on running tickets (for the tab badge), whatever the page shows.</summary>
+        /// <summary>
+    /// status: open (default), done, rejected, cancelled or all. dateField: given (default), due or finished, with from and to (yyyy-MM-dd, both included).
+    /// </summary>
+    public class MyTasksQuery
+    {
+        public string? Status { get; set; }
+        public string? DateField { get; set; }
+        public string? From { get; set; }
+        public string? To { get; set; }
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+    }
+
+    public class MyTaskCounts
+    {
+        public int Open { get; set; }
+        public int Done { get; set; }
+        public int Rejected { get; set; }
+        public int Cancelled { get; set; }
+        public int All { get; set; }
+    }
+/// <summary>The tasks given to the signed-in person. OpenCount is the open tasks on running tickets (for the tab badge), whatever the page shows.</summary>
     public class MyTasksDto
     {
         public List<MyTaskDto> Items { get; set; } = new();
         public int Total { get; set; }
         public int OpenCount { get; set; }
+        /// <summary>How many tasks there are in each status inside the date window (whatever status is being shown).</summary>
+        public MyTaskCounts Counts { get; set; } = new();
         public int Page { get; set; }
         public int PageSize { get; set; }
     }

@@ -12,11 +12,13 @@ namespace ServiceDeskAPI.Infrastructure.Performance
     {
         private readonly AppDbContext _db;
         private readonly IReportRunner _runner;
+        private readonly double _offsetHours;
 
-        public PerformanceService(AppDbContext db, IReportRunner runner)
+        public PerformanceService(AppDbContext db, IReportRunner runner, Microsoft.Extensions.Options.IOptions<SlaOptions>? sla = null)
         {
             _db = db;
             _runner = runner;
+            _offsetHours = sla?.Value.UtcOffsetHours ?? 1;
         }
 
         // ---------------- reading a report result ----------------
@@ -130,7 +132,90 @@ namespace ServiceDeskAPI.Infrastructure.Performance
 
         private static string Name(string? full, string? user) => !string.IsNullOrWhiteSpace(full) ? full! : (user ?? string.Empty);
 
-        // ---------------- a person ----------------
+                // ---------------- tasks (for the appraisal) ----------------
+
+        private (DateTime? FromUtc, DateTime? ToUtc) Window(string? from, string? to)
+        {
+            DateTime? f = null;
+            DateTime? t = null;
+            if (DateOnly.TryParseExact(from, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fd))
+                f = DateTime.SpecifyKind(fd.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddHours(-_offsetHours);
+            if (DateOnly.TryParseExact(to, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var td))
+                t = DateTime.SpecifyKind(td.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc).AddHours(-_offsetHours);
+            return (f, t);
+        }
+
+        private static void Finish(TaskFigures f)
+        {
+            var measured = f.Done + f.OverdueOpen + f.CancelledLate;
+            f.OnTimePercent = measured > 0 ? Math.Round(f.DoneOnTime * 100.0 / measured, 1) : null;
+        }
+
+        private static TaskFigures SumTasks(IEnumerable<TaskFigures> all)
+        {
+            var sum = new TaskFigures();
+            foreach (var f in all)
+            {
+                sum.Given += f.Given; sum.Done += f.Done; sum.DoneOnTime += f.DoneOnTime; sum.DoneLate += f.DoneLate;
+                sum.OpenNow += f.OpenNow; sum.OverdueOpen += f.OverdueOpen; sum.Rejected += f.Rejected;
+                sum.Cancelled += f.Cancelled; sum.CancelledLate += f.CancelledLate;
+            }
+            Finish(sum);
+            return sum;
+        }
+
+        /// <summary>Tasks given to each person (by name of the owner, not "nobody in particular") in the period, by the date they were given.</summary>
+        private async Task<Dictionary<Guid, TaskFigures>> TaskFiguresAsync(List<Guid> userIds, string? from, string? to)
+        {
+            var result = new Dictionary<Guid, TaskFigures>();
+            if (userIds.Count == 0) return result;
+            var (fromUtc, toUtc) = Window(from, to);
+            var query = _db.TicketTasks.AsNoTracking().Where(t => t.AssigneeUserId != null && userIds.Contains(t.AssigneeUserId.Value));
+            if (fromUtc.HasValue) query = query.Where(t => t.CreatedAt >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(t => t.CreatedAt < toUtc.Value);
+            var rows = await query.Select(t => new { Owner = t.AssigneeUserId!.Value, t.DueAt, t.IsDone, t.DoneAt, t.RejectedAt, t.CancelledAt }).ToListAsync();
+            var today = DateTime.UtcNow.AddHours(_offsetHours).Date;
+            foreach (var group in rows.GroupBy(r => r.Owner))
+            {
+                var f = new TaskFigures { Given = group.Count() };
+                foreach (var r in group)
+                {
+                    var due = r.DueAt?.Date;
+                    if (r.CancelledAt.HasValue)
+                    {
+                        f.Cancelled++;
+                        if (due.HasValue && r.CancelledAt.Value.AddHours(_offsetHours).Date > due.Value) f.CancelledLate++;
+                    }
+                    else if (r.IsDone)
+                    {
+                        f.Done++;
+                        var finished = (r.DoneAt ?? DateTime.UtcNow).AddHours(_offsetHours).Date;
+                        if (!due.HasValue || finished <= due.Value) f.DoneOnTime++; else f.DoneLate++;
+                    }
+                    else if (r.RejectedAt.HasValue) f.Rejected++;
+                    else
+                    {
+                        f.OpenNow++;
+                        if (due.HasValue && due.Value < today) f.OverdueOpen++;
+                    }
+                }
+                Finish(f);
+                result[group.Key] = f;
+            }
+            return result;
+        }
+
+        /// <summary>The latest tasks the person sent back in the period, with their reasons.</summary>
+        private async Task<List<TaskRejectionDto>> TaskRejectionsAsync(Guid userId, string? from, string? to)
+        {
+            var (fromUtc, toUtc) = Window(from, to);
+            var query = _db.TicketTasks.AsNoTracking().Where(t => t.AssigneeUserId == userId && t.RejectedAt != null);
+            if (fromUtc.HasValue) query = query.Where(t => t.CreatedAt >= fromUtc.Value);
+            if (toUtc.HasValue) query = query.Where(t => t.CreatedAt < toUtc.Value);
+            return await query.OrderByDescending(t => t.RejectedAt).Take(10)
+                .Select(t => new TaskRejectionDto { TicketReference = t.Ticket!.Reference, Title = t.Title, Reason = t.RejectedReason ?? string.Empty, RejectedAt = t.RejectedAt!.Value })
+                .ToListAsync();
+        }// ---------------- a person ----------------
 
         public Task<(TicketProblem? Problem, PerformanceDto? Performance)> MineAsync(PerformanceQuery query, Guid actorUserId) => BuildPersonAsync(actorUserId, query ?? new PerformanceQuery());
 
@@ -157,6 +242,7 @@ namespace ServiceDeskAPI.Infrastructure.Performance
             if (p3 != null) return (p3, null);
             var (p4, open) = await RunAsync(query, "created", "status", new[] { "openNow", "overdueNow" }, assigneeId: userId);
             if (p4 != null) return (p4, null);
+            var taskMap = await TaskFiguresAsync(new List<Guid> { userId }, resolvedCohort!.From, resolvedCohort.To);
 
             var figures = new PerformanceFigures
             {
@@ -203,6 +289,8 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 Period = new PerformancePeriodDto { From = resolvedCohort.From, To = resolvedCohort.To, Bucket = bucket },
                 UserId = userId, Name = Name(person.FullName, person.UserName), Figures = figures, Team = team,
                 Series = Series(series, bucket), OpenByStatus = Counts(open, StatusOrder),
+                Tasks = taskMap.TryGetValue(userId, out var taskFigures) ? taskFigures : new TaskFigures(),
+                TaskRejections = await TaskRejectionsAsync(userId, resolvedCohort.From, resolvedCohort.To),
                 Targets = await TargetsAsync(memberships.Select(m => m.DepartmentId).FirstOrDefault())
             });
         }
@@ -258,6 +346,7 @@ namespace ServiceDeskAPI.Infrastructure.Performance
 
             // every active member, idle ones too; then anyone else who appears in the figures (someone who left but still has tickets)
             var memberIds = await _db.UnitMembers.AsNoTracking().Where(m => m.UnitId == unitId && m.IsActive).Select(m => m.UserId).ToListAsync();
+            var taskMap = await TaskFiguresAsync(memberIds, resolved!.From, resolved.To);
             var members = await _db.Users.AsNoTracking().Where(u => memberIds.Contains(u.Id)).Select(u => new { UserId = u.Id, u.FullName, u.UserName }).ToListAsync();
             var named = members.Select(m => new { m.UserId, Label = Name(m.FullName, m.UserName) }).ToList();
             var duplicates = named.GroupBy(n => n.Label, StringComparer.OrdinalIgnoreCase).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -268,7 +357,8 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 result.Add(new PerformanceMemberDto
                 {
                     UserId = duplicates.Contains(n.Label) ? null : n.UserId, Name = n.Label, IsHead = n.UserId == unit.HeadUserId,
-                    Figures = FiguresOf(Find(resolved, n.Label), Find(raised!, n.Label), Find(current!, n.Label))
+                    Figures = FiguresOf(Find(resolved, n.Label), Find(raised!, n.Label), Find(current!, n.Label)),
+                    Tasks = taskMap.TryGetValue(n.UserId, out var memberTasks) ? memberTasks : new TaskFigures()
                 });
             var listed = named.Select(n => n.Label).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var others = resolved.Rows.Concat(raised!.Rows).Concat(current!.Rows).Select(Table.Label).Where(l => l != "Unassigned" && !listed.Contains(l)).Distinct(StringComparer.OrdinalIgnoreCase);
@@ -280,6 +370,7 @@ namespace ServiceDeskAPI.Infrastructure.Performance
                 Period = new PerformancePeriodDto { From = resolved.From, To = resolved.To, Bucket = bucket },
                 UnitId = unitId, UnitName = unit.Name,
                 Figures = FiguresOf(resolved.Totals, raised.Totals, current.Totals),
+                Tasks = SumTasks(taskMap.Values),
                 Members = result.OrderByDescending(m => m.Figures.Resolved).ThenBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList(),
                 Series = Series(series!, bucket),
                 OpenByStatus = Counts(byStatus!, StatusOrder),

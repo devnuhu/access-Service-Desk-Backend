@@ -84,11 +84,12 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     DueDate = t.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     IsDone = t.IsDone, DoneAt = t.DoneAt, DoneBy = Who(people, t.DoneByUserId), CreatedAt = t.CreatedAt,
                     IsOverdue = state == "Open" && t.DueAt.HasValue && t.DueAt.Value.Date < today,
-                    RejectedBy = Who(people, t.RejectedByUserId), RejectedAt = t.RejectedAt, RejectedReason = t.RejectedReason,
+                    RejectedBy = Who(people, t.RejectedByUserId), RejectedAt = t.RejectedAt, RejectedReason = t.RejectedReason, HandedOver = t.HandedOverAt != null,
                     CancelledBy = Who(people, t.CancelledByUserId), CancelledAt = t.CancelledAt, CancelledReason = t.CancelledReason,
                     CanComplete = !locked && state == "Open" && (viewer.IsStaff || mine),
                     CanReject = !locked && state == "Open" && mine,
-                    CanCancel = !locked && (state == "Open" || state == "Rejected") && viewer.IsStaff && MayCancel(t, ticket, viewer)
+                    CanCancel = !locked && (state == "Open" || state == "Rejected") && t.HandedOverAt == null && viewer.IsStaff && MayCancel(t, ticket, viewer),
+                    CanRemove = !locked && viewer.IsStaff && (!t.AssigneeUserId.HasValue || t.AssigneeUserId == viewer.UserId)
                 };
             }).ToList();
         }
@@ -108,7 +109,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             {
                 Items = items,
                 Open = items.Count(i => i.Status == "Open"), Done = items.Count(i => i.Status == "Done"),
-                Rejected = items.Count(i => i.Status == "Rejected"), Cancelled = items.Count(i => i.Status == "Cancelled"),
+                Rejected = items.Count(i => i.Status == "Rejected" && !i.HandedOver), Cancelled = items.Count(i => i.Status == "Cancelled"),
                 CanEdit = viewer.IsStaff && !Locked(ticket!)
             });
         }
@@ -169,30 +170,44 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
             if (task == null) return (new TicketProblem(404, "Task not found."), null);
             if (task.CancelledAt != null) return (new TicketProblem(400, "This task was cancelled, so it cannot be changed."), null);
+            if (task.HandedOverAt != null) return (new TicketProblem(400, "This task was handed over to someone else. Change the new task instead."), null);
             var (bad, title, dueAt) = await CheckAsync(request, ticket!);
             if (bad != null) return (bad, null);
 
             var ownerChanged = task.AssigneeUserId != request.AssigneeUserId;
+            var now = DateTime.UtcNow;
+
+            if (ownerChanged && task.RejectedAt != null)
+            {
+                // The rejection stays on the first person's record; the work goes on as a new task for the new owner
+                var existing = await _db.TicketTasks.Where(t => t.TicketId == ticketId).Select(t => t.SortOrder).ToListAsync();
+                if (existing.Count >= MaxTasks) return (new TicketProblem(400, "A ticket can have at most " + MaxTasks + " tasks."), null);
+                task.HandedOverAt = now;
+                task.UpdatedAt = now;
+                var next = new TicketTask
+                {
+                    Id = Guid.NewGuid(), TicketId = ticketId, Title = title, AssigneeUserId = request.AssigneeUserId, DueAt = dueAt,
+                    SortOrder = existing.Max() + 1, CreatedAt = now, CreatedByUserId = actorUserId
+                };
+                _db.TicketTasks.Add(next);
+                Stage(AuditAction.Updated, task, ticket!, new { title = task.Title, handedOver = true, to = request.AssigneeUserId });
+                Stage(AuditAction.Created, next, ticket!, new { title, assignee = request.AssigneeUserId, dueDate = request.DueDate, handedOverFrom = task.Id });
+                TellOwner(next, ticket!, actorUserId);
+                await _db.SaveChangesAsync();
+                return (null, (await ToDtosAsync(new List<TicketTask> { next }, ticket!, viewer!)).Single());
+            }
+
             var dueChanged = task.DueAt != dueAt;
             task.Title = title;
             task.AssigneeUserId = request.AssigneeUserId;
             task.DueAt = dueAt;
-            task.UpdatedAt = DateTime.UtcNow;
+            task.UpdatedAt = now;
             if (ownerChanged || dueChanged) task.OverdueNotifiedAt = null;
-            if (ownerChanged)
-            {
-                // A new owner starts afresh: the earlier rejection no longer applies
-                task.RejectedAt = null;
-                task.RejectedByUserId = null;
-                task.RejectedReason = null;
-            }
             Stage(AuditAction.Updated, task, ticket!, new { title, assignee = request.AssigneeUserId, dueDate = request.DueDate });
             if (ownerChanged) TellOwner(task, ticket!, actorUserId);
             await _db.SaveChangesAsync();
             return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket!, viewer!)).Single());
-        }
-
-        public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> SetDoneAsync(Guid ticketId, Guid taskId, bool done, Guid actorUserId, bool actorIsSuperAdmin)
+        }        public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> SetDoneAsync(Guid ticketId, Guid taskId, bool done, Guid actorUserId, bool actorIsSuperAdmin)
         {
             var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true, allowOwner: true);
             if (problem != null) return (problem, null);
@@ -255,6 +270,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (task == null) return (new TicketProblem(404, "Task not found."), null);
             var state = StateOf(task);
             if (state != "Open" && state != "Rejected") return (new TicketProblem(400, "Only an open or rejected task can be cancelled."), null);
+            if (task.HandedOverAt != null) return (new TicketProblem(400, "This task was handed over to someone else."), null);
             if (!MayCancel(task, ticket!, viewer!))
                 return (new TicketProblem(403, "Only the ticket's case worker, the person who added the task, the head of the unit or a Super Admin can cancel it."), null);
 
@@ -278,6 +294,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (problem != null) return (problem, null);
             var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
             if (task == null) return (new TicketProblem(404, "Task not found."), null);
+            if (task.AssigneeUserId.HasValue && task.AssigneeUserId.Value != actorUserId)
+                return (new TicketProblem(400, "This task is given to someone else, so cancel it with a reason instead of removing it."), null);
             Stage(AuditAction.Deleted, task, ticket!, new { title = task.Title });
             _db.TicketTasks.Remove(task);
             await _db.SaveChangesAsync();
@@ -294,23 +312,106 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             return (null, people.Select(u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName)).OrderBy(p => p.FullName ?? p.UserName).ToList());
         }
 
-        /// <summary>The tasks given to the signed-in person across tickets: open ones on running tickets by default; every state with includeFinished.</summary>
+        /// <summary>The tasks given to the signed-in person, for good: open, done, rejected and cancelled. Older call: open ones, or everything with includeFinished.</summary>
         public async Task<MyTasksDto> MineAsync(Guid actorUserId, bool includeFinished, int page, int pageSize)
         {
-            page = Math.Max(1, page);
-            pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
-            var mine = _db.TicketTasks.AsNoTracking().Where(t => t.AssigneeUserId == actorUserId);
-            var running = mine.Where(t => !t.IsDone && t.RejectedAt == null && t.CancelledAt == null
+            var (_, result) = await MineAsync(actorUserId, new MyTasksQuery { Status = includeFinished ? "all" : "open", Page = page, PageSize = pageSize });
+            return result!;
+        }
+
+        private static IQueryable<TicketTask> OnlyOpen(IQueryable<TicketTask> tasks) =>
+            tasks.Where(t => !t.IsDone && t.RejectedAt == null && t.CancelledAt == null
                 && t.Ticket!.Status != TicketStatus.Resolved && t.Ticket.Status != TicketStatus.Closed && t.Ticket.Status != TicketStatus.Cancelled);
-            var openCount = await running.CountAsync();
-            var query = includeFinished ? mine : running;
-            var total = await query.CountAsync();
-            var rows = await query.OrderBy(t => t.DueAt == null).ThenBy(t => t.DueAt).ThenBy(t => t.CreatedAt)
-                .Skip((page - 1) * pageSize).Take(pageSize)
+
+        /// <summary>
+        /// Status: open (default; on running tickets, soonest due first), done, rejected, cancelled or all (newest first). DateField: given (default), due or finished,
+        /// with From and To (yyyy-MM-dd, Lagos dates, both included). The date window applies to the list and to the counts; the counts show every status.
+        /// </summary>
+        public async Task<(TicketProblem? Problem, MyTasksDto? Result)> MineAsync(Guid actorUserId, MyTasksQuery query)
+        {
+            query ??= new MyTasksQuery();
+            var status = (query.Status ?? "open").Trim().ToLowerInvariant();
+            if (status is not ("open" or "done" or "rejected" or "cancelled" or "all"))
+                return (new TicketProblem(400, "Status must be open, done, rejected, cancelled or all.", "status"), null);
+            var field = (query.DateField ?? "given").Trim().ToLowerInvariant();
+            if (field is not ("given" or "due" or "finished"))
+                return (new TicketProblem(400, "The date to filter on must be given, due or finished.", "dateField"), null);
+            DateTime? fromDay = null;
+            DateTime? toDay = null;
+            if (!string.IsNullOrWhiteSpace(query.From))
+            {
+                if (!DateTime.TryParseExact(query.From.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var f))
+                    return (new TicketProblem(400, "Use the date format yyyy-MM-dd.", "from"), null);
+                fromDay = f.Date;
+            }
+            if (!string.IsNullOrWhiteSpace(query.To))
+            {
+                if (!DateTime.TryParseExact(query.To.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var t))
+                    return (new TicketProblem(400, "Use the date format yyyy-MM-dd.", "to"), null);
+                toDay = t.Date;
+            }
+            if (fromDay.HasValue && toDay.HasValue && fromDay > toDay)
+                return (new TicketProblem(400, "The start date is after the end date.", "from"), null);
+
+            var page = Math.Max(1, query.Page);
+            var pageSize = query.PageSize <= 0 ? 20 : Math.Min(query.PageSize, 100);
+
+            var mine = _db.TicketTasks.AsNoTracking().Where(t => t.AssigneeUserId == actorUserId);
+            var openCount = await OnlyOpen(mine).CountAsync();
+
+            var windowed = mine;
+            if (fromDay.HasValue || toDay.HasValue)
+            {
+                var offset = _sla.UtcOffsetHours;
+                DateTime? fromUtc = fromDay?.AddHours(-offset);
+                DateTime? toUtc = toDay?.AddDays(1).AddHours(-offset);
+                DateTime? dueFrom = fromDay;
+                DateTime? dueTo = toDay?.AddDays(1);
+                if (field == "due")
+                {
+                    windowed = windowed.Where(t => t.DueAt != null);
+                    if (dueFrom.HasValue) windowed = windowed.Where(t => t.DueAt >= dueFrom.Value);
+                    if (dueTo.HasValue) windowed = windowed.Where(t => t.DueAt < dueTo.Value);
+                }
+                else if (field == "finished")
+                {
+                    windowed = windowed.Where(t => (t.DoneAt ?? t.CancelledAt ?? t.RejectedAt) != null);
+                    if (fromUtc.HasValue) windowed = windowed.Where(t => (t.DoneAt ?? t.CancelledAt ?? t.RejectedAt) >= fromUtc.Value);
+                    if (toUtc.HasValue) windowed = windowed.Where(t => (t.DoneAt ?? t.CancelledAt ?? t.RejectedAt) < toUtc.Value);
+                }
+                else
+                {
+                    if (fromUtc.HasValue) windowed = windowed.Where(t => t.CreatedAt >= fromUtc.Value);
+                    if (toUtc.HasValue) windowed = windowed.Where(t => t.CreatedAt < toUtc.Value);
+                }
+            }
+
+            var counts = new MyTaskCounts
+            {
+                Open = await OnlyOpen(windowed).CountAsync(),
+                Done = await windowed.CountAsync(t => t.IsDone),
+                Rejected = await windowed.CountAsync(t => t.RejectedAt != null && !t.IsDone && t.CancelledAt == null),
+                Cancelled = await windowed.CountAsync(t => t.CancelledAt != null),
+                All = await windowed.CountAsync()
+            };
+
+            var list = status switch
+            {
+                "open" => OnlyOpen(windowed),
+                "done" => windowed.Where(t => t.IsDone),
+                "rejected" => windowed.Where(t => t.RejectedAt != null && !t.IsDone && t.CancelledAt == null),
+                "cancelled" => windowed.Where(t => t.CancelledAt != null),
+                _ => windowed
+            };
+            var total = await list.CountAsync();
+            var ordered = status == "open"
+                ? list.OrderBy(t => t.DueAt == null).ThenBy(t => t.DueAt).ThenBy(t => t.CreatedAt)
+                : list.OrderByDescending(t => t.DoneAt ?? t.CancelledAt ?? t.RejectedAt ?? t.CreatedAt).ThenByDescending(t => t.CreatedAt);
+            var rows = await ordered.Skip((page - 1) * pageSize).Take(pageSize)
                 .Select(t => new
                 {
                     t.Id, t.TicketId, Reference = t.Ticket!.Reference, Subject = t.Ticket.Subject, TicketStatus = t.Ticket.Status,
-                    t.Title, t.DueAt, t.IsDone, t.RejectedAt, t.CancelledAt, t.CreatedByUserId, t.CreatedAt
+                    t.Title, t.DueAt, t.IsDone, t.DoneAt, t.RejectedAt, t.RejectedReason, t.CancelledAt, t.CancelledReason, t.CreatedByUserId, t.CreatedAt
                 }).ToListAsync();
             var people = await PeopleAsync(rows.Select(r => (Guid?)r.CreatedByUserId));
             var today = LagosToday();
@@ -322,13 +423,13 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                     TaskId = r.Id, TicketId = r.TicketId, TicketReference = r.Reference, TicketSubject = r.Subject, TicketStatus = r.TicketStatus,
                     Title = r.Title, Status = state, DueDate = r.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                     IsOverdue = state == "Open" && r.DueAt.HasValue && r.DueAt.Value.Date < today,
-                    GivenBy = Who(people, r.CreatedByUserId), CreatedAt = r.CreatedAt
+                    GivenBy = Who(people, r.CreatedByUserId), CreatedAt = r.CreatedAt,
+                    FinishedAt = r.DoneAt ?? r.CancelledAt ?? r.RejectedAt,
+                    Reason = state == "Cancelled" ? r.CancelledReason : state == "Rejected" ? r.RejectedReason : null
                 };
             }).ToList();
-            return new MyTasksDto { Items = items, Total = total, OpenCount = openCount, Page = page, PageSize = pageSize };
-        }
-
-        private async Task<string> NameOfAsync(Guid userId) =>
+            return (null, new MyTasksDto { Items = items, Total = total, OpenCount = openCount, Counts = counts, Page = page, PageSize = pageSize });
+        }        private async Task<string> NameOfAsync(Guid userId) =>
             await _db.Users.Where(u => u.Id == userId).Select(u => u.FullName ?? u.UserName).FirstOrDefaultAsync() ?? "Someone";
 
         private void TellOwner(TicketTask task, Ticket ticket, Guid actorUserId)

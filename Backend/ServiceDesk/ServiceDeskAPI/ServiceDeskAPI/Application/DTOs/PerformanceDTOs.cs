@@ -52,6 +52,34 @@ namespace ServiceDeskAPI.Application.DTOs
         public double? WithinSlaPercent { get; set; }
     }
 
+    /// <summary>
+    /// Tasks given to the person (and not to nobody in particular) in the period, by the date they were given. OnTimePercent = DoneOnTime / (Done + OverdueOpen + CancelledLate), null when there is nothing to measure.
+    /// Done on time: finished on or before the due date (no due date counts as on time). Rejected is shown on its own and is not held against the person. Cancelled is a count; one cancelled after its due date had passed counts as late.
+    /// </summary>
+    public class TaskFigures
+    {
+        public int Given { get; set; }
+        public int Done { get; set; }
+        public int DoneOnTime { get; set; }
+        public int DoneLate { get; set; }
+        /// <summary>Right now: not done, not rejected, not cancelled.</summary>
+        public int OpenNow { get; set; }
+        /// <summary>Of those, past the due date (Lagos date).</summary>
+        public int OverdueOpen { get; set; }
+        public int Rejected { get; set; }
+        public int Cancelled { get; set; }
+        public int CancelledLate { get; set; }
+        public double? OnTimePercent { get; set; }
+    }
+
+    /// <summary>A task the person sent back, with why.</summary>
+    public class TaskRejectionDto
+    {
+        public string TicketReference { get; set; } = string.Empty;
+        public string Title { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public DateTime RejectedAt { get; set; }
+    }
     public record PerformanceCount(string Label, int Count);
 
     /// <summary>The first-response and resolution targets (business hours) for a priority. Priority 1 Low, 2 Medium, 3 High, 4 Critical.</summary>
@@ -73,6 +101,10 @@ namespace ServiceDeskAPI.Application.DTOs
         public string Name { get; set; } = string.Empty;
         public PerformanceFigures Figures { get; set; } = new();
         public PerformanceFigures? Team { get; set; }
+        /// <summary>The tasks given to this person in the period (their appraisal figures).</summary>
+        public TaskFigures Tasks { get; set; } = new();
+        /// <summary>The latest tasks they sent back in the period, with why.</summary>
+        public List<TaskRejectionDto> TaskRejections { get; set; } = new();
         public List<PerformancePoint> Series { get; set; } = new();
         /// <summary>Open tickets right now by status, only the statuses that have some.</summary>
         public List<PerformanceCount> OpenByStatus { get; set; } = new();
@@ -85,6 +117,7 @@ namespace ServiceDeskAPI.Application.DTOs
         public Guid? UserId { get; set; }
         public string Name { get; set; } = string.Empty;
         public bool IsHead { get; set; }
+        public TaskFigures Tasks { get; set; } = new();
         public PerformanceFigures Figures { get; set; } = new();
     }
 
@@ -112,6 +145,8 @@ namespace ServiceDeskAPI.Application.DTOs
         public List<PerformanceCount> OpenByAge { get; set; } = new();
         /// <summary>The 8 categories with the most tickets raised in the period.</summary>
         public List<CategoryPerformanceDto> Categories { get; set; } = new();
+        /// <summary>The unit's members' tasks added together.</summary>
+        public TaskFigures Tasks { get; set; } = new();
         public List<PerformanceTarget> Targets { get; set; } = new();
     }
 }

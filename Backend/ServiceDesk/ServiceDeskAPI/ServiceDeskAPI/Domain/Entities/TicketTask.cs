@@ -31,5 +31,7 @@ namespace ServiceDeskAPI.Domain.Entities
         public DateTime? CancelledAt { get; set; }
         public Guid? CancelledByUserId { get; set; }
         public string? CancelledReason { get; set; }
+        /// <summary>The task was rejected and then given to someone else: the rejection stays on the first person's record and the work went on as a new task. A handed-over task no longer blocks resolving.</summary>
+        public DateTime? HandedOverAt { get; set; }
     }
 }

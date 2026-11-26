@@ -1773,6 +1773,9 @@ namespace ServiceDeskAPI.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DueAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("HandedOverAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsDone")
                         .HasColumnType("bit");
 
