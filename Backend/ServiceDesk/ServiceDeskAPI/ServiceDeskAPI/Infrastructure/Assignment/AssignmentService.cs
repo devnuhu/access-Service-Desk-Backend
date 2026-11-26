@@ -145,11 +145,7 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
                 _notifications.Stage(chosen.UserId, "Ticket " + ticket.Reference + " assigned to you",
                     ticket.Category!.Name + ", priority " + ticket.Priority + ". Please acknowledge it and start work.",
                     NotificationType.ActionRequired, NotificationCategory.Assignment, "Ticket", ticket.Id, link);
-                if (previous == null)
-                    _notifications.Stage(ticket.RequesterUserId, "Ticket " + ticket.Reference + " picked up",
-                        chosenName + " in " + ticket.Unit!.Name + " is handling your " + ticket.Category.Name + " request.",
-                        NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
-                else
+                if (previous != null)
                     _notifications.Stage(previous.Value, "Ticket " + ticket.Reference + " moved while you are unavailable",
                         "It went to " + chosenName + ".", NotificationType.Info, NotificationCategory.Assignment, "Ticket", ticket.Id, link);
 
@@ -496,9 +492,6 @@ namespace ServiceDeskAPI.Infrastructure.Assignment
 
                 var name = await NameOfAsync(actorUserId);
                 var link = "/tickets/" + ticket.Reference;
-                _notifications.Stage(ticket.RequesterUserId, "Ticket " + ticket.Reference + " picked up",
-                    name + " in " + ticket.Unit.Name + " is handling your " + ticket.Category!.Name + " request.",
-                    NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
                 TellHeads(ticket.Unit, actorUserId, "Ticket " + ticket.Reference + " picked",
                     name + " picked it from the pool.", NotificationType.Info, ticket);
 

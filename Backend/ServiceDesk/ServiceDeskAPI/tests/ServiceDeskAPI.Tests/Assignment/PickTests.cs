@@ -150,7 +150,7 @@ namespace ServiceDeskAPI.Tests.Assignment
             using var scope = _factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             Assert.True(await db.AuditLogs.AnyAsync(a => a.EntityId == raised.Id && a.Action == AuditAction.Assigned && a.UserId == member.Id));
-            Assert.True(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == ticket.RequesterUserId && n.RelatedEntityId == raised.Id && n.Title.StartsWith("Ticket " + raised.Reference + " picked up")));
+            Assert.False(await db.InAppNotifications.AnyAsync(n => n.RecipientUserId == ticket.RequesterUserId && n.RelatedEntityId == raised.Id && n.Title.StartsWith("Ticket " + raised.Reference + " picked up")));
         }
 
         [Fact]

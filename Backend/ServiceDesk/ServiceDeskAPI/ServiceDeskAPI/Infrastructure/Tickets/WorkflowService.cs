@@ -98,7 +98,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             Stage(AuditAction.Acknowledged, ticket, null);
             var assignee = await NameOfAsync(actorUserId);
             Tell(ticket.RequesterUserId, actorUserId, ticket, "Ticket " + ticket.Reference + " in progress",
-                assignee + " has started on your " + ticket.Category!.Name + " request.", NotificationType.Info);
+                assignee + " in " + ticket.Unit!.Name + " has started working on your request, \"" + ticket.Subject + "\".", NotificationType.Info);
             return await SaveAsync("Acknowledged. " + ticket.Reference + " is in progress.");
         }
 
@@ -306,7 +306,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 
         private async Task<(TicketProblem? Problem, Ticket? Ticket, Who? Who)> LoadAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin, bool track = true)
         {
-            var query = _db.Tickets.Include(t => t.Category).AsQueryable();
+            var query = _db.Tickets.Include(t => t.Category).Include(t => t.Unit).AsQueryable();
             if (!track) query = query.AsNoTracking();
             var ticket = await query.FirstOrDefaultAsync(t => t.Id == ticketId);
             if (ticket == null) return (new TicketProblem(404, "Ticket not found."), null, null);

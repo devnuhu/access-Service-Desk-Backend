@@ -140,7 +140,7 @@ namespace ServiceDeskAPI.Tests.Assignment
             Assert.Equal(2, auto.Scores.Count);
             Assert.Equal(x, auto.Scores.Single(s => s.Chosen).UserId);
             Assert.True(await NotifiedAsync(x, first.Id, "Ticket " + first.Reference + " assigned to you"));
-            Assert.True(await NotifiedAsync((await TicketAsync(first.Id)).RequesterUserId, first.Id, "Ticket " + first.Reference + " picked up"));
+            Assert.False(await NotifiedAsync((await TicketAsync(first.Id)).RequesterUserId, first.Id, "Ticket " + first.Reference + " picked up"));
         }
 
         [Fact]
