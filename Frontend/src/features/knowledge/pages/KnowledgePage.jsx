@@ -154,7 +154,7 @@ function Library() {
     <div className="space-y-4" data-testid="kb-library">
       <div className="space-y-3">
         <div className="flex flex-wrap gap-3">
-          <div className="relative min-w-0 flex-1 basis-64">
+          <div className="relative min-w-0 flex-1 basis-64 self-start">
             <Search
               aria-hidden="true"
               size={16}

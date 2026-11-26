@@ -46,7 +46,7 @@ export default function DepartmentArticles() {
     <div className="space-y-4" data-testid="kb-mine">
       <Card>
         <div className="flex flex-wrap gap-3 border-b border-line px-5 py-3">
-          <div className="relative min-w-0 flex-1 basis-56">
+          <div className="relative min-w-0 flex-1 basis-56 self-start">
             <Search
               aria-hidden="true"
               size={16}

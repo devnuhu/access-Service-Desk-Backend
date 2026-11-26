@@ -7,7 +7,6 @@ import {
   CalendarOff,
   FileText,
   Grid3x3,
-  House,
   LayoutDashboard,
   Inbox,
   ListTree,
@@ -126,7 +125,7 @@ function leadership(departments) {
  * Case workers and heads get a group per unit (titled with the unit, the department below); the
  * HOD and Department Admin a group per department. Someone in exactly one unit with no department
  * role (and not a Super Admin) gets no group: its items join the main list, each keeping the unit
- * as the root of its breadcrumb (`crumbRoot`); the page header names the unit and department. A head's Home is "Dashboard" (their unit's). Heads, HODs
+ * as the root of its breadcrumb (`crumbRoot`); the page header names the unit and department. The first item is "Dashboard" for everyone (a head's is their unit's). Heads, HODs
  * and Department Admins have My requests and My availability in the account menu (`accountLinks`)
  * instead; Raise a ticket stays on Home.
  *
@@ -148,8 +147,8 @@ export function buildNavigation(user, org, allDepartments) {
       label: BRAND.name,
       items: [
         {
-          label: leads === "head" ? "Dashboard" : "Home",
-          icon: leads === "head" ? LayoutDashboard : House,
+          label: "Dashboard",
+          icon: LayoutDashboard,
           to: "/",
         },
         ...(leads ? [] : personalItems(departments)),

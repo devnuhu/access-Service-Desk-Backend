@@ -97,7 +97,7 @@ export default function MyRequestsPage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-3 border-b border-line px-5 py-3">
-          <div className="relative min-w-56 flex-1">
+          <div className="relative min-w-56 flex-1 self-start">
             <Search
               aria-hidden="true"
               size={16}

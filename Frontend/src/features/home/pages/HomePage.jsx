@@ -88,7 +88,7 @@ function Welcome({ user, children }) {
   return (
     <PageHeader
       title={`Welcome, ${firstNameOf(user)}`}
-      crumb="Home"
+      crumb="Dashboard"
       description={
         [user.department, user.jobTitle].filter(Boolean).join(" · ") ||
         "Access Pensions"

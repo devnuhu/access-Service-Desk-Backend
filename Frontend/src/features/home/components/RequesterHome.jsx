@@ -48,7 +48,7 @@ export default function RequesterHome() {
     <div className="space-y-6">
       <PageHeader
         title={`Welcome, ${firstNameOf(user)}`}
-        crumb="Home"
+        crumb="Dashboard"
         description="Find what you need, raise a request and follow it here."
         actions={<RaiseTicketLink />}
       />

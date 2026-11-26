@@ -11,7 +11,6 @@ import useDebouncedValue from "@/shared/hooks/useDebouncedValue";
 import usePaging, { useLastPageClamp } from "@/shared/hooks/usePaging";
 import { LIST_PAGE_SIZE, SEARCH_DEBOUNCE_MS } from "@/shared/lib/paging";
 import { hasAnyRole, ROLES } from "@/shared/lib/roles";
-import { parseUtc } from "@/shared/lib/time";
 import { Card, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import { STATUS, STATUS_LABELS, TICKET_SORT } from "../api/endpoints.js";
 import BulkActions from "../components/BulkActions.jsx";
@@ -39,24 +38,12 @@ const UNIT = "unit";
 const ADMIN = "admin";
 const POOL = "pool";
 
-/** Browser-only: the API has no sort=due, so this orders the page shown (fetched newest first). */
-const DUE_SOONEST = "due";
-
 const SORTS = [
   [TICKET_SORT.Newest, "Newest"],
   [TICKET_SORT.LongestWaiting, "Longest waiting since assigned"],
   [TICKET_SORT.RecentlyAssigned, "Most recently assigned"],
-  [DUE_SOONEST, "Due soonest"],
+  [TICKET_SORT.DueSoonest, "Due soonest"],
 ];
-
-/** Earliest slaDueAt first; tickets without one keep their order at the end. */
-function byDueSoonest(items) {
-  const due = (ticket) => parseUtc(ticket.slaDueAt)?.getTime() ?? Infinity;
-  return items
-    .map((ticket, index) => [due(ticket), index, ticket])
-    .sort(([a, i], [b, j]) => (a === b ? i - j : a < b ? -1 : 1))
-    .map(([, , ticket]) => ticket);
-}
 
 /**
  * A department's work queue (its staff and Super Admin).
@@ -68,8 +55,8 @@ function byDueSoonest(items) {
  * are not members and see the whole department with a unit filter.
  *
  * Filters go to the server (status or open=true, waitingToStart=true, slaBreached=true,
- * escalated=true, priority, ageBand, sort) except the "Due soonest" sort, which orders the page shown by slaDueAt
- * (the API has no sort=due). "Views" applies a built-in or saved set of filters (../views.js);
+ * escalated=true, priority, ageBand, sort, "Due soonest" included: sort=due orders every matching
+ * ticket), and each page is shown as it comes. "Views" applies a built-in or saved set of filters (../views.js);
  * ticked rows get the bulk actions that fit the tab (Pick, Start work, Resolve, Reassign).
  * Home's cards open a filtered list with ?tab=, ?status=, ?waiting=1, ?overdue=1, ?escalated=1, ?sort= and
  * ?unit= (the unit filter of a department-wide view; a Department Admin asking for a unit that is
@@ -221,8 +208,7 @@ function WorkQueue({
     escalated: escalated || undefined,
     priority: priority ? Number(priority) : undefined,
     ageBand: ageBand ? Number(ageBand) : undefined,
-    sort:
-      sort === TICKET_SORT.Newest || sort === DUE_SOONEST ? undefined : sort,
+    sort: sort === TICKET_SORT.Newest ? undefined : sort,
     page,
     pageSize: LIST_PAGE_SIZE,
   });
@@ -236,8 +222,7 @@ function WorkQueue({
     enabled: showSummary,
   });
 
-  const pageItems = list.data?.items ?? [];
-  const items = sort === DUE_SOONEST ? byDueSoonest(pageItems) : pageItems;
+  const items = list.data?.items ?? [];
 
   // Views: the filters as one object (../views.js), and which view shows now.
   const tabName = {
@@ -428,7 +413,8 @@ function WorkQueue({
           ) : (
             <>
               <div className="flex flex-wrap gap-3 px-5 pt-3">
-                <div className="relative min-w-56 flex-1">
+                {/* self-start: the row grows with the Age hint; the box (and its icon) must not. */}
+                <div className="relative min-w-56 flex-1 self-start">
                   <Search
                     aria-hidden="true"
                     size={16}
@@ -527,11 +513,6 @@ function WorkQueue({
                 )}
                 {chip(breached, () => setBreached((on) => !on), "Overdue")}
                 {chip(escalated, () => setEscalated((on) => !on), "Escalated")}
-                {sort === DUE_SOONEST && (
-                  <span className="text-xs text-muted">
-                    Due soonest orders the tickets of this page.
-                  </span>
-                )}
               </div>
 
               <TicketTable

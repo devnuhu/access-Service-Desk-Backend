@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { House, Inbox, MapPin, Network } from "lucide-react";
+import { Inbox, LayoutDashboard, MapPin, Network } from "lucide-react";
 import { BRAND } from "@/shared/brand";
 import { PageContext, PageHeader } from "@/shared/ui";
 import { describePlace, findPlace } from "./useNavigation.js";
@@ -11,7 +11,7 @@ const SECTIONS = [
     title: null,
     label: BRAND.name,
     items: [
-      { label: "Home", icon: House, to: "/" },
+      { label: "Dashboard", icon: LayoutDashboard, to: "/" },
       { label: "My requests", icon: Inbox, to: "/tickets" },
     ],
   },
@@ -34,13 +34,13 @@ describe("page place: eyebrow and breadcrumbs", () => {
       eyebrow: "Administration",
       crumbs: [{ label: "Administration" }, { label: "Locations" }],
     });
-    expect(trail("/", { title: "Home" }).crumbs).toEqual([
+    expect(trail("/", { title: "Dashboard" }).crumbs).toEqual([
       { label: BRAND.name },
-      { label: "Home" },
+      { label: "Dashboard" },
     ]);
   });
 
-  it("a page inside an item links back to it; Home never swallows other paths", () => {
+  it("a page inside an item links back to it; the Dashboard (/) never swallows other paths", () => {
     expect(
       trail("/tickets/CP-2026-000001", { title: "CP-2026-000001" }),
     ).toEqual({
@@ -61,7 +61,7 @@ describe("page place: eyebrow and breadcrumbs", () => {
         title: null,
         label: BRAND.name,
         items: [
-          { label: "Home", to: "/" },
+          { label: "Dashboard", to: "/" },
           {
             label: "Work queue",
             to: "/departments/d-cp/tickets",

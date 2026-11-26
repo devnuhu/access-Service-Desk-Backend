@@ -677,32 +677,35 @@ describe("Due time (slaDueAt)", () => {
     expect(due("CP-2026-000044")).toHaveTextContent("Due Tomorrow 09:30");
   });
 
-  it("Due soonest orders the page in the browser; the server gets no sort", async () => {
+  it("Due soonest sends sort=due, goes back to page 1, keeps the filters, and shows the page as the server sent it", async () => {
     const user = userEvent.setup();
     const asked = renderQueue(
       ["Requester", "CaseWorker", "HeadOfUnit"],
       org([CM({ isHead: true, isMember: true })]),
-      rows,
+      // 25 matches; each page is the same five rows, in the server's order.
+      () => ({ items: rows(), total: 25 }),
     );
     await screen.findAllByTestId(/^ticket-row-/);
+    await user.click(screen.getByRole("button", { name: "Overdue" }));
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    await waitFor(() => expect(asked.at(-1)).toMatchObject({ page: 2 }));
+
     await user.selectOptions(screen.getByLabelText("Sort"), "Due soonest");
     await waitFor(() =>
-      expect(
-        screen
-          .getAllByTestId(/^ticket-row-/)
-          .map((row) => row.dataset.testid.slice("ticket-row-".length)),
-      ).toEqual([
-        "CP-2026-000043",
-        "CP-2026-000041",
-        "CP-2026-000044",
-        "CP-2026-000040",
-        "CP-2026-000042",
-      ]),
+      expect(asked.at(-1)).toMatchObject({
+        sort: "due",
+        slaBreached: true,
+        page: 1,
+        pageSize: 10,
+      }),
     );
-    expect(asked.at(-1).sort).toBeUndefined();
+    // Rendered as returned: no re-sorting by slaDueAt on screen (the order would be 43, 41, 44, 40, 42).
     expect(
-      screen.getByText("Due soonest orders the tickets of this page."),
-    ).toBeInTheDocument();
+      screen
+        .getAllByTestId(/^ticket-row-/)
+        .map((row) => row.dataset.testid.slice("ticket-row-".length)),
+    ).toEqual(rows().map((t) => t.reference));
+    expect(screen.queryByText(/orders the tickets of this page/)).toBeNull();
   });
 });
 

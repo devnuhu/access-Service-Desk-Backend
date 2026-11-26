@@ -114,7 +114,7 @@ export default function AppLayout() {
           <Link
             to="/"
             onClick={() => setMenuOpen(false)}
-            aria-label={`${BRAND.name} home`}
+            aria-label={`${BRAND.name} dashboard`}
           >
             <BrandLockup />
           </Link>

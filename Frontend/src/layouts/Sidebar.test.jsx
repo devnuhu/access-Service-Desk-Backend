@@ -95,7 +95,7 @@ describe("Sidebar from org/me", () => {
       within(group).getByRole("link", { name: "Department availability" }),
     ).toHaveAttribute("href", "/availability/departments/d-cp");
     expect(linkNames()).toEqual([
-      "Home",
+      "Dashboard",
       "Knowledge base",
       "Work queue",
       "Department availability",
@@ -117,7 +117,7 @@ describe("Sidebar from org/me", () => {
     });
     const queue = await screen.findByRole("link", { name: "Work queue" });
     expect(linkNames()).toEqual([
-      "Home",
+      "Dashboard",
       "My requests",
       "My availability",
       "Work queue",
@@ -212,7 +212,7 @@ describe("Sidebar from org/me", () => {
   it("a requester with no departments has no module section and no My availability", async () => {
     const api = renderSidebar(["Requester"], { departments: [] });
     expect(
-      await screen.findByRole("link", { name: "Home" }),
+      await screen.findByRole("link", { name: "Dashboard" }),
     ).toBeInTheDocument();
     await screen.findByText("My requests");
     // Wait for org/me to have answered before asserting what is absent.
@@ -262,7 +262,7 @@ describe("Sidebar from org/me", () => {
     expect(
       await screen.findByRole("link", { name: "Knowledge base" }),
     ).toHaveAttribute("aria-current", "page");
-    expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
       "aria-current",
     );
   });

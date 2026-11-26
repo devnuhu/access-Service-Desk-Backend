@@ -7,7 +7,7 @@ export default function MessageCard({
   title,
   children,
   linkTo = "/",
-  linkText = "Go to Home",
+  linkText = "Go to the dashboard",
 }) {
   return (
     <div className="flex justify-center py-10">

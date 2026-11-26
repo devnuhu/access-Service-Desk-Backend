@@ -176,7 +176,7 @@ export default function MemberHome({ units }) {
     <div className="space-y-6">
       <PageHeader
         title={unit.name}
-        crumb="Home"
+        crumb="Dashboard"
         eyebrow="My unit"
         description={`${unit.departmentName} · Welcome, ${firstNameOf(user)}`}
         actions={<RaiseTicketLink />}

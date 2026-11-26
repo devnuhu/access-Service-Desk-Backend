@@ -34,6 +34,11 @@ export const TICKET_SORT = Object.freeze({
   RecentlyAssigned: "assignedAt_desc",
   /** Pending the longest first (with pendingReason). */
   PendingSince: "pendingsince",
+  /**
+   * Soonest deadline first across every matching ticket; none due (Pending, finished, not tracked)
+   * last. The server sorts on a stored copy of the due time refreshed every 5 minutes.
+   */
+  DueSoonest: "due",
 });
 
 /**
@@ -234,8 +239,8 @@ export const checkDuplicates = defineEndpoint({
  * escalated=true: tickets passed up to the head of the unit (escalatedToHeadAt set).
  * priority: 1 Low to 4 Critical. ageBand: 1 to 5, how long ago it was raised (../filters.js
  * AGE_BANDS, the bars of the unit chart); always sent with open=true, anything else is 400.
- * pendingReason: 1 waiting on the requester, 2 on a third party (PENDING_REASON). sort=pendingsince:
- * longest waiting first (TICKET_SORT.PendingSince).
+ * pendingReason: 1 waiting on the requester, 2 on a third party (PENDING_REASON). sort: TICKET_SORT
+ * (created by default, assignedAt, assignedAt_desc, pendingsince, due).
  */
 export const listTickets = defineEndpoint({
   method: "GET",

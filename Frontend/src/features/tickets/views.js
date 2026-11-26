@@ -14,7 +14,7 @@ import { readAgeBand, readPriority } from "./filters.js";
  *   priority?: number,        // 1 Low to 4 Critical
  *   ageBand?: number,         // 1 to 5 (../filters.js AGE_BANDS), open tickets only
  *   search?: string,
- *   sort?: string,            // TICKET_SORT, or "due" (due soonest)
+ *   sort?: string,            // TICKET_SORT ("due": due soonest, sorted by the server)
  * }
  */
 
