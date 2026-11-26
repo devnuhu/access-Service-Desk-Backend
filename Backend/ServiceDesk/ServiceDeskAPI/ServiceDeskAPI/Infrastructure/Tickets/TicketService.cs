@@ -131,9 +131,6 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 });
 
                 var link = "/tickets/" + ticket.Reference;
-                _notifications.Stage(requesterId, "Ticket " + ticket.Reference + " received",
-                    "Your " + category.Name + " request was received by " + category.Department.Name + ". You will be told when someone picks it up.",
-                    NotificationType.Success, NotificationCategory.Ticket, "Ticket", ticket.Id, link);
                 foreach (var userId in cc)
                     _notifications.Stage(userId, "You were copied on " + ticket.Reference,
                         Name(requester) + " copied you on a " + category.Name + " request. You can follow it in " + ServiceDeskAPI.Infrastructure.AppBrand.Name + ".",
@@ -154,6 +151,30 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var reference = ticket.Reference;
             _db.ChangeTracker.Clear();
             var assigned = await _assignment.AssignAsync(ticket.Id, "raised");
+            // The requester hears once, and the email says what happened: assigned to whom, or waiting for a case worker
+            try
+            {
+                string? assigneeName = null;
+                string? unitName = null;
+                if (assigned)
+                {
+                    var holder = await _db.Tickets.AsNoTracking().Where(t => t.Id == ticket.Id)
+                        .Select(t => new { Name = t.AssigneeUser != null ? (t.AssigneeUser.FullName ?? t.AssigneeUser.UserName) : null, Unit = t.Unit!.Name })
+                        .FirstOrDefaultAsync();
+                    assigneeName = holder?.Name;
+                    unitName = holder?.Unit;
+                }
+                _notifications.Stage(requesterId, "Ticket " + reference + " received",
+                    "Your " + category.Name + " request was received by " + category.Department!.Name
+                    + (assigneeName != null ? " and assigned to " + assigneeName + " in " + unitName + "." : ". It is waiting for a case worker, and you will be told who takes it."),
+                    NotificationType.Success, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + reference);
+                await _db.SaveChangesAsync();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "The received notice for {Reference} could not be saved", reference);
+                _db.ChangeTracker.Clear();
+            }
             try { await ServiceDeskAPI.Infrastructure.Sla.SlaDueStore.RefreshAsync(_db, _slaOptions, DateTime.UtcNow, ticket.Id); }
             catch (Exception ex) { _logger.LogWarning(ex, "The due time of {Reference} could not be saved yet; the SLA check will do it", reference); }
             return (null, new CreatedTicketDto(ticket.Id, reference, "Ticket " + reference + " raised."
