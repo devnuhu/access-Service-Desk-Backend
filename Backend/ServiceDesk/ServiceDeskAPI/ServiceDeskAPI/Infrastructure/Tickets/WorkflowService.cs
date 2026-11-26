@@ -166,9 +166,9 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             if (!CanResolve(ticket!, who!)) return (Refuse(ticket!, who!.IsAssignee, "Only the assignee can resolve it, while it is in progress or Pending."), null);
             if (request.Code != ResolutionCode.Duplicate && request.Code != ResolutionCode.RaisedInError)
             {
-                var openTasks = await _db.TicketTasks.CountAsync(x => x.TicketId == ticket!.Id && !x.IsDone);
+                var openTasks = await _db.TicketTasks.CountAsync(x => x.TicketId == ticket!.Id && !x.IsDone && x.CancelledAt == null);
                 if (openTasks > 0)
-                    return (new TicketProblem(400, openTasks + (openTasks == 1 ? " task is" : " tasks are") + " still open. Mark " + (openTasks == 1 ? "it" : "them") + " done or remove " + (openTasks == 1 ? "it" : "them") + " first.", "tasks"), null);
+                    return (new TicketProblem(400, openTasks + (openTasks == 1 ? " task is" : " tasks are") + " still open. Mark " + (openTasks == 1 ? "it" : "them") + " done, cancel or remove " + (openTasks == 1 ? "it" : "them") + " first.", "tasks"), null);
             }
 
             var now = DateTime.UtcNow;
@@ -329,6 +329,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var isRequester = ticket.RequesterUserId == actorUserId || ticket.RaisedByUserId == actorUserId;
             var canView = actorIsSuperAdmin || isRequester
                 || await _db.TicketWatchers.AnyAsync(w => w.TicketId == ticketId && w.UserId == actorUserId)
+                || await _db.TicketTasks.AnyAsync(k => k.TicketId == ticketId && k.AssigneeUserId == actorUserId && k.CancelledAt == null)
                 || await _db.UnitMembers.AnyAsync(m => m.UserId == actorUserId && m.IsActive && m.UnitId == ticket.UnitId)
                 || await _db.Departments.AnyAsync(d => d.Id == ticket.DepartmentId && (d.HodUserId == actorUserId || d.AdminUserId == actorUserId));
             if (!canView) return (new TicketProblem(404, "Ticket not found."), null, null);

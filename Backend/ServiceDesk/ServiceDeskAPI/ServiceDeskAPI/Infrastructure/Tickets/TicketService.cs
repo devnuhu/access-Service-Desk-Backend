@@ -542,7 +542,8 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             var isStaff = isSuperAdmin || await TicketAccess.IsStaffForTicketAsync(_db, userId, ticket.DepartmentId, ticket.UnitId);
             if (isStaff) return (true, true);
             var canView = ticket.RequesterUserId == userId || ticket.RaisedByUserId == userId
-                || await _db.TicketWatchers.AnyAsync(w => w.TicketId == ticket.Id && w.UserId == userId);
+                || await _db.TicketWatchers.AnyAsync(w => w.TicketId == ticket.Id && w.UserId == userId)
+                || await _db.TicketTasks.AnyAsync(k => k.TicketId == ticket.Id && k.AssigneeUserId == userId && k.CancelledAt == null);
             return (canView, false);
         }
 

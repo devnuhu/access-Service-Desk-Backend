@@ -225,7 +225,7 @@ namespace ServiceDeskAPI.Infrastructure.Sla
         {
             var today = nowUtc.AddHours(_options.UtcOffsetHours).Date;
             var due = await _db.TicketTasks.Include(x => x.Ticket)
-                .Where(x => !x.IsDone && x.DueAt != null && x.OverdueNotifiedAt == null && x.DueAt < today
+                .Where(x => !x.IsDone && x.CancelledAt == null && x.RejectedAt == null && x.DueAt != null && x.OverdueNotifiedAt == null && x.DueAt < today
                     && x.Ticket!.Status != TicketStatus.Closed && x.Ticket.Status != TicketStatus.Cancelled && x.Ticket.Status != TicketStatus.Resolved)
                 .OrderBy(x => x.DueAt).Take(500).ToListAsync(ct);
             if (due.Count == 0) return;

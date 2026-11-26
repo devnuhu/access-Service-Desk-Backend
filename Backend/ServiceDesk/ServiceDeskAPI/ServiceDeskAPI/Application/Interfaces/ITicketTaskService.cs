@@ -9,6 +9,9 @@ namespace ServiceDeskAPI.Application.Interfaces
         Task<(TicketProblem? Problem, TicketTaskDto? Item)> AddAsync(Guid ticketId, TicketTaskRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, TicketTaskDto? Item)> UpdateAsync(Guid ticketId, Guid taskId, TicketTaskRequest request, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, TicketTaskDto? Item)> SetDoneAsync(Guid ticketId, Guid taskId, bool done, Guid actorUserId, bool actorIsSuperAdmin);
+        Task<(TicketProblem? Problem, TicketTaskDto? Item)> RejectAsync(Guid ticketId, Guid taskId, string? reason, Guid actorUserId, bool actorIsSuperAdmin);
+        Task<(TicketProblem? Problem, TicketTaskDto? Item)> CancelAsync(Guid ticketId, Guid taskId, string? reason, Guid actorUserId, bool actorIsSuperAdmin);
+        Task<MyTasksDto> MineAsync(Guid actorUserId, bool includeFinished, int page, int pageSize);
         Task<(TicketProblem? Problem, string? Message)> RemoveAsync(Guid ticketId, Guid taskId, Guid actorUserId, bool actorIsSuperAdmin);
         Task<(TicketProblem? Problem, List<PersonDto>? Owners)> OwnersAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin);
     }

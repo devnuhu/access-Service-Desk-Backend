@@ -261,6 +261,8 @@ namespace ServiceDeskAPI.Infrastructure.Persistence
                 e.HasOne<User>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(x => new { x.TicketId, x.SortOrder });
                 e.HasIndex(x => x.AssigneeUserId);
+                e.Property(x => x.RejectedReason).HasMaxLength(500);
+                e.Property(x => x.CancelledReason).HasMaxLength(500);
             });
 
             builder.Entity<KbArticle>(e =>

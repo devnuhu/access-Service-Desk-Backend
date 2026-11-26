@@ -9,8 +9,9 @@ using ServiceDeskAPI.Infrastructure.Api;
 namespace ServiceDeskAPI.Controllers
 {
     /// <summary>
-    /// The checklist on a ticket. Staff of the ticket and Super Admin only; a requester or anyone else gets 404.
-    /// A ticket cannot be resolved while a task is open (resolving as a duplicate or raised in error is allowed).
+    /// The checklist on a ticket. Staff of the ticket and Super Admin; a requester or anyone else gets 404, except the person a task is given to
+    /// (who may work in another unit of the department): they see only their own tasks and can finish or reject them.
+    /// A ticket cannot be resolved while a task is open or rejected (resolving as a duplicate or raised in error is allowed). A cancelled task does not block it.
     /// </summary>
     [ApiController]
     [Route("api/tickets/{ticketId:guid}/tasks")]
@@ -35,7 +36,7 @@ namespace ServiceDeskAPI.Controllers
             return StatusCode(problem.Status, error);
         }
 
-        /// <summary>The tasks, in the order they were added, with how many are open and done, and whether they can still be changed.</summary>
+        /// <summary>The tasks, in the order they were added, with how many are open, done, rejected and cancelled, and whether they can still be changed. Each task says what the signed-in person may do with it.</summary>
         [HttpGet]
         [ProducesResponseType(typeof(TicketTasksDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
@@ -66,7 +67,7 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && item != null ? Ok(item) : Fail(problem!);
         }
 
-        /// <summary>Changes the title, owner and due date.</summary>
+        /// <summary>Changes the title, owner and due date. Giving it to someone else clears an earlier rejection. A cancelled task cannot be changed.</summary>
         [HttpPut("{taskId:guid}")]
         [ProducesResponseType(typeof(TicketTaskDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
@@ -77,7 +78,7 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && item != null ? Ok(item) : Fail(problem!);
         }
 
-        /// <summary>Ticks a task done (done: true) or open again (done: false).</summary>
+        /// <summary>Ticks a task done (done: true) or open again (done: false). Staff of the ticket, or the person the task is given to.</summary>
         [HttpPut("{taskId:guid}/done")]
         [ProducesResponseType(typeof(TicketTaskDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
@@ -88,7 +89,31 @@ namespace ServiceDeskAPI.Controllers
             return problem == null && item != null ? Ok(item) : Fail(problem!);
         }
 
-        /// <summary>Removes a task.</summary>
+        /// <summary>The person the task is given to sends it back, with a reason (5 to 500 characters). The ticket's case worker and the person who added the task are told. It still blocks resolving the ticket until it is given to someone else or cancelled.</summary>
+        [HttpPut("{taskId:guid}/reject")]
+        [ProducesResponseType(typeof(TicketTaskDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<TicketTaskDto>> Reject(Guid ticketId, Guid taskId, [FromBody] TicketTaskReasonRequest request)
+        {
+            var (problem, item) = await _tasks.RejectAsync(ticketId, taskId, request?.Reason, Me(), IsSuperAdmin());
+            return problem == null && item != null ? Ok(item) : Fail(problem!);
+        }
+
+        /// <summary>Cancels an open or rejected task, with a reason (3 to 500 characters). The ticket's case worker, the person who added the task, the unit's head and a Super Admin can. The owner is told. A cancelled task no longer blocks resolving.</summary>
+        [HttpPut("{taskId:guid}/cancel")]
+        [ProducesResponseType(typeof(TicketTaskDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(typeof(ApiError), StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<TicketTaskDto>> Cancel(Guid ticketId, Guid taskId, [FromBody] TicketTaskReasonRequest request)
+        {
+            var (problem, item) = await _tasks.CancelAsync(ticketId, taskId, request?.Reason, Me(), IsSuperAdmin());
+            return problem == null && item != null ? Ok(item) : Fail(problem!);
+        }
+
+        /// <summary>Removes a task (for a task added by mistake; use cancel when it was a real task, so the reason is kept).</summary>
         [HttpDelete("{taskId:guid}")]
         [ProducesResponseType(typeof(MessageDto), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ApiError), StatusCodes.Status400BadRequest)]

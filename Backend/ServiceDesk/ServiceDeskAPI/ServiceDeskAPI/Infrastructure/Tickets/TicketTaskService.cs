@@ -14,7 +14,9 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 {
     /// <summary>
     /// The checklist on a ticket. Every change is audited. A person given a task is told in the app (and by email, like every notification).
-    /// Tasks are for staff: a requester or anyone else who is not staff on the ticket gets 404.
+    /// Tasks are for staff: a requester or anyone else who is not staff on the ticket gets 404, except the person a task is given to (they may
+    /// be in another unit of the department): they see only their own tasks and can finish or reject them.
+    /// A task is Open, Done, Rejected (sent back by its owner, still blocks resolving) or Cancelled (does not block).
     /// </summary>
     public class TicketTaskService : ITicketTaskService
     {
@@ -35,45 +37,80 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             _sla = sla.Value;
         }
 
+        private sealed record Viewer(Guid UserId, bool IsStaff, bool IsHead, bool IsSuperAdmin);
+
         private static bool Locked(Ticket t) => t.Status is TicketStatus.Resolved or TicketStatus.Closed or TicketStatus.Cancelled;
 
-        private async Task<(TicketProblem? Problem, Ticket? Ticket)> LoadAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin, bool forChange)
+        private static string StateOf(TicketTask t) => t.CancelledAt != null ? "Cancelled" : t.IsDone ? "Done" : t.RejectedAt != null ? "Rejected" : "Open";
+
+        private async Task<(TicketProblem? Problem, Ticket? Ticket, Viewer? Viewer)> LoadAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin, bool forChange, bool allowOwner = false)
         {
             var ticket = await _db.Tickets.AsNoTracking().FirstOrDefaultAsync(t => t.Id == ticketId);
-            if (ticket == null) return (new TicketProblem(404, "Ticket not found."), null);
+            if (ticket == null) return (new TicketProblem(404, "Ticket not found."), null, null);
             var staff = actorIsSuperAdmin || await TicketAccess.IsStaffForTicketAsync(_db, actorUserId, ticket.DepartmentId, ticket.UnitId);
-            if (!staff) return (new TicketProblem(404, "Ticket not found."), null);
+            if (!staff && !(allowOwner && await _db.TicketTasks.AnyAsync(t => t.TicketId == ticketId && t.AssigneeUserId == actorUserId && t.CancelledAt == null)))
+                return (new TicketProblem(404, "Ticket not found."), null, null);
             if (forChange && Locked(ticket))
-                return (new TicketProblem(400, "Tasks cannot be changed while the ticket is " + ticket.Status.ToString().ToLowerInvariant() + "."), null);
-            return (null, ticket);
+                return (new TicketProblem(400, "Tasks cannot be changed while the ticket is " + ticket.Status.ToString().ToLowerInvariant() + "."), null, null);
+            var head = staff && await _db.Units.AnyAsync(u => u.Id == ticket.UnitId && u.HeadUserId == actorUserId);
+            return (null, ticket, new Viewer(actorUserId, staff, head, actorIsSuperAdmin));
         }
 
         private DateTime LagosToday() => DateTime.UtcNow.AddHours(_sla.UtcOffsetHours).Date;
 
-        private async Task<List<TicketTaskDto>> ToDtosAsync(List<TicketTask> tasks)
+        private async Task<Dictionary<Guid, PersonDto>> PeopleAsync(IEnumerable<Guid?> ids)
         {
-            var ids = tasks.SelectMany(t => new[] { t.AssigneeUserId, t.DoneByUserId }).Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
-            var people = ids.Count == 0 ? new Dictionary<Guid, PersonDto>()
-                : (await _db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync())
-                    .ToDictionary(u => u.Id, u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName));
+            var list = ids.Where(x => x.HasValue).Select(x => x!.Value).Distinct().ToList();
+            if (list.Count == 0) return new Dictionary<Guid, PersonDto>();
+            return (await _db.Users.AsNoTracking().Where(u => list.Contains(u.Id)).Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync())
+                .ToDictionary(u => u.Id, u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName));
+        }
+
+        private static PersonDto? Who(Dictionary<Guid, PersonDto> people, Guid? id) => id.HasValue && people.TryGetValue(id.Value, out var p) ? p : null;
+
+        private async Task<List<TicketTaskDto>> ToDtosAsync(List<TicketTask> tasks, Ticket ticket, Viewer viewer)
+        {
+            var people = await PeopleAsync(tasks.SelectMany(t => new Guid?[] { t.AssigneeUserId, t.DoneByUserId, t.RejectedByUserId, t.CancelledByUserId, t.CreatedByUserId }));
             var today = LagosToday();
-            return tasks.Select(t => new TicketTaskDto
+            var locked = Locked(ticket);
+            return tasks.Select(t =>
             {
-                Id = t.Id, Title = t.Title,
-                Assignee = t.AssigneeUserId.HasValue && people.TryGetValue(t.AssigneeUserId.Value, out var p) ? p : null,
-                DueDate = t.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                IsDone = t.IsDone, DoneAt = t.DoneAt, DoneBy = t.DoneByUserId.HasValue && people.TryGetValue(t.DoneByUserId.Value, out var d) ? d : null, CreatedAt = t.CreatedAt,
-                IsOverdue = !t.IsDone && t.DueAt.HasValue && t.DueAt.Value.Date < today
+                var state = StateOf(t);
+                var mine = t.AssigneeUserId == viewer.UserId;
+                return new TicketTaskDto
+                {
+                    Id = t.Id, Title = t.Title, Status = state,
+                    Assignee = Who(people, t.AssigneeUserId), CreatedBy = Who(people, t.CreatedByUserId),
+                    DueDate = t.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    IsDone = t.IsDone, DoneAt = t.DoneAt, DoneBy = Who(people, t.DoneByUserId), CreatedAt = t.CreatedAt,
+                    IsOverdue = state == "Open" && t.DueAt.HasValue && t.DueAt.Value.Date < today,
+                    RejectedBy = Who(people, t.RejectedByUserId), RejectedAt = t.RejectedAt, RejectedReason = t.RejectedReason,
+                    CancelledBy = Who(people, t.CancelledByUserId), CancelledAt = t.CancelledAt, CancelledReason = t.CancelledReason,
+                    CanComplete = !locked && state == "Open" && (viewer.IsStaff || mine),
+                    CanReject = !locked && state == "Open" && mine,
+                    CanCancel = !locked && (state == "Open" || state == "Rejected") && viewer.IsStaff && MayCancel(t, ticket, viewer)
+                };
             }).ToList();
         }
 
+        private static bool MayCancel(TicketTask task, Ticket ticket, Viewer viewer) =>
+            viewer.IsSuperAdmin || viewer.IsHead || ticket.AssigneeUserId == viewer.UserId || task.CreatedByUserId == viewer.UserId;
+
         public async Task<(TicketProblem? Problem, TicketTasksDto? Tasks)> ListAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, false);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, false, allowOwner: true);
             if (problem != null) return (problem, null);
-            var tasks = await _db.TicketTasks.AsNoTracking().Where(t => t.TicketId == ticketId).OrderBy(t => t.SortOrder).ThenBy(t => t.CreatedAt).ToListAsync();
-            var items = await ToDtosAsync(tasks);
-            return (null, new TicketTasksDto { Items = items, Open = items.Count(i => !i.IsDone), Done = items.Count(i => i.IsDone), CanEdit = !Locked(ticket!) });
+            var query = _db.TicketTasks.AsNoTracking().Where(t => t.TicketId == ticketId);
+            if (!viewer!.IsStaff) query = query.Where(t => t.AssigneeUserId == actorUserId);
+            var tasks = await query.OrderBy(t => t.SortOrder).ThenBy(t => t.CreatedAt).ToListAsync();
+            var items = await ToDtosAsync(tasks, ticket!, viewer);
+            return (null, new TicketTasksDto
+            {
+                Items = items,
+                Open = items.Count(i => i.Status == "Open"), Done = items.Count(i => i.Status == "Done"),
+                Rejected = items.Count(i => i.Status == "Rejected"), Cancelled = items.Count(i => i.Status == "Cancelled"),
+                CanEdit = viewer.IsStaff && !Locked(ticket!)
+            });
         }
 
         /// <summary>Checks the title, due date and owner. Returns the cleaned values.</summary>
@@ -105,7 +142,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
 
         public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> AddAsync(Guid ticketId, TicketTaskRequest request, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
             if (problem != null) return (problem, null);
             var (bad, title, dueAt) = await CheckAsync(request, ticket!);
             if (bad != null) return (bad, null);
@@ -122,15 +159,16 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             Stage(AuditAction.Created, task, ticket!, new { title, assignee = request.AssigneeUserId, dueDate = request.DueDate });
             TellOwner(task, ticket!, actorUserId);
             await _db.SaveChangesAsync();
-            return (null, (await ToDtosAsync(new List<TicketTask> { task })).Single());
+            return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket!, viewer!)).Single());
         }
 
         public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> UpdateAsync(Guid ticketId, Guid taskId, TicketTaskRequest request, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
             if (problem != null) return (problem, null);
             var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
             if (task == null) return (new TicketProblem(404, "Task not found."), null);
+            if (task.CancelledAt != null) return (new TicketProblem(400, "This task was cancelled, so it cannot be changed."), null);
             var (bad, title, dueAt) = await CheckAsync(request, ticket!);
             if (bad != null) return (bad, null);
 
@@ -141,18 +179,28 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             task.DueAt = dueAt;
             task.UpdatedAt = DateTime.UtcNow;
             if (ownerChanged || dueChanged) task.OverdueNotifiedAt = null;
+            if (ownerChanged)
+            {
+                // A new owner starts afresh: the earlier rejection no longer applies
+                task.RejectedAt = null;
+                task.RejectedByUserId = null;
+                task.RejectedReason = null;
+            }
             Stage(AuditAction.Updated, task, ticket!, new { title, assignee = request.AssigneeUserId, dueDate = request.DueDate });
             if (ownerChanged) TellOwner(task, ticket!, actorUserId);
             await _db.SaveChangesAsync();
-            return (null, (await ToDtosAsync(new List<TicketTask> { task })).Single());
+            return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket!, viewer!)).Single());
         }
 
         public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> SetDoneAsync(Guid ticketId, Guid taskId, bool done, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true, allowOwner: true);
             if (problem != null) return (problem, null);
             var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
-            if (task == null) return (new TicketProblem(404, "Task not found."), null);
+            if (task == null || (!viewer!.IsStaff && task.AssigneeUserId != actorUserId)) return (new TicketProblem(404, "Task not found."), null);
+            var state = StateOf(task);
+            if (state == "Cancelled") return (new TicketProblem(400, "This task was cancelled."), null);
+            if (state == "Rejected" && done) return (new TicketProblem(400, "This task was rejected. Give it to someone else or cancel it."), null);
             if (task.IsDone != done)
             {
                 var now = DateTime.UtcNow;
@@ -161,14 +209,72 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
                 task.DoneByUserId = done ? actorUserId : null;
                 task.UpdatedAt = now;
                 Stage(AuditAction.Updated, task, ticket!, new { title = task.Title, done });
+                if (done) await TellDoneAsync(task, ticket!, actorUserId);
                 await _db.SaveChangesAsync();
             }
-            return (null, (await ToDtosAsync(new List<TicketTask> { task })).Single());
+            return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket!, viewer!)).Single());
+        }
+
+        public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> RejectAsync(Guid ticketId, Guid taskId, string? reason, Guid actorUserId, bool actorIsSuperAdmin)
+        {
+            var text = (reason ?? string.Empty).Trim();
+            if (text.Length < 5 || text.Length > 500)
+                return (new TicketProblem(400, "Say why you are sending it back (5 to 500 characters).", "reason"), null);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true, allowOwner: true);
+            if (problem != null) return (problem, null);
+            var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
+            if (task == null || (!viewer!.IsStaff && task.AssigneeUserId != actorUserId)) return (new TicketProblem(404, "Task not found."), null);
+            if (task.AssigneeUserId != actorUserId) return (new TicketProblem(403, "Only the person the task is given to can reject it."), null);
+            if (StateOf(task) != "Open") return (new TicketProblem(400, "Only an open task can be rejected."), null);
+
+            var now = DateTime.UtcNow;
+            task.RejectedAt = now;
+            task.RejectedByUserId = actorUserId;
+            task.RejectedReason = text;
+            task.UpdatedAt = now;
+            Stage(AuditAction.Updated, task, ticket!, new { title = task.Title, rejected = true, reason = text });
+            var name = await NameOfAsync(actorUserId);
+            var told = new HashSet<Guid>();
+            foreach (var who in new Guid?[] { ticket!.AssigneeUserId, task.CreatedByUserId })
+                if (who.HasValue && who.Value != actorUserId && told.Add(who.Value))
+                    _notifications.Stage(who.Value, "Ticket " + ticket.Reference + ": a task was rejected",
+                        name + " sent back \"" + task.Title + "\": " + text,
+                        NotificationType.ActionRequired, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
+            await _db.SaveChangesAsync();
+            return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket, viewer!)).Single());
+        }
+
+        public async Task<(TicketProblem? Problem, TicketTaskDto? Item)> CancelAsync(Guid ticketId, Guid taskId, string? reason, Guid actorUserId, bool actorIsSuperAdmin)
+        {
+            var text = (reason ?? string.Empty).Trim();
+            if (text.Length < 3 || text.Length > 500)
+                return (new TicketProblem(400, "Say why it is cancelled (3 to 500 characters).", "reason"), null);
+            var (problem, ticket, viewer) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
+            if (problem != null) return (problem, null);
+            var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
+            if (task == null) return (new TicketProblem(404, "Task not found."), null);
+            var state = StateOf(task);
+            if (state != "Open" && state != "Rejected") return (new TicketProblem(400, "Only an open or rejected task can be cancelled."), null);
+            if (!MayCancel(task, ticket!, viewer!))
+                return (new TicketProblem(403, "Only the ticket's case worker, the person who added the task, the head of the unit or a Super Admin can cancel it."), null);
+
+            var now = DateTime.UtcNow;
+            task.CancelledAt = now;
+            task.CancelledByUserId = actorUserId;
+            task.CancelledReason = text;
+            task.UpdatedAt = now;
+            Stage(AuditAction.Updated, task, ticket!, new { title = task.Title, cancelled = true, reason = text });
+            if (task.AssigneeUserId.HasValue && task.AssigneeUserId.Value != actorUserId)
+                _notifications.Stage(task.AssigneeUserId.Value, "Ticket " + ticket!.Reference + ": a task was cancelled",
+                    await NameOfAsync(actorUserId) + " cancelled \"" + task.Title + "\": " + text + " No further work is needed on it.",
+                    NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
+            await _db.SaveChangesAsync();
+            return (null, (await ToDtosAsync(new List<TicketTask> { task }, ticket!, viewer!)).Single());
         }
 
         public async Task<(TicketProblem? Problem, string? Message)> RemoveAsync(Guid ticketId, Guid taskId, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
+            var (problem, ticket, _) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, true);
             if (problem != null) return (problem, null);
             var task = await _db.TicketTasks.FirstOrDefaultAsync(t => t.Id == taskId && t.TicketId == ticketId);
             if (task == null) return (new TicketProblem(404, "Task not found."), null);
@@ -181,12 +287,49 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
         /// <summary>Everyone who can own a task on this ticket: active people who work in any unit of the ticket's department. For the owner picker.</summary>
         public async Task<(TicketProblem? Problem, List<PersonDto>? Owners)> OwnersAsync(Guid ticketId, Guid actorUserId, bool actorIsSuperAdmin)
         {
-            var (problem, ticket) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, false);
+            var (problem, ticket, _) = await LoadAsync(ticketId, actorUserId, actorIsSuperAdmin, false);
             if (problem != null) return (problem, null);
             var ids = await _db.UnitMembers.AsNoTracking().Where(m => m.IsActive && m.Unit!.DepartmentId == ticket!.DepartmentId).Select(m => m.UserId).Distinct().ToListAsync();
             var people = await _db.Users.AsNoTracking().Where(u => ids.Contains(u.Id) && u.IsActive).Select(u => new { u.Id, u.UserName, u.FullName }).ToListAsync();
             return (null, people.Select(u => new PersonDto(u.Id, u.UserName ?? string.Empty, u.FullName)).OrderBy(p => p.FullName ?? p.UserName).ToList());
         }
+
+        /// <summary>The tasks given to the signed-in person across tickets: open ones on running tickets by default; every state with includeFinished.</summary>
+        public async Task<MyTasksDto> MineAsync(Guid actorUserId, bool includeFinished, int page, int pageSize)
+        {
+            page = Math.Max(1, page);
+            pageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, 100);
+            var mine = _db.TicketTasks.AsNoTracking().Where(t => t.AssigneeUserId == actorUserId);
+            var running = mine.Where(t => !t.IsDone && t.RejectedAt == null && t.CancelledAt == null
+                && t.Ticket!.Status != TicketStatus.Resolved && t.Ticket.Status != TicketStatus.Closed && t.Ticket.Status != TicketStatus.Cancelled);
+            var openCount = await running.CountAsync();
+            var query = includeFinished ? mine : running;
+            var total = await query.CountAsync();
+            var rows = await query.OrderBy(t => t.DueAt == null).ThenBy(t => t.DueAt).ThenBy(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize).Take(pageSize)
+                .Select(t => new
+                {
+                    t.Id, t.TicketId, Reference = t.Ticket!.Reference, Subject = t.Ticket.Subject, TicketStatus = t.Ticket.Status,
+                    t.Title, t.DueAt, t.IsDone, t.RejectedAt, t.CancelledAt, t.CreatedByUserId, t.CreatedAt
+                }).ToListAsync();
+            var people = await PeopleAsync(rows.Select(r => (Guid?)r.CreatedByUserId));
+            var today = LagosToday();
+            var items = rows.Select(r =>
+            {
+                var state = r.CancelledAt != null ? "Cancelled" : r.IsDone ? "Done" : r.RejectedAt != null ? "Rejected" : "Open";
+                return new MyTaskDto
+                {
+                    TaskId = r.Id, TicketId = r.TicketId, TicketReference = r.Reference, TicketSubject = r.Subject, TicketStatus = r.TicketStatus,
+                    Title = r.Title, Status = state, DueDate = r.DueAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    IsOverdue = state == "Open" && r.DueAt.HasValue && r.DueAt.Value.Date < today,
+                    GivenBy = Who(people, r.CreatedByUserId), CreatedAt = r.CreatedAt
+                };
+            }).ToList();
+            return new MyTasksDto { Items = items, Total = total, OpenCount = openCount, Page = page, PageSize = pageSize };
+        }
+
+        private async Task<string> NameOfAsync(Guid userId) =>
+            await _db.Users.Where(u => u.Id == userId).Select(u => u.FullName ?? u.UserName).FirstOrDefaultAsync() ?? "Someone";
 
         private void TellOwner(TicketTask task, Ticket ticket, Guid actorUserId)
         {
@@ -194,6 +337,18 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             _notifications.Stage(task.AssigneeUserId.Value, "Ticket " + ticket.Reference + ": a task is assigned to you",
                 task.Title + (task.DueAt.HasValue ? " (due " + task.DueAt.Value.ToString("dd MMM yyyy", CultureInfo.InvariantCulture) + ")" : string.Empty),
                 NotificationType.ActionRequired, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
+        }
+
+        /// <summary>The ticket's case worker and the person who added the task hear that it is done (not the person who did it).</summary>
+        private async Task TellDoneAsync(TicketTask task, Ticket ticket, Guid actorUserId)
+        {
+            var name = await NameOfAsync(actorUserId);
+            var told = new HashSet<Guid>();
+            foreach (var who in new Guid?[] { ticket.AssigneeUserId, task.CreatedByUserId })
+                if (who.HasValue && who.Value != actorUserId && told.Add(who.Value))
+                    _notifications.Stage(who.Value, "Ticket " + ticket.Reference + ": a task is done",
+                        name + " finished \"" + task.Title + "\".",
+                        NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
         }
 
         private void Stage(AuditAction action, TicketTask task, Ticket ticket, object detail)
