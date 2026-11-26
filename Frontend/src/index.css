@@ -3,7 +3,8 @@
 /* The app's theme: the colours of its emails, and the Access Desk brand (logo, login, favicon). */
 @theme {
   --font-sans: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  /* The wordmark only; the UI font when the brand font cannot load. */
+  /* The wordmark only (Plus Jakarta Sans 800, bundled from @fontsource in main.jsx); the system
+     UI fonts when it cannot load. The UI itself uses system fonts: nothing is fetched. */
   --font-brand:
     "Plus Jakarta Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
