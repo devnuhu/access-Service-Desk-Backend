@@ -436,6 +436,117 @@ describe("Reopen and cancel", () => {
       await dialogNamed("Cancel this ticket for everyone?"),
     ).toBeInTheDocument();
   });
+
+  const STAFF_WARNING =
+    "The requester sees this reason on the ticket. Cancelling cannot be undone.";
+  const actionsCard = async () =>
+    (
+      await screen.findByRole(
+        "heading",
+        { name: "Actions" },
+        { timeout: 10_000 },
+      )
+    ).parentElement;
+
+  it("the requester's cancel dialog has no staff warning", async () => {
+    const user = userEvent.setup();
+    renderPage({
+      data: ticket({ status: 2, acknowledgedAt: null }),
+      actions: flags({ canCancel: true }),
+    });
+    await user.click(
+      await within(await callout()).findByRole("button", {
+        name: "Cancel ticket",
+      }),
+    );
+    const dialog = await dialogNamed("Cancel this ticket?");
+    expect(within(dialog).queryByText(STAFF_WARNING)).not.toBeInTheDocument();
+  });
+
+  it("the case worker cancels from the side panel: the dialog says the requester sees the reason and it cannot be undone", async () => {
+    const user = userEvent.setup();
+    const { sent } = renderPage({
+      data: ticket({ isStaffView: true }),
+      viewer: WORKER.userId,
+      actions: flags({ canCancel: true, canResolve: true }),
+      answers: { cancel: [200, { message: "Cancelled." }] },
+    });
+    const card = await actionsCard();
+    // Not in the requester's callout: the viewer is not the requester.
+    expect(
+      within(await callout()).queryByRole("button", { name: "Cancel ticket" }),
+    ).not.toBeInTheDocument();
+    await user.click(
+      within(card).getByRole("button", { name: "Cancel ticket" }),
+    );
+    const dialog = await dialogNamed("Cancel this ticket for everyone?");
+    expect(within(dialog).getByTestId("cancel-intro")).toHaveTextContent(
+      STAFF_WARNING,
+    );
+    await user.type(
+      within(dialog).getByRole("textbox"),
+      "Duplicate of CP-2026-000002.",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Cancel ticket" }),
+    );
+    expect(await screen.findByText("Cancelled.")).toBeInTheDocument();
+    expect(sent).toEqual([
+      ["cancel", { reason: "Duplicate of CP-2026-000002." }],
+    ]);
+  });
+
+  it("a case worker past the deadline gets the API's refusal as it is given, and the dialog stays open", async () => {
+    const user = userEvent.setup();
+    const refusal =
+      "This ticket has passed its deadline or its first-response time, so only the head of the unit can cancel it. Ask them.";
+    renderPage({
+      data: ticket({ isStaffView: true }),
+      viewer: WORKER.userId,
+      actions: flags({ canCancel: true }),
+      answers: { cancel: [400, { message: refusal }] },
+    });
+    await user.click(
+      within(await actionsCard()).getByRole("button", {
+        name: "Cancel ticket",
+      }),
+    );
+    const dialog = await dialogNamed("Cancel this ticket for everyone?");
+    await user.type(within(dialog).getByRole("textbox"), "No longer needed.");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Cancel ticket" }),
+    );
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(refusal);
+    expect(
+      screen.getByRole("dialog", { name: "Cancel this ticket for everyone?" }),
+    ).toBeInTheDocument();
+  });
+
+  it("the unit's head (not the assignee) sees Cancel whenever the API allows it", async () => {
+    renderPage({
+      data: ticket({ isStaffView: true, status: 1, assignee: null }),
+      viewer: "u-head",
+      actions: flags({ canCancel: true }),
+    });
+    expect(
+      within(await actionsCard()).getByRole("button", {
+        name: "Cancel ticket",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("staff without canCancel see no Cancel button anywhere", async () => {
+    const { loads } = renderPage({
+      data: ticket({ isStaffView: true }),
+      viewer: WORKER.userId,
+      actions: flags({ canResolve: true }),
+    });
+    await actionsCard();
+    await waitFor(() => expect(loads.actions).toBe(1));
+    expect(
+      screen.queryByRole("button", { name: "Cancel ticket" }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("Status callout", () => {

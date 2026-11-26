@@ -92,12 +92,12 @@ Changes (POST, PUT, PATCH, DELETE) from the web app carry `X-CSRF-Token`; Swagge
 | GET | `/api/people/search?query=` | signed in | Active staff by name or login name (name, login name, department only); for CC |
 | GET | `/api/tickets/{id}/priority` | anyone who can see the ticket (others 404) | Can I change the priority (`canChange`, `reason` why not), the priority, and for staff the requester's `impact` and `urgency` |
 | POST | `/api/tickets/{id}/priority` | signed in; head of the ticket's unit, HOD, Department Admin, Super Admin (others 403) | Change an open ticket's priority `{ priority, reason }` (reason 5-500, kept as an internal note); the service levels follow; 409 changed at the same moment |
-| GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes |
+| GET | `/api/tickets/{id}/actions` | anyone who can see the ticket | What I may do now, and the resolution codes. `canCancel` follows the cancel rule below; the app shows Cancel only from this flag, never from the role |
 | POST | `/api/tickets/{id}/acknowledge`, `/resume` | the assignee | Assigned/Reopened -> In progress; Pending -> In progress |
 | POST | `/api/tickets/{id}/pending` | the assignee | `{ reason: 1 requester / 2 third party, note }` |
 | POST | `/api/tickets/{id}/resolve` | the assignee | `{ code, note }`; 400 `errors.tasks` while a task is open, unless the code is Duplicate or Raised in error |
 | POST | `/api/tickets/{id}/confirm`, `/reopen` | the requester (or who raised it) | Resolved -> Closed; Resolved -> Reopened `{ reason }` |
-| POST | `/api/tickets/{id}/cancel` | requester (New/Assigned), Super Admin (any open) | `{ reason }` |
+| POST | `/api/tickets/{id}/cancel` | signed in; the requester (New/Assigned); the assigned case worker (Assigned, In progress, Pending, Reopened, and not past the deadline or first-response time); the head of the ticket's unit (New or any open ticket of the unit); Super Admin (any open) | `{ reason }` (3 to 500 characters; the requester sees it on the ticket). 400 "This ticket has passed its deadline or its first-response time, so only the head of the unit can cancel it. Ask them." when a case worker is too late |
 | POST | `/api/tickets/{id}/escalate` | the assignee | Ask the unit's head for help `{ reason }` (5 to 1000 characters, kept as an internal note) |
 | GET | `/api/catalogue/suggestions` | signed in | Quick picks for the requester home: `recent` (what I raised in the last 90 days, up to 5, newest first) and `popular` (most raised in the last 30 days, up to 6); active categories only |
 | GET | `/api/catalogue/templates` | signed in | Suggested subject and description for the raise form: categories requesters can choose that have one, placeholders filled in for me |

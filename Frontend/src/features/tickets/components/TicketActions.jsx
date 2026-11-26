@@ -11,8 +11,10 @@ import {
 } from "./WorkflowDialogs.jsx";
 
 /**
- * The side panel's Actions card: the assignee's buttons, and a Super Admin's Cancel on someone
- * else's ticket. Only the flags the API sets show a button; with none there is no card.
+ * The side panel's Actions card: the assignee's buttons, and Cancel for anyone the API allows who
+ * is not the requester (the case worker, the unit's head, a Super Admin). Only the flags the API
+ * sets show a button, never the viewer's role; with none there is no card. The requester's Cancel
+ * sits in the status callout instead (RequesterActions).
  */
 export function ActionsCard({ ticket, actions, isRequester }) {
   const toast = useToast();

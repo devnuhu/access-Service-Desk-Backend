@@ -324,6 +324,7 @@ function ReasonDialog({
   variant,
   required,
   max,
+  intro,
   onClose,
 }) {
   const [reason, setReason] = useState("");
@@ -339,14 +340,21 @@ function ReasonDialog({
       body={() => ({ reason: reason.trim() })}
     >
       {(errors) => (
-        <TextField
-          id={`${action}-reason`}
-          label={label}
-          value={reason}
-          onChange={setReason}
-          max={max}
-          error={errors.reason}
-        />
+        <>
+          {intro && (
+            <p data-testid={`${action}-intro`} className="text-sm text-body">
+              {intro}
+            </p>
+          )}
+          <TextField
+            id={`${action}-reason`}
+            label={label}
+            value={reason}
+            onChange={setReason}
+            max={max}
+            error={errors.reason}
+          />
+        </>
       )}
     </WorkflowDialog>
   );
@@ -368,6 +376,12 @@ export function ReopenDialog({ ticketId, onClose }) {
 }
 
 /** `forEveryone`: a Super Admin cancelling someone else's ticket. */
+/**
+ * Cancel with a reason. `forEveryone`: someone other than the requester (the case worker, the
+ * unit's head, a Super Admin) is cancelling, so the dialog says the requester sees the reason and
+ * that it cannot be undone. The API's own refusal (for example a case worker past the deadline)
+ * shows as it is given.
+ */
 export function CancelDialog({ ticketId, forEveryone, onClose }) {
   return (
     <ReasonDialog
@@ -375,6 +389,11 @@ export function CancelDialog({ ticketId, forEveryone, onClose }) {
       action="cancel"
       title={
         forEveryone ? "Cancel this ticket for everyone?" : "Cancel this ticket?"
+      }
+      intro={
+        forEveryone
+          ? "The requester sees this reason on the ticket. Cancelling cannot be undone."
+          : undefined
       }
       label="Why is it being cancelled?"
       submitLabel="Cancel ticket"
