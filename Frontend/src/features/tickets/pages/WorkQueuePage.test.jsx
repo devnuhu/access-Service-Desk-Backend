@@ -121,7 +121,12 @@ describe("Work queue", () => {
     expect(
       await screen.findByRole("tab", { name: "All open" }),
     ).toHaveAttribute("aria-selected", "true");
-    expect(tabNames()).toEqual(["Assigned to me", "All open", "Unit pool"]);
+    expect(tabNames()).toEqual([
+      "Assigned to me",
+      "All open",
+      "Unit pool",
+      "My tasks",
+    ]);
     expect(screen.queryByLabelText("Unit")).not.toBeInTheDocument();
     expect(
       screen.getByText("Tickets for Contribution Matching."),
@@ -183,6 +188,7 @@ describe("Work queue", () => {
       "All open",
       "Unit pool",
       "Admin",
+      "My tasks",
     ]);
     await user.click(screen.getByRole("tab", { name: "Admin" }));
     expect(await screen.findByLabelText("Unit")).toHaveDisplayValue(
@@ -1305,5 +1311,177 @@ describe("Work queue: 10 per page, search on the server", () => {
       "aria-current",
       "page",
     );
+  });
+});
+
+describe("Work queue: My tasks", () => {
+  const GIVER = {
+    userId: "u-cw1",
+    userName: "test.caseworker1",
+    fullName: "Chidi Worker",
+  };
+  const myTask = (id, overrides = {}) => ({
+    taskId: id,
+    ticketId: `t-${id}`,
+    ticketReference: `CP-2026-00000${id.slice(-1)}`,
+    ticketSubject: `Subject ${id}`,
+    ticketStatus: 3,
+    title: `Task ${id}`,
+    status: "Open",
+    dueDate: null,
+    isOverdue: false,
+    givenBy: GIVER,
+    createdAt: "2026-11-03T10:00:00Z",
+    ...overrides,
+  });
+  /** `answer(params)` gives the items; openCount stays 3 whatever is asked (as the API does). */
+  function renderTasks(answer, search = "?tab=tasks") {
+    const asked = [];
+    const queue = renderQueue(
+      ["Requester", "CaseWorker"],
+      org([CM({ isMember: true }), RF]),
+      () => [],
+      search,
+      {
+        "GET /api/tasks/mine": (config) => {
+          asked.push(config.params);
+          const items = answer(config.params);
+          return [
+            200,
+            {
+              items,
+              total: items.length,
+              openCount: 3,
+              page: config.params.page ?? 1,
+              pageSize: config.params.pageSize ?? 20,
+            },
+          ];
+        },
+      },
+    );
+    return { asked, queue };
+  }
+
+  it("shows the open count as the tab's badge, and lists each task with its ticket, giver, due date, Overdue and status", async () => {
+    const { asked, queue } = renderTasks(() => [
+      myTask("k-1", {
+        dueDate: "2026-11-10",
+        isOverdue: true,
+      }),
+      myTask("k-2", { dueDate: "2026-12-20" }),
+      myTask("k-3", { givenBy: null }),
+    ]);
+    const tab = await screen.findByRole("tab", { name: /My tasks/ });
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(await within(tab).findByTestId("my-tasks-count")).toHaveTextContent(
+      "3",
+    );
+
+    const first = await screen.findByTestId("my-task-k-1");
+    expect(first).toHaveTextContent("Task k-1");
+    expect(first).toHaveTextContent("CP-2026-000001");
+    expect(first).toHaveTextContent("Subject k-1");
+    expect(within(first).getByTestId("my-task-given-by")).toHaveTextContent(
+      "From Chidi Worker",
+    );
+    expect(within(first).getByTestId("my-task-due")).toHaveTextContent(
+      "Overdue · 10 Nov",
+    );
+    expect(within(first).getByTestId("task-status")).toHaveTextContent("Open");
+    expect(
+      within(screen.getByTestId("my-task-k-2")).getByTestId("my-task-due"),
+    ).toHaveTextContent("Due 20 Dec");
+    expect(
+      within(screen.getByTestId("my-task-k-3")).getByTestId("my-task-due"),
+    ).toHaveTextContent("No due date");
+
+    // 10 a page, finished ones left out; the badge asks for one row.
+    expect(asked).toContainEqual({ page: 1, pageSize: 10 });
+    expect(asked).toContainEqual({ page: 1, pageSize: 1 });
+    // The tab asks for no ticket list.
+    expect(queue).toHaveLength(0);
+
+    const user = userEvent.setup();
+    await user.click(within(first).getByRole("link"));
+    expect(queue.router.state.location.pathname).toBe(
+      "/tickets/CP-2026-000001",
+    );
+  });
+
+  it("Show finished asks for includeFinished=true and back to page 1", async () => {
+    const user = userEvent.setup();
+    const { asked } = renderTasks((params) =>
+      params.includeFinished
+        ? [myTask("k-1"), myTask("k-2", { status: "Done" })]
+        : [myTask("k-1")],
+    );
+    await screen.findByTestId("my-task-k-1");
+    expect(screen.queryByTestId("my-task-k-2")).toBeNull();
+    await user.click(screen.getByRole("switch", { name: "Show finished" }));
+    const done = await screen.findByTestId("my-task-k-2");
+    expect(within(done).getByTestId("task-status")).toHaveTextContent("Done");
+    expect(asked).toContainEqual({
+      includeFinished: true,
+      page: 1,
+      pageSize: 10,
+    });
+  });
+
+  it('says "No tasks are waiting for you." when there are none, and the badge hides at 0', async () => {
+    renderQueue(
+      ["Requester", "CaseWorker"],
+      org([CM({ isMember: true }), RF]),
+      () => [],
+      "?tab=tasks",
+      {
+        "GET /api/tasks/mine": (config) => [
+          200,
+          {
+            items: [],
+            total: 0,
+            openCount: 0,
+            page: 1,
+            pageSize: config.params.pageSize,
+          },
+        ],
+      },
+    );
+    expect(
+      await screen.findByText("No tasks are waiting for you."),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("my-tasks-count")).toBeNull();
+  });
+
+  it("pages with the shared pager from the server's total", async () => {
+    const user = userEvent.setup();
+    const asked = [];
+    renderQueue(
+      ["Requester", "CaseWorker"],
+      org([CM({ isMember: true }), RF]),
+      () => [],
+      "?tab=tasks",
+      {
+        "GET /api/tasks/mine": (config) => {
+          asked.push(config.params);
+          const page = config.params.page ?? 1;
+          return [
+            200,
+            {
+              items: [myTask(`p${page}`)],
+              total: 23,
+              openCount: 23,
+              page,
+              pageSize: 10,
+            },
+          ];
+        },
+      },
+    );
+    expect(await screen.findByTestId("pager-summary")).toHaveTextContent(
+      "Showing 1-10 of 23",
+    );
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    expect(await screen.findByTestId("my-task-p2")).toBeInTheDocument();
+    expect(asked).toContainEqual({ page: 2, pageSize: 10 });
   });
 });

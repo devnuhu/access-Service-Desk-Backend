@@ -449,10 +449,11 @@ export const ACCESS_TABLE = [
   write("POST", "/api/tickets/{ticketId}/links", SIGNED_IN),
   write("DELETE", "/api/tickets/{ticketId}/links/{linkId}", SIGNED_IN),
   write("POST", "/api/tickets/{ticketId}/merge", SIGNED_IN),
-  // Tasks (checklist): staff for the ticket and Super Admin (others 404 by design, requesters included)
+  // Tasks (checklist): staff for the ticket and Super Admin; a person given a task there sees and
+  // finishes or rejects their own (others 404 by design, requesters included)
   get("/api/tickets/{ticketId}/tasks", SIGNED_IN, {
     skipAlways: true,
-    skip: "allowed for the ticket's staff and Super Admin; anyone else, the requester included, gets 404 by design",
+    skip: "allowed for the ticket's staff, Super Admin and the people given a task on it (their own only); anyone else, the requester included, gets 404 by design",
   }),
   get("/api/tickets/{ticketId}/tasks/owners", SIGNED_IN, {
     skipAlways: true,
@@ -462,6 +463,9 @@ export const ACCESS_TABLE = [
   write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}", SIGNED_IN),
   write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}/done", SIGNED_IN),
   write("DELETE", "/api/tickets/{ticketId}/tasks/{taskId}", SIGNED_IN),
+  write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}/reject", SIGNED_IN),
+  write("PUT", "/api/tickets/{ticketId}/tasks/{taskId}/cancel", SIGNED_IN),
+  get("/api/tasks/mine", SIGNED_IN),
   get("/api/tickets/{ticketId}/assignments", SIGNED_IN, {
     skipAlways: true,
     skip: "allowed for the ticket's department staff and Super Admin; the requester of a ticket gets 403 by design",

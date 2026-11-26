@@ -14,6 +14,7 @@ import { hasAnyRole, ROLES } from "@/shared/lib/roles";
 import { Card, PageHeader, Spinner, UnitEyebrow } from "@/shared/ui";
 import { STATUS, STATUS_LABELS, TICKET_SORT } from "../api/endpoints.js";
 import BulkActions from "../components/BulkActions.jsx";
+import MyTasksPanel from "../components/MyTasksPanel.jsx";
 import PoolPanel from "../components/PoolPanel.jsx";
 import SlaSummary from "../components/SlaSummary.jsx";
 import TicketTable from "../components/TicketTable.jsx";
@@ -29,6 +30,7 @@ import {
   useSlaSummary,
   useTicketList,
 } from "../hooks/useTickets.js";
+import { useMyTaskCount } from "../hooks/useTasks.js";
 import { BUILT_IN_VIEWS, filterKey, fromFilter, toFilter } from "../views.js";
 
 const OPEN = "open";
@@ -37,6 +39,7 @@ const ASSIGNED = "assigned";
 const UNIT = "unit";
 const ADMIN = "admin";
 const POOL = "pool";
+const TASKS = "tasks";
 
 const SORTS = [
   [TICKET_SORT.Newest, "Newest"],
@@ -51,7 +54,8 @@ const SORTS = [
  * Unit members get tabs: "Assigned to me" (view=assigned; the default for a case worker), "All
  * open" for their own unit (the default for unit heads), "Unit pool" (New tickets they may pick,
  * with a count; GET /api/pool, polled every 60 s), and, for the department's Admin
- * (org/me isAdmin), "Admin": every ticket in the department, like the HOD. The HOD and a Super Admin
+ * (org/me isAdmin), "Admin": every ticket in the department, like the HOD; and "My tasks" (?tab=tasks):
+ * tasks given to me on any ticket, with the open count as its badge. The HOD and a Super Admin
  * are not members and see the whole department with a unit filter.
  *
  * Filters go to the server (status or open=true, waitingToStart=true, slaBreached=true,
@@ -122,8 +126,12 @@ function WorkQueue({
         [UNIT, "All open"],
         [POOL, "Unit pool"],
         ...(isAdmin ? [[ADMIN, "Admin"]] : []),
+        [TASKS, "My tasks"],
       ]
     : [];
+  // The badge: tasks open for me (the server counts them; one row asked for).
+  const taskCount = useMyTaskCount({ enabled: Boolean(ownUnit) });
+  const openTasks = taskCount.data?.openCount ?? 0;
   // The unit pool is for unit members and heads (ownUnit); only this department's units here.
   // The server counts it per unit (one row asked for, never counted here).
   const poolCounts = usePoolCounts({ enabled: Boolean(ownUnit) });
@@ -159,6 +167,7 @@ function WorkQueue({
   // oversees the department, so their page stays the department's).
   const member = Boolean(ownUnit) && !isAdmin;
   const pooled = tab === POOL;
+  const onTasks = tab === TASKS;
   // Department-wide: the HOD and Super Admin (no tabs) and the Admin tab.
   const wide = tab === null || tab === ADMIN;
   const [unitId, setUnitId] = useState(askedUnit);
@@ -198,20 +207,23 @@ function WorkQueue({
         departmentId,
         unitId: wide ? unitId || undefined : ownUnit.id,
       };
-  const list = useTicketList({
-    ...base,
-    search,
-    open: status === OPEN || ageBand ? true : undefined,
-    status: status === OPEN || status === ALL ? undefined : Number(status),
-    waitingToStart: waiting || undefined,
-    slaBreached: breached || undefined,
-    escalated: escalated || undefined,
-    priority: priority ? Number(priority) : undefined,
-    ageBand: ageBand ? Number(ageBand) : undefined,
-    sort: sort === TICKET_SORT.Newest ? undefined : sort,
-    page,
-    pageSize: LIST_PAGE_SIZE,
-  });
+  const list = useTicketList(
+    {
+      ...base,
+      search,
+      open: status === OPEN || ageBand ? true : undefined,
+      status: status === OPEN || status === ALL ? undefined : Number(status),
+      waitingToStart: waiting || undefined,
+      slaBreached: breached || undefined,
+      escalated: escalated || undefined,
+      priority: priority ? Number(priority) : undefined,
+      ageBand: ageBand ? Number(ageBand) : undefined,
+      sort: sort === TICKET_SORT.Newest ? undefined : sort,
+      page,
+      pageSize: LIST_PAGE_SIZE,
+    },
+    { enabled: !onTasks },
+  );
   useLastPageClamp(paging, list.data?.total);
 
   // Oversight counts: a head for their unit on "All open"; the Admin tab, the HOD and a
@@ -230,6 +242,7 @@ function WorkQueue({
     [UNIT]: "unit",
     [POOL]: "pool",
     [ADMIN]: "admin",
+    [TASKS]: "unit",
   };
   const currentFilter = toFilter({
     tab: tabName[tab] ?? "unit",
@@ -281,7 +294,7 @@ function WorkQueue({
   const [selection, setSelection] = useState({ key: "", rows: new Map() });
   const rows = selection.key === filtersKey ? selection.rows : new Map();
   const canReassign = leadsUnit || wide;
-  const selectable = pooled || assigned || canReassign;
+  const selectable = !onTasks && (pooled || assigned || canReassign);
   const select = (list, on) =>
     setSelection(() => {
       const next = new Map(rows);
@@ -384,6 +397,15 @@ function WorkQueue({
                     <span className="sr-only"> waiting</span>
                   </span>
                 )}
+                {id === TASKS && openTasks > 0 && (
+                  <span
+                    className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-brand-orange px-1.5 text-[12px] leading-5 font-bold text-ink"
+                    data-testid="my-tasks-count"
+                  >
+                    {openTasks}
+                    <span className="sr-only"> open</span>
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -399,7 +421,9 @@ function WorkQueue({
           />
         )}
         <div key={tab ?? "all"} className="tab-in">
-          {pooled ? (
+          {onTasks ? (
+            <MyTasksPanel />
+          ) : pooled ? (
             <PoolPanel
               departmentUnitIds={unitIds}
               fallbackUnitId={ownUnit?.id}

@@ -4,7 +4,13 @@ import { Button, Dialog } from "@/shared/ui";
 import { PENDING_REASON } from "../api/endpoints.js";
 import useRunAction from "../hooks/useRunAction.js";
 import { refreshTasks, useTicketTasks } from "../hooks/useTasks.js";
-import { openTasksText, TASKS_PANEL_ID, tasksBlockResolve } from "../tasks.js";
+import {
+  blockingTasks,
+  goToTasksPanel,
+  openTasksText,
+  TASKS_PANEL_ID,
+  tasksBlockResolve,
+} from "../tasks.js";
 
 /**
  * The shell of every workflow dialog. The browser checks only that required fields are filled
@@ -200,11 +206,7 @@ function OpenTasksBlock({ message, onClose }) {
   const goToTasks = (event) => {
     event.preventDefault();
     onClose();
-    requestAnimationFrame(() => {
-      const panel = document.getElementById(TASKS_PANEL_ID);
-      panel?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-      panel?.focus?.({ preventScroll: true });
-    });
+    requestAnimationFrame(goToTasksPanel);
   };
   return (
     <p
@@ -225,8 +227,9 @@ function OpenTasksBlock({ message, onClose }) {
 }
 
 /**
- * `checkTasks` (staff view): while tasks are open, Resolve stays disabled unless the code is
- * Duplicate or Raised in error. A refusal from the API refetches the tasks (their open count).
+ * `checkTasks` (staff view): while tasks are open or rejected (a rejected task still needs another
+ * owner or cancelling), Resolve stays disabled unless the code is Duplicate or Raised in error. A
+ * refusal from the API refetches the tasks (their counts).
  */
 export function ResolveDialog({
   ticketId,
@@ -238,7 +241,7 @@ export function ResolveDialog({
   const tasks = useTicketTasks(ticketId, { enabled: checkTasks });
   const [code, setCode] = useState("");
   const [note, setNote] = useState("");
-  const open = tasks.data?.open ?? 0;
+  const open = blockingTasks(tasks.data);
   const blocked = checkTasks && tasksBlockResolve(open, code);
   return (
     <WorkflowDialog

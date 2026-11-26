@@ -4,21 +4,31 @@ import { fieldError } from "@/shared/lib/http";
 import {
   Button,
   Card,
+  Chip,
   ConfirmDialog,
+  Dialog,
   InlineRetry,
   Spinner,
   useToast,
 } from "@/shared/ui";
-import { STATUS_LABELS } from "../api/endpoints.js";
+import { STATUS_LABELS, TASK_STATUS } from "../api/endpoints.js";
 import {
   useAddTask,
+  useCancelTask,
+  useRejectTask,
   useRemoveTask,
   useSetTaskDone,
   useTaskOwners,
   useTicketTasks,
   useUpdateTask,
 } from "../hooks/useTasks.js";
-import { doneText, formatTaskDue, TASKS_PANEL_ID } from "../tasks.js";
+import {
+  doneText,
+  formatTaskDue,
+  TASKS_PANEL_ID,
+  taskOutcomeText,
+  tasksSummary,
+} from "../tasks.js";
 import { personName } from "../ticketText.js";
 
 const FIELDS = ["title", "assigneeUserId", "dueDate"];
@@ -216,10 +226,153 @@ function TaskForm({ ticketId, task, onDone, onCancel }) {
   );
 }
 
+/** A task's state as a chip: Rejected in the warning colour, Cancelled greyed. */
+const STATUS_TONES = {
+  [TASK_STATUS.Open]: "navy",
+  [TASK_STATUS.Done]: "green",
+  [TASK_STATUS.Rejected]: "orange",
+  [TASK_STATUS.Cancelled]: "grey",
+};
+
+export function TaskStatusChip({ status }) {
+  return (
+    <Chip tone={STATUS_TONES[status] ?? "grey"} data-testid="task-status">
+      {status}
+    </Chip>
+  );
+}
+
+/** Reject and Cancel: say why. The length is checked here too; the API's refusal stays in the dialog. */
+const REASONS = {
+  reject: {
+    title: "Reject this task?",
+    label:
+      "Why are you sending it back? The case worker and whoever added it see this.",
+    submit: "Reject task",
+    min: 5,
+    tooShort: "Say why you are sending it back (at least 5 characters).",
+    done: "Task rejected.",
+  },
+  cancel: {
+    title: "Cancel this task?",
+    label: "Why is it no longer needed? Its owner sees this.",
+    submit: "Cancel task",
+    min: 3,
+    tooShort: "Say why it is cancelled (at least 3 characters).",
+    done: "Task cancelled.",
+  },
+};
+const REASON_MAX = 500;
+
+function TaskReasonDialog({ ticketId, task, kind, onClose }) {
+  const toast = useToast();
+  const reject = useRejectTask(ticketId);
+  const cancel = useCancelTask(ticketId);
+  const mutation = kind === "reject" ? reject : cancel;
+  const text = REASONS[kind];
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState(null);
+  const [failure, setFailure] = useState(null);
+  const formId = `task-${kind}-${task.id}`;
+  const length = reason.trim().length;
+
+  const save = async (event) => {
+    event.preventDefault();
+    setFailure(null);
+    if (length < text.min) {
+      setError(text.tooShort);
+      return;
+    }
+    setError(null);
+    try {
+      await mutation.mutateAsync({ taskId: task.id, reason: reason.trim() });
+      toast.success(text.done);
+      onClose();
+    } catch (problem) {
+      const field = fieldError(problem, "reason");
+      if (field) setError(field);
+      else setFailure(problem.message);
+    }
+  };
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={text.title}
+      description={`“${task.title}”`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Back
+          </Button>
+          <Button
+            type="submit"
+            form={formId}
+            variant="danger"
+            busy={mutation.isPending}
+          >
+            {text.submit}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={save} noValidate className="space-y-4">
+        {failure && (
+          <p
+            role="alert"
+            className="rounded-lg border border-danger bg-danger-light px-3 py-2 text-sm text-danger"
+          >
+            {failure}
+          </p>
+        )}
+        <div>
+          <label
+            htmlFor={`${formId}-reason`}
+            className="block text-sm font-semibold text-ink"
+          >
+            {text.label}
+          </label>
+          <textarea
+            id={`${formId}-reason`}
+            rows={4}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            aria-invalid={error ? "true" : undefined}
+            aria-describedby={`${formId}-count${error ? ` ${formId}-error` : ""}`}
+            className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-ink ${error ? "border-danger" : "border-line"}`}
+          />
+          <p
+            id={`${formId}-count`}
+            className={`text-right text-xs ${length > REASON_MAX ? "font-medium text-danger" : "text-muted"}`}
+          >
+            {length} of {REASON_MAX} characters
+          </p>
+          {error && (
+            <p
+              id={`${formId}-error`}
+              className="mt-1 text-xs font-medium text-danger"
+            >
+              {error}
+            </p>
+          )}
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+/**
+ * One task: its state, owner, due date and outcome ("Rejected by …: reason"), and the buttons the
+ * API allows for it (canComplete, canReject, canCancel), never decided from the role. Edit and
+ * Remove are for staff (canEdit; Remove is for a task added by mistake, Cancel drops a real one);
+ * a cancelled task cannot be edited.
+ */
 function TaskRow({ ticketId, task, canEdit, onRemove }) {
   const toast = useToast();
   const setDone = useSetTaskDone(ticketId);
   const [editing, setEditing] = useState(false);
+  const [reasonFor, setReasonFor] = useState(null);
 
   if (editing) {
     return (
@@ -234,89 +387,147 @@ function TaskRow({ ticketId, task, canEdit, onRemove }) {
     );
   }
 
-  const toggle = async () => {
+  const complete = async () => {
     try {
-      await setDone.mutateAsync({ taskId: task.id, done: !task.isDone });
+      await setDone.mutateAsync({ taskId: task.id, done: true });
     } catch (error) {
       toast.error(error.message);
     }
   };
   const due = formatTaskDue(task.dueDate);
+  const cancelled = task.status === TASK_STATUS.Cancelled;
+  const rejected = task.status === TASK_STATUS.Rejected;
+  const finished = cancelled || task.status === TASK_STATUS.Done;
+  const outcome = taskOutcomeText(task);
 
   return (
     <li
       data-testid={`task-${task.id}`}
+      data-status={task.status}
       data-overdue={task.isOverdue ? "true" : undefined}
-      className="flex items-start gap-1 py-1.5"
+      className="py-3"
     >
-      <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">
-        <input
-          type="checkbox"
-          checked={task.isDone}
-          disabled={!canEdit || setDone.isPending}
-          onChange={toggle}
-          className="h-5 w-5 accent-brand-navy disabled:cursor-not-allowed"
-        />
-        <span className="sr-only">
-          {task.isDone ? "Mark not done: " : "Mark done: "}
-          {task.title}
-        </span>
-      </label>
-      <div className="min-w-0 flex-1 py-2.5">
-        <p
-          data-testid="task-title"
-          title={task.isDone ? doneText(task) || undefined : undefined}
-          className={`text-sm break-words ${task.isDone ? "text-muted line-through" : "text-ink"}`}
+      <div className="flex items-start gap-2">
+        <div
+          className={`min-w-0 flex-1 ${rejected ? "border-l-4 border-brand-orange pl-2" : ""}`}
         >
-          {task.title}
-        </p>
-        <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted">
-          <span data-testid="task-owner">
-            {task.assignee ? personName(task.assignee) : "Ticket assignee"}
-          </span>
-          {due && (
-            <span
-              data-testid="task-due"
-              className={
-                task.isOverdue
-                  ? "inline-flex items-center gap-1 font-semibold text-danger"
-                  : ""
-              }
+          <div className="flex flex-wrap items-center gap-2">
+            <TaskStatusChip status={task.status} />
+            <p
+              data-testid="task-title"
+              title={task.isDone ? doneText(task) || undefined : undefined}
+              className={`min-w-0 text-sm break-words ${finished ? "text-muted line-through" : "text-ink"}`}
             >
-              {task.isOverdue && <CircleAlert aria-hidden="true" size={12} />}
-              {task.isOverdue ? `Overdue · due ${due}` : `Due ${due}`}
+              {task.title}
+            </p>
+          </div>
+          <p className="mt-1 flex flex-wrap gap-x-2 text-xs text-muted">
+            <span data-testid="task-owner">
+              {task.assignee ? personName(task.assignee) : "Ticket assignee"}
             </span>
+            {due && (
+              <span
+                data-testid="task-due"
+                className={
+                  task.isOverdue
+                    ? "inline-flex items-center gap-1 font-semibold text-danger"
+                    : ""
+                }
+              >
+                {task.isOverdue && <CircleAlert aria-hidden="true" size={12} />}
+                {task.isOverdue ? `Overdue · due ${due}` : `Due ${due}`}
+              </span>
+            )}
+          </p>
+          {outcome && (
+            <p
+              data-testid="task-outcome"
+              className={`mt-1 text-xs break-words whitespace-pre-line ${rejected ? "font-semibold text-brand-orange-ink" : "text-muted"}`}
+            >
+              {outcome}
+            </p>
           )}
-        </p>
+        </div>
+        {canEdit && (
+          <span className="flex shrink-0">
+            {!cancelled && (
+              <button
+                type="button"
+                aria-label={`Edit task: ${task.title}`}
+                title={rejected ? "Give it to someone else" : undefined}
+                onClick={() => setEditing(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-page hover:text-ink"
+              >
+                <Pencil aria-hidden="true" size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label={`Remove task: ${task.title}`}
+              title="Remove a task added by mistake"
+              onClick={() => onRemove(task)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-danger-light hover:text-danger"
+            >
+              <Trash2 aria-hidden="true" size={16} />
+            </button>
+          </span>
+        )}
       </div>
-      {canEdit && (
-        <span className="flex shrink-0">
-          <button
-            type="button"
-            aria-label={`Edit task: ${task.title}`}
-            onClick={() => setEditing(true)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-page hover:text-ink"
-          >
-            <Pencil aria-hidden="true" size={16} />
-          </button>
-          <button
-            type="button"
-            aria-label={`Remove task: ${task.title}`}
-            onClick={() => onRemove(task)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md text-muted hover:bg-danger-light hover:text-danger"
-          >
-            <Trash2 aria-hidden="true" size={16} />
-          </button>
-        </span>
+      {(task.canComplete || task.canReject || task.canCancel) && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {task.canComplete && (
+            <Button
+              size="sm"
+              className="min-h-11 sm:min-h-8"
+              busy={setDone.isPending}
+              onClick={complete}
+              aria-label={`Done: ${task.title}`}
+            >
+              Done
+            </Button>
+          )}
+          {task.canReject && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="min-h-11 sm:min-h-8"
+              onClick={() => setReasonFor("reject")}
+              aria-label={`Reject: ${task.title}`}
+            >
+              Reject
+            </Button>
+          )}
+          {task.canCancel && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="min-h-11 sm:min-h-8"
+              onClick={() => setReasonFor("cancel")}
+              aria-label={`Cancel task: ${task.title}`}
+            >
+              Cancel
+            </Button>
+          )}
+        </div>
+      )}
+      {reasonFor && (
+        <TaskReasonDialog
+          ticketId={ticketId}
+          task={task}
+          kind={reasonFor}
+          onClose={() => setReasonFor(null)}
+        />
       )}
     </li>
   );
 }
 
 /**
- * The ticket's checklist (staff view only: never render it for a requester, who would get 404).
- * "2 of 4 done" with a bar, the tasks in the order added, and "Add a task". Once the ticket is
- * Resolved, Closed or Cancelled (canEdit false) everything is read only, with the reason.
+ * The ticket's checklist: for its staff, and for a person given a task on it (who sees only their
+ * own and cannot add, edit or remove: canEdit false). Never render it for a requester who is not
+ * staff (they would get 404). "2 open, 1 rejected, 3 done" (in the warning colour while a task is
+ * rejected: it still blocks resolving) with a bar, the tasks in the order added, and "Add a task".
+ * Once the ticket is Resolved, Closed or Cancelled everything is read only, with the reason.
  */
 export default function TasksPanel({ ticket }) {
   const toast = useToast();
@@ -324,7 +535,10 @@ export default function TasksPanel({ ticket }) {
   const remove = useRemoveTask(ticket.id);
   const [removing, setRemoving] = useState(null);
   const data = tasks.data;
-  const total = data ? data.open + data.done : 0;
+  // Cancelled tasks are not work to do: the bar counts the rest.
+  const total = data ? data.open + data.rejected + data.done : 0;
+  const summary = tasksSummary(data);
+  const staff = Boolean(ticket.isStaffView);
 
   const confirmRemove = async () => {
     try {
@@ -349,9 +563,12 @@ export default function TasksPanel({ ticket }) {
         <h2 id="tasks-heading" className="text-base font-semibold">
           Tasks
         </h2>
-        {data && total > 0 && (
-          <span data-testid="tasks-progress" className="text-sm text-body">
-            {data.done} of {total} done
+        {summary && (
+          <span
+            data-testid="tasks-progress"
+            className={`text-sm ${data.rejected > 0 ? "font-semibold text-brand-orange-ink" : "text-body"}`}
+          >
+            {summary}
           </span>
         )}
       </div>
@@ -386,7 +603,7 @@ export default function TasksPanel({ ticket }) {
         </div>
       ) : (
         <>
-          {!data.canEdit && (
+          {!data.canEdit && staff && (
             <p
               data-testid="tasks-locked"
               className="mt-3 flex items-center gap-1.5 text-sm text-muted"
@@ -397,7 +614,9 @@ export default function TasksPanel({ ticket }) {
             </p>
           )}
           {data.items.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">No tasks yet.</p>
+            <p className="mt-3 text-sm text-muted">
+              {staff ? "No tasks yet." : "No tasks for you on this ticket."}
+            </p>
           ) : (
             <ul
               aria-label="Tasks"

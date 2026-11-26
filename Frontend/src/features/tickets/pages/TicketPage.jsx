@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Gauge, SearchX } from "lucide-react";
+import { ListChecks, Gauge, SearchX } from "lucide-react";
 import { useSession } from "@/features/auth";
 import {
   IMPACT_FALLBACK,
@@ -40,6 +40,8 @@ import {
   useTicketPriority,
 } from "../hooks/useTickets.js";
 import { useMarkRead } from "../hooks/useQueueTools.js";
+import { useTicketTasks } from "../hooks/useTasks.js";
+import { goToTasksPanel, TASKS_PANEL_ID, tasksMarkerText } from "../tasks.js";
 import { personName } from "../ticketText.js";
 
 /**
@@ -114,6 +116,30 @@ function RequesterSaid({ options }) {
   );
 }
 
+/**
+ * Staff: "2 tasks open, 1 rejected" near the top while tasks stop the ticket being resolved; it
+ * moves to the tasks panel. In the warning colour when a task is rejected.
+ */
+function TasksMarker({ tasks }) {
+  const text = tasksMarkerText(tasks);
+  if (!text) return null;
+  const rejected = tasks.rejected > 0;
+  return (
+    <a
+      href={`#${TASKS_PANEL_ID}`}
+      data-testid="tasks-marker"
+      onClick={(event) => {
+        event.preventDefault();
+        goToTasksPanel();
+      }}
+      className={`inline-flex items-center gap-1.5 rounded-md text-sm font-semibold underline-offset-2 hover:underline ${rejected ? "text-brand-orange-ink" : "text-brand-navy"}`}
+    >
+      <ListChecks aria-hidden="true" size={16} />
+      {text}
+    </a>
+  );
+}
+
 function Detail({ label, children }) {
   return (
     <div>
@@ -137,6 +163,16 @@ export default function TicketPage() {
   // Staff only: whether the priority can be changed, and the requester's answers.
   const priorityOptions = useTicketPriority(query.data?.id, {
     enabled: Boolean(query.data?.isStaffView),
+  });
+  // Tasks: staff see them all; a person given a task here (staff of another unit, say) sees their
+  // own, so ask for everyone but a requester who is not staff (they would get 404).
+  const loaded = query.data;
+  const viewerIsRequester = Boolean(
+    loaded &&
+    (user.id === loaded.requester.userId || user.id === loaded.raisedBy.userId),
+  );
+  const tasks = useTicketTasks(loaded?.id, {
+    enabled: Boolean(loaded) && (loaded.isStaffView || !viewerIsRequester),
   });
 
   if (query.isLoading) {
@@ -166,8 +202,10 @@ export default function TicketPage() {
   const ticket = query.data;
   const raisedForSomeoneElse =
     ticket.raisedBy.userId !== ticket.requester.userId;
-  const isRequester =
-    user.id === ticket.requester.userId || user.id === ticket.raisedBy.userId;
+  const isRequester = viewerIsRequester;
+  // The panel: always for staff (with its loading and error states); for anyone else only once the
+  // tasks endpoint has answered 200.
+  const showTasks = ticket.isStaffView || tasks.isSuccess;
   const isAssignee = user.id === ticket.assignee?.userId;
 
   return (
@@ -234,6 +272,7 @@ export default function TicketPage() {
         isRequester={isRequester}
         isAssignee={isAssignee}
       />
+      {ticket.isStaffView && tasks.data && <TasksMarker tasks={tasks.data} />}
       {ticket.isStaffView && ticket.escalatedToHeadReason && (
         <p
           data-testid="escalation-reason"
@@ -269,7 +308,7 @@ export default function TicketPage() {
             )}
           </Card>
 
-          {ticket.isStaffView && <TasksPanel ticket={ticket} />}
+          {showTasks && <TasksPanel ticket={ticket} />}
 
           <section aria-labelledby="conversation-heading" className="space-y-3">
             <h2 id="conversation-heading" className="text-lg font-semibold">

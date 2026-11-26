@@ -697,13 +697,25 @@ export const changeTicketPriority = defineEndpoint({
   response: z.object({ message: z.string() }),
 });
 
-// Tasks: the ticket's checklist. Staff of the ticket and Super Admin only; anyone else, the
-// requester included, gets 404, so never call these for a requester.
+// Tasks: the ticket's checklist. Staff of the ticket and Super Admin see them all; a person given a
+// task on the ticket (another unit's staff, say) sees only their own; anyone else, the requester
+// included, gets 404, so never call these for a requester who is not staff.
+
+/** A task's state, as the API spells it. */
+export const TASK_STATUS = Object.freeze({
+  Open: "Open",
+  Done: "Done",
+  Rejected: "Rejected",
+  Cancelled: "Cancelled",
+});
+
 const taskSchema = z.object({
   id: z.string(),
   title: z.string(),
+  status: z.string(),
   /** Null: the ticket's assignee owns it. */
   assignee: personSchema.nullable(),
+  createdBy: personSchema.nullable(),
   /** yyyy-MM-dd (Lagos date) or null. */
   dueDate: z.string().nullable(),
   isDone: z.boolean(),
@@ -713,6 +725,16 @@ const taskSchema = z.object({
   /** Open and the due date has passed. */
   isOverdue: z.boolean(),
   createdAt: z.string(),
+  rejectedBy: personSchema.nullable(),
+  rejectedAt: z.string().nullable(),
+  rejectedReason: z.string().nullable(),
+  cancelledBy: personSchema.nullable(),
+  cancelledAt: z.string().nullable(),
+  cancelledReason: z.string().nullable(),
+  /** What the signed-in person may do with this task now: the buttons follow these only. */
+  canComplete: z.boolean(),
+  canReject: z.boolean(),
+  canCancel: z.boolean(),
 });
 
 const taskBody = z.object({
@@ -721,7 +743,10 @@ const taskBody = z.object({
   dueDate: z.string().nullable().optional(),
 });
 
-/** The tasks in the order added, how many are open and done, and canEdit (false once Resolved, Closed or Cancelled). */
+/**
+ * The tasks in the order added, the count in each state, and canEdit (add, edit, remove: false for
+ * someone who is not staff of the ticket, and once it is Resolved, Closed or Cancelled).
+ */
 export const listTicketTasks = defineEndpoint({
   method: "GET",
   path: "/api/tickets/{ticketId}/tasks",
@@ -729,6 +754,8 @@ export const listTicketTasks = defineEndpoint({
     items: list(taskSchema),
     open: z.number().int(),
     done: z.number().int(),
+    rejected: z.number().int(),
+    cancelled: z.number().int(),
     canEdit: z.boolean(),
   }),
 });
@@ -770,4 +797,54 @@ export const removeTicketTask = defineEndpoint({
   method: "DELETE",
   path: "/api/tickets/{ticketId}/tasks/{taskId}",
   response: messageSchema,
+});
+
+/** The task's owner sends it back (reason 5 to 500). 403 for anyone else; 400 once the ticket is finished. */
+export const rejectTicketTask = defineEndpoint({
+  method: "PUT",
+  path: "/api/tickets/{ticketId}/tasks/{taskId}/reject",
+  body: z.object({ reason: z.string() }),
+  response: taskSchema,
+});
+
+/**
+ * Drop a task that is no longer needed (reason 3 to 500): the ticket's case worker, who added it,
+ * the unit's head, Super Admin. A cancelled task no longer blocks resolving and cannot be edited.
+ */
+export const cancelTicketTask = defineEndpoint({
+  method: "PUT",
+  path: "/api/tickets/{ticketId}/tasks/{taskId}/cancel",
+  body: z.object({ reason: z.string() }),
+  response: taskSchema,
+});
+
+/**
+ * Tasks given to me on any ticket, soonest due first (undated last). openCount (for the tab's
+ * badge) ignores the page and includeFinished.
+ */
+export const listMyTasks = defineEndpoint({
+  method: "GET",
+  path: "/api/tasks/mine",
+  query: ["includeFinished", "page", "pageSize"],
+  response: z.object({
+    items: list(
+      z.object({
+        taskId: z.string(),
+        ticketId: z.string(),
+        ticketReference: z.string(),
+        ticketSubject: z.string(),
+        ticketStatus: z.number().int(),
+        title: z.string(),
+        status: z.string(),
+        dueDate: z.string().nullable(),
+        isOverdue: z.boolean(),
+        givenBy: personSchema.nullable(),
+        createdAt: z.string(),
+      }),
+    ),
+    total: z.number().int(),
+    openCount: z.number().int(),
+    page: z.number().int(),
+    pageSize: z.number().int(),
+  }),
 });
