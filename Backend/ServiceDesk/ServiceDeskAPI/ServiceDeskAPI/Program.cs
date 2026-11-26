@@ -259,6 +259,15 @@ builder.Services.AddScoped<IKnowledgeBaseService, ServiceDeskAPI.Infrastructure.
             if (!app.Environment.IsDevelopment())
                 app.UseHttpsRedirection();
 
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
+    await next();
+});
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+
             // ============ SECURITY MIDDLEWARE (People Hub order, plus CSRF) ============
             app.UseSecurityHeaders();
             app.UseRateLimiting();

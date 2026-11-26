@@ -1,0 +1,20 @@
+# Access Desk: line endings are decided by git, not by each machine.
+* text=auto
+
+# Scripts keep the line endings their shells expect
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touched
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.zip binary
+*.pfx binary
