@@ -470,7 +470,7 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             foreach (var userId in recipients)
                 _notifications.Stage(userId,
                     (request.IsInternal ? "Internal note on " : "New comment on ") + ticket.Reference,
-                    who + (request.IsInternal ? " added an internal note." : " commented.") + (files.Count > 0 ? " Files attached: " + files.Count + "." : string.Empty),
+                    who + (request.IsInternal ? " added an internal note" : " commented") + CommentExcerpt.For(comment.BodyText) + (files.Count > 0 ? " Files attached: " + files.Count + "." : string.Empty),
                     NotificationType.Info, NotificationCategory.Ticket, "Ticket", ticket.Id, "/tickets/" + ticket.Reference);
 
             try
