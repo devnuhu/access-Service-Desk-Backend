@@ -103,7 +103,15 @@ namespace ServiceDeskAPI.Infrastructure.Email
                 }
 
                 var frontend = (_config["Frontend:Url"] ?? "http://localhost:5174").Split(',')[0].Trim();
-                var parts = NotificationEmail.Build(person.FullName ?? person.UserName ?? string.Empty, n.Title, n.Message, n.Type, n.Category, n.DeepLinkUrl, frontend);
+                TicketMailInfo? ticketInfo = null;
+                Guid? ticketId = n.RelatedEntityType == "Ticket" ? n.RelatedEntityId : (Guid?)null;
+                if (ticketId.HasValue)
+                {
+                    var row = await db.Tickets.AsNoTracking().Where(x => x.Id == ticketId.Value)
+                        .Select(x => new { x.Reference, x.Subject, x.DescriptionText, Category = x.Category!.Name, x.Status }).FirstOrDefaultAsync(ct);
+                    if (row != null) ticketInfo = new TicketMailInfo(row.Reference, row.Subject, row.Category, NotificationEmail.StatusText(row.Status), NotificationEmail.Excerpt(row.DescriptionText));
+                }
+                var parts = NotificationEmail.Build(person.FullName ?? person.UserName ?? string.Empty, n.Title, n.Message, n.Type, n.Category, n.DeepLinkUrl, frontend, null, ticketInfo);
                 var email = scope.ServiceProvider.GetRequiredService<IEmailService>();
                 var (ok, message) = await email.SendEmailAsync(to, parts.Subject, parts.Html);
 

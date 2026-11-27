@@ -105,6 +105,9 @@ namespace ServiceDeskAPI.Infrastructure.Email
         }
     }
 
+    /// <summary>The ticket an email is about: shown at the top of the email so the person knows what it concerns.</summary>
+    public sealed record TicketMailInfo(string Reference, string Subject, string Category, string Status, string Excerpt);
+
     /// <summary>The wording of the email copy of a notification. The look comes from EmailLayout.</summary>
     public static class NotificationEmail
     {
@@ -121,12 +124,32 @@ namespace ServiceDeskAPI.Infrastructure.Email
         private static string FirstName(string? name) =>
             (name ?? string.Empty).Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
 
+        /// <summary>The start of the request as one clean line: tags and extra spaces removed, at most 300 characters.</summary>
+        public static string Excerpt(string? text)
+        {
+            var clean = System.Text.RegularExpressions.Regex.Replace(text ?? string.Empty, @"\s+", " ").Trim();
+            return clean.Length > 300 ? clean.Substring(0, 300).TrimEnd() + "..." : clean;
+        }
+
+        /// <summary>For example In progress.</summary>
+        public static string StatusText(TicketStatus status)
+        {
+            var spaced = System.Text.RegularExpressions.Regex.Replace(status.ToString(), "(?<=[a-z])(?=[A-Z])", " ");
+            return spaced.Substring(0, 1) + spaced.Substring(1).ToLowerInvariant();
+        }
+
         public static EmailMessageParts Build(string recipientName, string title, string message, NotificationType type,
-            NotificationCategory category, string? link, string frontendUrl, EmailBrand? brand = null)
+            NotificationCategory category, string? link, string frontendUrl, EmailBrand? brand = null, TicketMailInfo? ticket = null)
         {
             var b = brand ?? EmailBrand.Current;
             var preview = message.Length > 140 ? message.Substring(0, 140) + "..." : message;
             var blocks = new List<EmailBlock> { EmailBlock.Paragraph(message) };
+            if (ticket != null)
+            {
+                blocks.Add(EmailBlock.Details(("Ticket", ticket.Reference), ("Subject", ticket.Subject), ("Category", ticket.Category), ("Status", ticket.Status)));
+                if (!string.IsNullOrWhiteSpace(ticket.Excerpt))
+                    blocks.Add(EmailBlock.Callout("**The request:** " + ticket.Excerpt, "info"));
+            }
             if (type == NotificationType.ActionRequired)
                 blocks.Add(EmailBlock.Callout("**Action needed.** Please open the ticket and complete your part.", "warning"));
             else if (type == NotificationType.Warning)
