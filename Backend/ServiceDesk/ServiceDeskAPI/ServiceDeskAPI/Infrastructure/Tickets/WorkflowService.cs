@@ -104,9 +104,6 @@ namespace ServiceDeskAPI.Infrastructure.Tickets
             ticket!.AcknowledgedAt = now;
             ticket.FirstRespondedAt ??= now;
             Stage(AuditAction.Acknowledged, ticket, null);
-            var assignee = await NameOfAsync(actorUserId);
-            Tell(ticket.RequesterUserId, actorUserId, ticket, "Ticket " + ticket.Reference + " in progress",
-                assignee + " in " + ticket.Unit!.Name + " has started working on your request, \"" + ticket.Subject + "\".", NotificationType.Info);
             return await SaveAsync("Acknowledged. " + ticket.Reference + " is in progress.");
         }
 

@@ -97,7 +97,7 @@ namespace ServiceDeskAPI.Tests.Tickets
 
             await Ok<MessageDto>(await assignee.PostAsync(Url(ticket.Id, "acknowledge"), null));
             Assert.Equal(TicketStatus.InProgress, (await TicketAsync(ticket.Id)).Status);
-            Assert.True(await NotifiedAsync(requesterId, ticket.Id, "Ticket " + ticket.Reference + " in progress"));
+            Assert.False(await NotifiedAsync(requesterId, ticket.Id, "Ticket " + ticket.Reference + " in progress"));
 
             await Ok<MessageDto>(await assignee.PostAsJsonAsync(Url(ticket.Id, "pending"), new { reason = 1, note = "Please send the employer's schedule for March." }));
             var pending = await TicketAsync(ticket.Id);
